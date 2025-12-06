@@ -8,7 +8,8 @@ import {
   LogOut, 
   Menu, 
   X,
-  PackageSearch
+  PackageSearch,
+  ShoppingCart
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -67,6 +68,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
 
           <nav className="flex-1 p-4 space-y-2">
             <NavItem to="/" icon={LayoutDashboard} label="Dashboard" />
+            <NavItem to="/transactions" icon={ShoppingCart} label="Daily Sales / Purchase" />
             <NavItem to="/brand/hyundai" icon={Car} label="Hyundai Stock" />
             <NavItem to="/brand/mahindra" icon={Car} label="Mahindra Stock" />
             

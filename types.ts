@@ -35,6 +35,30 @@ export interface StockStats {
   zeroStockCount: number;
 }
 
+export enum TransactionType {
+  SALE = 'SALE',
+  PURCHASE = 'PURCHASE',
+}
+
+export enum TransactionStatus {
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+}
+
+export interface Transaction {
+  id: string;
+  partNumber: string;
+  type: TransactionType;
+  quantity: number;
+  price: number;
+  customerName: string; // Customer or Supplier Name
+  status: TransactionStatus;
+  createdByRole: Role;
+  createdAt: string;
+}
+
 // Database Schema Representation (Mock)
 // Table: Users { id (PK), username, role, name, password_hash }
 // Table: Inventory { id (PK), part_number (Unique), name, brand, hsn_code, quantity, threshold, price, last_updated }
+// Table: Transactions { id (PK), part_number, type, quantity, price, customer_name, status, created_by_role, created_at }

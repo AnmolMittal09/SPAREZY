@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import BrandDashboard from './pages/BrandDashboard';
 import UploadPage from './pages/Upload';
+import DailyTransactions from './pages/DailyTransactions';
 import Layout from './components/Layout';
 
 const App: React.FC = () => {
@@ -37,6 +38,7 @@ const App: React.FC = () => {
       <Layout user={user} onLogout={handleLogout}>
         <Routes>
           <Route path="/" element={<Dashboard user={user} />} />
+          <Route path="/transactions" element={<DailyTransactions user={user} />} />
           <Route path="/brand/:brandName" element={<BrandDashboard />} />
           {/* Protect Upload Route: Only Owner can access */}
           <Route 
