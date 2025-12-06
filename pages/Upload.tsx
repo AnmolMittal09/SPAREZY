@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Upload as UploadIcon, FileSpreadsheet, CheckCircle, AlertCircle, RefreshCw, FileText, DollarSign, Package } from 'lucide-react';
 import { updateOrAddItems, UpdateResult } from '../services/inventoryService';
@@ -106,7 +107,7 @@ const UploadPage: React.FC = () => {
                 await processRowData(rows);
             };
             reader.readAsText(file);
-        } else if (file.name.match(/\.xlsx?$/i)) {
+        } else if (file.name.match(/\.(xlsx|xls|xlsb|xlsm)$/i)) {
             const data = await file.arrayBuffer();
             const workbook = XLSX.read(data, { type: 'array' });
             const sheetName = workbook.SheetNames[0];
@@ -114,7 +115,7 @@ const UploadPage: React.FC = () => {
             const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
             await processRowData(jsonData);
         } else {
-            setLog({ added: 0, updated: 0, priceUpdates: 0, stockUpdates: 0, errors: ['Unsupported file format. Please use CSV or Excel (.xlsx, .xls)'] });
+            setLog({ added: 0, updated: 0, priceUpdates: 0, stockUpdates: 0, errors: ['Unsupported file format. Please use CSV or Excel (.xlsx, .xls, .xlsb)'] });
             setIsProcessing(false);
         }
     } catch (error) {
@@ -221,14 +222,14 @@ const UploadPage: React.FC = () => {
                         Upload {targetBrand} {uploadMode === 'MASTER' ? 'Price List' : 'Stock List'}
                     </h3>
                     <p className="text-sm text-gray-500 mb-6">
-                        Supports .xlsx, .xls, and .csv
+                        Supports .xlsx, .xls, .xlsb, and .csv
                     </p>
                     
                     <label className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-2 rounded-lg cursor-pointer transition-colors shadow-sm">
                         Select File
                         <input 
                             type="file" 
-                            accept=".csv, .xlsx, .xls" 
+                            accept=".csv, .xlsx, .xls, .xlsb" 
                             onChange={handleFileUpload}
                             className="hidden"
                         />
