@@ -53,42 +53,42 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter }) =>
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-      <div className="p-6 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="p-6 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gray-50/50">
         <div className="flex items-center gap-2">
            <h2 className="text-lg font-bold text-gray-800">{title || 'Inventory List'}</h2>
-           <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+           <span className="text-xs font-medium text-gray-500 bg-white border border-gray-200 px-2 py-1 rounded-full shadow-sm">
              {filteredItems.length} items
            </span>
         </div>
         
         <div className="flex flex-col md:flex-row gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <div className="relative group">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors" size={18} />
             <input
               type="text"
               placeholder="Search part no, name, HSN..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-64"
+              className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full md:w-64 transition-all shadow-sm"
             />
           </div>
           
-          <div className="flex gap-2 bg-gray-50 p-1 rounded-lg border border-gray-200">
+          <div className="flex gap-2 bg-white p-1 rounded-lg border border-gray-200 shadow-sm">
             <button
               onClick={() => setFilterType('ALL')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${filterType === 'ALL' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${filterType === 'ALL' ? 'bg-gray-800 text-white shadow-md' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
             >
               All
             </button>
             <button
               onClick={() => setFilterType('LOW')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center gap-1 ${filterType === 'LOW' ? 'bg-yellow-50 text-yellow-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${filterType === 'LOW' ? 'bg-yellow-400 text-yellow-900 shadow-md' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
             >
               <AlertTriangle size={12} /> Low
             </button>
             <button
               onClick={() => setFilterType('ZERO')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center gap-1 ${filterType === 'ZERO' ? 'bg-red-50 text-red-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${filterType === 'ZERO' ? 'bg-red-500 text-white shadow-md' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
             >
               <AlertCircle size={12} /> Zero
             </button>
@@ -97,15 +97,15 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter }) =>
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full text-sm text-left">
-          <thead className="bg-gray-50 text-gray-600 font-medium border-b border-gray-200">
+        <table className="w-full text-sm text-left border-collapse">
+          <thead className="bg-gray-50 text-gray-500 font-semibold border-b border-gray-200 uppercase tracking-wider text-xs">
             <tr>
-              <th className="px-6 py-3">Part No.</th>
-              <th className="px-6 py-3">Name</th>
-              <th className="px-6 py-3">Brand</th>
-              <th className="px-6 py-3">HSN CD</th>
-              <th className="px-6 py-3 text-right">Price</th>
-              <th className="px-6 py-3 text-center">Stock</th>
+              <th className="px-6 py-4">Part No.</th>
+              <th className="px-6 py-4">Name</th>
+              <th className="px-6 py-4">Brand</th>
+              <th className="px-6 py-4">HSN CD</th>
+              <th className="px-6 py-4 text-right">Price</th>
+              <th className="px-6 py-4 text-center">Stock</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -113,38 +113,42 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter }) =>
               currentItems.map((item) => {
                 const isZero = item.quantity === 0;
                 const isLow = item.quantity < item.minStockThreshold;
+                const isHyundai = item.brand === Brand.HYUNDAI;
                 
                 return (
-                  <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+                  <tr 
+                    key={item.id} 
+                    className={`hover:bg-gray-50 transition-colors border-l-4 ${isHyundai ? 'border-l-blue-800' : 'border-l-red-600'}`}
+                  >
                     <td className="px-6 py-4 font-medium text-gray-900">
-                      <Link to={`/item/${encodeURIComponent(item.partNumber)}`} className="text-blue-600 hover:underline">
-                        {item.partNumber}
+                      <Link to={`/item/${encodeURIComponent(item.partNumber)}`} className="text-slate-700 hover:text-blue-600 hover:underline flex flex-col">
+                        <span className="font-bold">{item.partNumber}</span>
                       </Link>
                     </td>
-                    <td className="px-6 py-4 text-gray-600">{item.name}</td>
+                    <td className="px-6 py-4 text-gray-600 font-medium">{item.name}</td>
                     <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                        item.brand === Brand.HYUNDAI 
-                          ? 'bg-blue-100 text-blue-800' 
-                          : 'bg-red-100 text-red-800'
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide border ${
+                        isHyundai 
+                          ? 'bg-blue-50 text-blue-800 border-blue-100' 
+                          : 'bg-red-50 text-red-800 border-red-100'
                       }`}>
                         {item.brand}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-gray-500">{item.hsnCode}</td>
-                    <td className="px-6 py-4 text-gray-900 text-right">₹{item.price.toLocaleString()}</td>
+                    <td className="px-6 py-4 text-gray-400 font-mono text-xs">{item.hsnCode}</td>
+                    <td className="px-6 py-4 text-gray-900 text-right font-medium">₹{item.price.toLocaleString()}</td>
                     <td className="px-6 py-4 text-center">
                       {isZero ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700 border border-red-200">
                           Out of Stock
                         </span>
                       ) : isLow ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-yellow-100 text-yellow-800 border border-yellow-200">
                           Low: {item.quantity}
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                          In Stock: {item.quantity}
+                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-green-50 text-green-700 border border-green-200">
+                          {item.quantity}
                         </span>
                       )}
                     </td>
@@ -154,7 +158,10 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter }) =>
             ) : (
               <tr>
                 <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
-                  No items found matching your filters.
+                  <div className="flex flex-col items-center gap-2">
+                    <Search className="text-gray-300" size={32} />
+                    <p>No items found matching your filters.</p>
+                  </div>
                 </td>
               </tr>
             )}
@@ -172,17 +179,17 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter }) =>
               <button
                 onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                 disabled={currentPage === 1}
-                className="p-2 rounded-lg hover:bg-white border border-transparent hover:border-gray-200 disabled:opacity-50 disabled:hover:bg-transparent transition-all"
+                className="p-2 rounded-lg hover:bg-white border border-transparent hover:border-gray-200 disabled:opacity-50 disabled:hover:bg-transparent transition-all shadow-sm disabled:shadow-none"
               >
                 <ChevronLeft size={16} className="text-gray-600" />
               </button>
-              <span className="text-xs font-medium text-gray-700">
+              <span className="text-xs font-medium text-gray-700 bg-white px-3 py-1.5 rounded border border-gray-200">
                  Page {currentPage} of {totalPages}
               </span>
               <button
                 onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                 disabled={currentPage === totalPages}
-                className="p-2 rounded-lg hover:bg-white border border-transparent hover:border-gray-200 disabled:opacity-50 disabled:hover:bg-transparent transition-all"
+                className="p-2 rounded-lg hover:bg-white border border-transparent hover:border-gray-200 disabled:opacity-50 disabled:hover:bg-transparent transition-all shadow-sm disabled:shadow-none"
               >
                 <ChevronRight size={16} className="text-gray-600" />
               </button>
