@@ -14,7 +14,6 @@ import { Role, Transaction, TransactionStatus, TransactionType } from '../types'
  *   customer_name text,
  *   status text default 'PENDING',
  *   created_by_role text,
- *   expected_delivery_date date,
  *   created_at timestamptz default now()
  * );
  */
@@ -28,8 +27,7 @@ const mapDBToTransaction = (item: any): Transaction => ({
   customerName: item.customer_name,
   status: item.status as TransactionStatus,
   createdByRole: item.created_by_role as Role,
-  createdAt: item.created_at,
-  expectedDeliveryDate: item.expected_delivery_date
+  createdAt: item.created_at
 });
 
 export const createTransaction = async (
@@ -64,8 +62,7 @@ export const createBulkTransactions = async (
     price: t.price,
     customer_name: t.customerName,
     status: initialStatus,
-    created_by_role: t.createdByRole,
-    expected_delivery_date: t.expectedDeliveryDate || null
+    created_by_role: t.createdByRole
   }));
 
   const { error } = await supabase.from('transactions').insert(dbRows);

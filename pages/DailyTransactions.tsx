@@ -35,7 +35,6 @@ interface CartItem {
   quantity: number;
   price: number;
   customerName: string;
-  expectedDeliveryDate?: string;
   stockError?: boolean; // UI flag if we try to sell more than we have
 }
 
@@ -57,7 +56,6 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
   const [formQty, setFormQty] = useState(1);
   const [formPrice, setFormPrice] = useState(0);
   const [formName, setFormName] = useState(''); // Customer or Supplier
-  // const [formDate, setFormDate] = useState(''); // Removed PO Date
 
   // --- SUGGESTIONS STATE ---
   const [suggestions, setSuggestions] = useState<StockItem[]>([]);
@@ -215,8 +213,7 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
       quantity: item.quantity,
       price: item.price,
       customerName: item.customerName,
-      createdByRole: user.role,
-      expectedDeliveryDate: undefined // Removed PO functionality
+      createdByRole: user.role
     }));
 
     const res = await createBulkTransactions(payload);
