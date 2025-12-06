@@ -1,3 +1,4 @@
+
 export enum Role {
   OWNER = 'OWNER',
   MANAGER = 'MANAGER',
@@ -58,6 +59,7 @@ export interface Transaction {
   status: TransactionStatus;
   createdByRole: Role;
   createdAt: string;
+  relatedTransactionId?: string; // ID of the original transaction (e.g., the Sale being returned)
 }
 
 export interface UploadHistoryEntry {
@@ -73,5 +75,5 @@ export interface UploadHistoryEntry {
 // Database Schema Representation (Mock)
 // Table: Users { id (PK), username, role, name, password_hash }
 // Table: Inventory { id (PK), part_number (Unique), name, brand, hsn_code, quantity, threshold, price, last_updated }
-// Table: Transactions { id (PK), part_number, type, quantity, price, customer_name, status, created_by_role, created_at }
+// Table: Transactions { id (PK), part_number, type, quantity, price, customer_name, status, created_by_role, created_at, related_transaction_id }
 // Table: UploadHistory { id (PK), file_name, upload_mode, item_count, status, snapshot_data, created_at }

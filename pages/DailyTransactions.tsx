@@ -47,6 +47,7 @@ interface CartItem {
   price: number;
   customerName: string;
   stockError?: boolean; // UI flag if we try to sell more than we have
+  relatedTransactionId?: string; // For returns, links to original sale
 }
 
 const DailyTransactions: React.FC<Props> = ({ user }) => {
@@ -67,6 +68,7 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
   const [formQty, setFormQty] = useState(1);
   const [formPrice, setFormPrice] = useState(0);
   const [formName, setFormName] = useState(''); // Customer or Supplier
+  const [formRelatedId, setFormRelatedId] = useState<string | undefined>(undefined); // Track selected sale ID for return
 
   // --- SUGGESTIONS STATE ---
   const [suggestions, setSuggestions] = useState<StockItem[]>([]);
@@ -101,6 +103,9 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
   useEffect(() => {
      if (activeTab === 'NEW' && transactionType === TransactionType.RETURN) {
         handleReturnSearch('');
+     } else {
+        // Reset related ID if switching types
+        setFormRelatedId(undefined);
      }
   }, [transactionType, activeTab]);
 
@@ -152,6 +157,7 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
     setFormName(tx.customerName || '');
     setFormPrice(tx.price);
     setFormQty(tx.quantity); 
+    setFormRelatedId(tx.id); // Capture the original sale ID
     // Scroll to form?
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -250,14 +256,16 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
       quantity: formQty,
       price: formPrice,
       customerName: formName,
+      relatedTransactionId: transactionType === TransactionType.RETURN ? formRelatedId : undefined
     };
 
     setCart(prev => [newItem, ...prev]); // Add to top
     
-    // Reset inputs mostly
+    // Reset inputs
     setFormPartNumber('');
     setFormQty(1);
     setFormPrice(0);
+    setFormRelatedId(undefined);
     // Keep Customer Name as it might be same for batch
   };
 
@@ -276,7 +284,8 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
       quantity: item.quantity,
       price: item.price,
       customerName: item.customerName,
-      createdByRole: user.role
+      createdByRole: user.role,
+      relatedTransactionId: item.relatedTransactionId
     }));
 
     const res = await createBulkTransactions(payload);
@@ -290,6 +299,10 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
         text: isAutoApproved ? 'Batch transaction recorded successfully.' : 'Batch submitted for approval.' 
       });
       setCart([]); // Clear Cart
+      // Refresh return history if we just processed returns, to remove them from the list
+      if (transactionType === TransactionType.RETURN) {
+         handleReturnSearch(returnSearch);
+      }
     } else {
       setMsg({ type: 'error', text: res.message || 'Failed to submit batch.' });
     }
@@ -460,6 +473,12 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
                          </div>
                       </div>
 
+                      {formRelatedId && (
+                         <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded border border-blue-100 mb-2">
+                            Returning specific sale item (ID: ...{formRelatedId.slice(-4)})
+                         </div>
+                      )}
+
                       <button type="submit" className="w-full bg-slate-800 hover:bg-slate-900 text-white font-medium py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2">
                          <PlusCircle size={18} /> Add to List
                       </button>
@@ -506,7 +525,7 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
                            {loadingReturns ? (
                                <div className="flex justify-center py-4"><Loader2 className="animate-spin text-red-400" size={20}/></div>
                            ) : returnHistory.length === 0 ? (
-                               <div className="text-center text-xs text-gray-500 py-4">No matching sales found.</div>
+                               <div className="text-center text-xs text-gray-500 py-4">No matching sales found (or already returned).</div>
                            ) : (
                                returnHistory.map(tx => (
                                    <div key={tx.id} className="bg-white p-3 rounded-lg border border-red-100 shadow-sm flex flex-col gap-1">

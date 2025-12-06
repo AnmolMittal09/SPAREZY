@@ -14,7 +14,8 @@ import { Role, Transaction, TransactionStatus, TransactionType } from '../types'
  *   customer_name text,
  *   status text default 'PENDING',
  *   created_by_role text,
- *   created_at timestamptz default now()
+ *   created_at timestamptz default now(),
+ *   related_transaction_id uuid
  * );
  */
 
@@ -27,7 +28,8 @@ const mapDBToTransaction = (item: any): Transaction => ({
   customerName: item.customer_name,
   status: item.status as TransactionStatus,
   createdByRole: item.created_by_role as Role,
-  createdAt: item.created_at
+  createdAt: item.created_at,
+  relatedTransactionId: item.related_transaction_id
 });
 
 export const createTransaction = async (
@@ -65,7 +67,8 @@ export const createBulkTransactions = async (
     price: t.price,
     customer_name: t.customerName,
     status: initialStatus,
-    created_by_role: t.createdByRole
+    created_by_role: t.createdByRole,
+    related_transaction_id: t.relatedTransactionId
   }));
 
   const { error } = await supabase.from('transactions').insert(dbRows);
@@ -238,23 +241,41 @@ export const fetchAnalytics = async (startDate: Date, endDate: Date): Promise<An
 export const fetchSalesForReturn = async (search?: string): Promise<Transaction[]> => {
   if (!supabase) return [];
 
+  // 1. Fetch Approved Sales
   let query = supabase
     .from('transactions')
     .select('*')
     .eq('type', 'SALE')
     .eq('status', 'APPROVED')
     .order('created_at', { ascending: false })
-    .limit(10);
+    .limit(20);
 
   if (search && search.trim().length > 0) {
     // Supabase .or syntax: column.ilike.value,column2.ilike.value
     query = query.or(`part_number.ilike.%${search}%,customer_name.ilike.%${search}%`);
   }
 
-  const { data, error } = await query;
-  if (error) {
+  const { data: sales, error } = await query;
+  if (error || !sales) {
     console.error(error);
     return [];
   }
-  return data.map(mapDBToTransaction);
+
+  // 2. Filter out items that have ALREADY been returned.
+  // We check if any transaction of type RETURN has a related_transaction_id matching these sales.
+  const saleIds = sales.map(s => s.id);
+  if (saleIds.length === 0) return [];
+
+  const { data: returns } = await supabase
+    .from('transactions')
+    .select('related_transaction_id')
+    .eq('type', 'RETURN')
+    .in('related_transaction_id', saleIds);
+
+  const returnedSaleIds = new Set((returns || []).map(r => r.related_transaction_id));
+
+  // Exclude sales that are in the returned set
+  const availableSales = sales.filter(s => !returnedSaleIds.has(s.id));
+
+  return availableSales.map(mapDBToTransaction);
 };
