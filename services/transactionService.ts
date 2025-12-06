@@ -7,10 +7,11 @@ import { Role, Transaction, TransactionStatus, TransactionType } from '../types'
  * create table transactions (
  *   id uuid default gen_random_uuid() primary key,
  *   part_number text not null,
- *   type text not null, -- 'SALE' or 'PURCHASE'
+ *   type text not null, -- 'SALE', 'PURCHASE', 'PURCHASE_ORDER'
  *   quantity int not null,
  *   price numeric,
  *   customer_name text,
+ *   expected_delivery_date date, -- Added for Purchase Orders
  *   status text default 'PENDING',
  *   created_by_role text,
  *   created_at timestamptz default now()
@@ -24,6 +25,7 @@ const mapDBToTransaction = (item: any): Transaction => ({
   quantity: item.quantity,
   price: item.price,
   customerName: item.customer_name,
+  expectedDeliveryDate: item.expected_delivery_date,
   status: item.status as TransactionStatus,
   createdByRole: item.created_by_role as Role,
   createdAt: item.created_at,
@@ -40,6 +42,7 @@ export const createTransaction = async (
   }
 
   // Logic: Owners auto-approve, Managers are Pending
+  // Note: Purchase Orders always start as PENDING usually, but if Owner creates it, we can auto-approve.
   const initialStatus = transaction.createdByRole === Role.OWNER 
     ? TransactionStatus.APPROVED 
     : TransactionStatus.PENDING;
@@ -50,6 +53,7 @@ export const createTransaction = async (
     quantity: transaction.quantity,
     price: transaction.price,
     customer_name: transaction.customerName,
+    expected_delivery_date: transaction.expectedDeliveryDate || null,
     status: initialStatus,
     created_by_role: transaction.createdByRole,
   });
@@ -103,6 +107,7 @@ export const approveTransaction = async (id: string, partNumber: string, type: T
   if (txError) throw new Error(txError.message);
 
   // 2. Update Inventory
+  // Note: For PURCHASE_ORDER, approval implies the order is confirmed/received in this simplified workflow.
   await updateStockForTransaction(partNumber, type, quantity);
 };
 
@@ -129,9 +134,8 @@ const updateStockForTransaction = async (partNumber: string, type: TransactionTy
     .limit(1);
 
   if (!items || items.length === 0) {
-    // If purchasing a new item that doesn't exist yet, we might want to create it?
-    // For now, we assume stock exists or was uploaded via Excel.
-    // If it's a purchase of a new item, users should use the Upload Page first.
+    // If purchasing a new item that doesn't exist yet, we ignore update or could create.
+    // Assuming item exists for now.
     return;
   }
 
@@ -140,11 +144,12 @@ const updateStockForTransaction = async (partNumber: string, type: TransactionTy
 
   if (type === TransactionType.SALE) {
     newQty = currentQty - quantity;
-  } else {
+  } else if (type === TransactionType.PURCHASE || type === TransactionType.PURCHASE_ORDER) {
+    // Both Purchase and Approved POs increase stock
     newQty = currentQty + quantity;
   }
 
-  // Prevent negative stock? (Optional, but good practice)
+  // Prevent negative stock
   if (newQty < 0) newQty = 0;
 
   await supabase

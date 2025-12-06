@@ -15,7 +15,9 @@ import {
   History, 
   PlusCircle, 
   Search,
-  Loader2
+  Loader2,
+  FileText,
+  Calendar
 } from 'lucide-react';
 
 interface Props {
@@ -34,7 +36,8 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
     type: TransactionType.SALE,
     quantity: 1,
     price: 0,
-    customerName: ''
+    customerName: '',
+    expectedDeliveryDate: ''
   });
   const [submitting, setSubmitting] = useState(false);
   const [msg, setMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -70,7 +73,14 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
 
     if (res.success) {
       setMsg({ type: 'success', text: user.role === Role.MANAGER ? 'Submitted for approval.' : 'Transaction recorded successfully.' });
-      setFormData({ ...formData, partNumber: '', quantity: 1, price: 0, customerName: '' });
+      setFormData({ 
+        ...formData, 
+        partNumber: '', 
+        quantity: 1, 
+        price: 0, 
+        customerName: '',
+        expectedDeliveryDate: ''
+      });
     } else {
       setMsg({ type: 'error', text: res.message || 'Failed to submit.' });
     }
@@ -100,7 +110,7 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Daily Transactions</h1>
-          <p className="text-gray-500">Record Sales, Purchases, and manage stock flow.</p>
+          <p className="text-gray-500">Record Sales, Purchases, and Purchase Orders.</p>
         </div>
       </div>
 
@@ -140,30 +150,44 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
           </h3>
           
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="md:col-span-2 flex gap-4">
-               <label className={`flex-1 cursor-pointer border rounded-lg p-4 flex items-center gap-3 transition-colors ${formData.type === TransactionType.SALE ? 'bg-green-50 border-green-200' : 'bg-white border-gray-200'}`}>
+            <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4">
+               {/* SALE */}
+               <label className={`cursor-pointer border rounded-lg p-4 flex flex-col items-center justify-center gap-2 transition-all ${formData.type === TransactionType.SALE ? 'bg-green-50 border-green-500 ring-1 ring-green-500' : 'bg-white border-gray-200 hover:border-green-200'}`}>
                   <input 
                     type="radio" 
                     name="type" 
-                    className="w-4 h-4 text-green-600"
+                    className="hidden"
                     checked={formData.type === TransactionType.SALE}
-                    onChange={() => setFormData({...formData, type: TransactionType.SALE})}
+                    onChange={() => setFormData({...formData, type: TransactionType.SALE, expectedDeliveryDate: ''})}
                   />
-                  <div className="flex items-center gap-2 text-green-700 font-bold">
-                    <ShoppingCart size={20} /> SALE (Out)
-                  </div>
+                  <ShoppingCart size={24} className={formData.type === TransactionType.SALE ? 'text-green-600' : 'text-gray-400'} />
+                  <span className={`font-bold ${formData.type === TransactionType.SALE ? 'text-green-700' : 'text-gray-600'}`}>SALE (Out)</span>
                </label>
-               <label className={`flex-1 cursor-pointer border rounded-lg p-4 flex items-center gap-3 transition-colors ${formData.type === TransactionType.PURCHASE ? 'bg-blue-50 border-blue-200' : 'bg-white border-gray-200'}`}>
+               
+               {/* PURCHASE */}
+               <label className={`cursor-pointer border rounded-lg p-4 flex flex-col items-center justify-center gap-2 transition-all ${formData.type === TransactionType.PURCHASE ? 'bg-blue-50 border-blue-500 ring-1 ring-blue-500' : 'bg-white border-gray-200 hover:border-blue-200'}`}>
                   <input 
                     type="radio" 
                     name="type" 
-                    className="w-4 h-4 text-blue-600"
+                    className="hidden"
                     checked={formData.type === TransactionType.PURCHASE}
-                    onChange={() => setFormData({...formData, type: TransactionType.PURCHASE})}
+                    onChange={() => setFormData({...formData, type: TransactionType.PURCHASE, expectedDeliveryDate: ''})}
                   />
-                  <div className="flex items-center gap-2 text-blue-700 font-bold">
-                    <Truck size={20} /> PURCHASE (In)
-                  </div>
+                  <Truck size={24} className={formData.type === TransactionType.PURCHASE ? 'text-blue-600' : 'text-gray-400'} />
+                  <span className={`font-bold ${formData.type === TransactionType.PURCHASE ? 'text-blue-700' : 'text-gray-600'}`}>PURCHASE (In)</span>
+               </label>
+
+               {/* PURCHASE ORDER */}
+               <label className={`cursor-pointer border rounded-lg p-4 flex flex-col items-center justify-center gap-2 transition-all ${formData.type === TransactionType.PURCHASE_ORDER ? 'bg-purple-50 border-purple-500 ring-1 ring-purple-500' : 'bg-white border-gray-200 hover:border-purple-200'}`}>
+                  <input 
+                    type="radio" 
+                    name="type" 
+                    className="hidden"
+                    checked={formData.type === TransactionType.PURCHASE_ORDER}
+                    onChange={() => setFormData({...formData, type: TransactionType.PURCHASE_ORDER})}
+                  />
+                  <FileText size={24} className={formData.type === TransactionType.PURCHASE_ORDER ? 'text-purple-600' : 'text-gray-400'} />
+                  <span className={`font-bold ${formData.type === TransactionType.PURCHASE_ORDER ? 'text-purple-700' : 'text-gray-600'}`}>PURCHASE ORDER</span>
                </label>
             </div>
 
@@ -209,7 +233,7 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">
-                 Price (Per Unit)
+                 {formData.type === TransactionType.SALE ? 'Price (Per Unit)' : 'Unit Cost'}
               </label>
               <input 
                 type="number" 
@@ -219,6 +243,21 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
               />
             </div>
+
+            {formData.type === TransactionType.PURCHASE_ORDER && (
+                <div className="space-y-2 md:col-span-2">
+                    <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                        <Calendar size={16} /> Expected Delivery Date
+                    </label>
+                    <input 
+                        type="date"
+                        required 
+                        value={formData.expectedDeliveryDate}
+                        onChange={(e) => setFormData({...formData, expectedDeliveryDate: e.target.value})}
+                        className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                    />
+                </div>
+            )}
 
             <div className="md:col-span-2 pt-4">
               <button 
@@ -252,30 +291,42 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
               <table className="w-full text-sm text-left">
                 <thead className="bg-gray-50 text-gray-600 font-medium border-b border-gray-200">
                   <tr>
-                    <th className="px-6 py-4">Date</th>
                     <th className="px-6 py-4">Type</th>
                     <th className="px-6 py-4">Part No</th>
-                    <th className="px-6 py-4">Qty</th>
-                    <th className="px-6 py-4">Price</th>
-                    <th className="px-6 py-4">Name</th>
+                    <th className="px-6 py-4">Details</th>
+                    <th className="px-6 py-4">Supplier/Cust</th>
+                    <th className="px-6 py-4">Date Added</th>
                     <th className="px-6 py-4 text-center">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {pendingList.map((tx) => (
                     <tr key={tx.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-gray-500">
-                        {new Date(tx.createdAt).toLocaleDateString()}
-                      </td>
                       <td className="px-6 py-4">
-                         <span className={`px-2 py-1 rounded text-xs font-bold ${tx.type === TransactionType.SALE ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
-                           {tx.type}
+                         <span className={`px-2 py-1 rounded text-xs font-bold ${
+                             tx.type === TransactionType.SALE ? 'bg-green-100 text-green-700' : 
+                             tx.type === TransactionType.PURCHASE_ORDER ? 'bg-purple-100 text-purple-700' :
+                             'bg-blue-100 text-blue-700'
+                         }`}>
+                           {tx.type.replace('_', ' ')}
                          </span>
                       </td>
                       <td className="px-6 py-4 font-medium">{tx.partNumber}</td>
-                      <td className="px-6 py-4">{tx.quantity}</td>
-                      <td className="px-6 py-4">₹{tx.price}</td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col">
+                            <span className="font-semibold">{tx.quantity} units</span>
+                            <span className="text-gray-500 text-xs">@ ₹{tx.price}</span>
+                            {tx.expectedDeliveryDate && (
+                                <span className="text-purple-600 text-xs flex items-center gap-1 mt-1">
+                                    <Calendar size={10} /> Due: {tx.expectedDeliveryDate}
+                                </span>
+                            )}
+                        </div>
+                      </td>
                       <td className="px-6 py-4 text-gray-600">{tx.customerName || '-'}</td>
+                      <td className="px-6 py-4 text-gray-500">
+                        {new Date(tx.createdAt).toLocaleDateString()}
+                      </td>
                       <td className="px-6 py-4 text-center">
                         {user.role === Role.OWNER ? (
                           <div className="flex items-center justify-center gap-2">
@@ -334,11 +385,20 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
                         {new Date(tx.createdAt).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4">
-                         <span className={`px-2 py-1 rounded text-xs font-bold ${tx.type === TransactionType.SALE ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
-                           {tx.type}
+                         <span className={`px-2 py-1 rounded text-xs font-bold ${
+                             tx.type === TransactionType.SALE ? 'bg-green-100 text-green-700' : 
+                             tx.type === TransactionType.PURCHASE_ORDER ? 'bg-purple-100 text-purple-700' :
+                             'bg-blue-100 text-blue-700'
+                         }`}>
+                           {tx.type.replace('_', ' ')}
                          </span>
                       </td>
-                      <td className="px-6 py-4 font-medium">{tx.partNumber}</td>
+                      <td className="px-6 py-4 font-medium">
+                        {tx.partNumber}
+                        {tx.expectedDeliveryDate && tx.status === TransactionStatus.APPROVED && (
+                            <div className="text-[10px] text-gray-400">Delivered: {tx.expectedDeliveryDate}</div>
+                        )}
+                      </td>
                       <td className="px-6 py-4">{tx.quantity}</td>
                       <td className="px-6 py-4">₹{tx.price}</td>
                       <td className="px-6 py-4">
