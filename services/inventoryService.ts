@@ -1,6 +1,6 @@
 
 import { INITIAL_STOCK_DATA } from '../constants';
-import { Brand, StockItem, StockStats, UploadHistoryEntry } from '../types';
+import { Brand, PriceHistoryEntry, StockItem, StockStats, UploadHistoryEntry } from '../types';
 import { supabase } from './supabase';
 
 const STORAGE_KEY = 'sparezy_inventory_v1';
@@ -95,6 +95,21 @@ export const fetchInventory = async (): Promise<StockItem[]> => {
   return getFromLS();
 };
 
+export const fetchItemDetails = async (partNumber: string): Promise<StockItem | null> => {
+  if (supabase) {
+    const { data, error } = await supabase
+      .from('inventory')
+      .select('*')
+      .ilike('part_number', partNumber)
+      .single();
+    
+    if (error || !data) return null;
+    return toAppItem(data);
+  }
+  const items = getFromLS();
+  return items.find(i => i.partNumber.toLowerCase() === partNumber.toLowerCase()) || null;
+};
+
 export const saveInventory = async (items: StockItem[]): Promise<void> => {
   if (supabase) {
      return;
@@ -144,7 +159,7 @@ export const updateOrAddItems = async (
       return result;
     }
 
-    // 2. Fetch existing items in batches (Supabase 'in' filter has limits)
+    // 2. Fetch existing items in batches
     let existingItemsMap = new Map<string, StockItem>();
     const FETCH_BATCH_SIZE = 200;
     
@@ -165,18 +180,16 @@ export const updateOrAddItems = async (
 
     // --- SNAPSHOT LOGIC FOR UNDO ---
     if (metadata) {
-      // Create a snapshot of the current state of items being touched
       const snapshot = newItems.map(newItem => {
         if (!newItem.partNumber) return null;
         const key = newItem.partNumber.toLowerCase();
         const existing = existingItemsMap.get(key);
         return {
           part_number: newItem.partNumber,
-          previous_state: existing ? toDBItem(existing) : null // null means it didn't exist (it's new)
+          previous_state: existing ? toDBItem(existing) : null
         };
       }).filter(Boolean);
 
-      // Save to upload_history
       const { error: histError } = await supabase.from('upload_history').insert({
         file_name: metadata.fileName,
         upload_mode: metadata.mode,
@@ -186,14 +199,12 @@ export const updateOrAddItems = async (
         created_at: new Date().toISOString()
       });
 
-      if (histError) {
-        console.error("Failed to save upload history:", histError);
-        // We continue anyway, but log warning
-      }
+      if (histError) console.error("Failed to save upload history:", histError);
     }
 
-    // 3. Prepare Upsert Payload & Calculate Stats
+    // 3. Prepare Upsert Payload & Calculate Stats & Track Price History
     const upsertPayload: Partial<DBItem>[] = [];
+    const priceHistoryPayload: any[] = [];
 
     newItems.forEach((newItem, index) => {
       if (!newItem.partNumber) {
@@ -219,6 +230,13 @@ export const updateOrAddItems = async (
         if (newItem.price !== undefined && newItem.price !== existingItem.price) {
           result.priceUpdates++;
           itemChanged = true;
+          // Log Price History
+          priceHistoryPayload.push({
+            part_number: existingItem.partNumber, // Use original case
+            old_price: existingItem.price,
+            new_price: newItem.price,
+            change_date: new Date().toISOString()
+          });
         }
         // Check other fields
         if ((newItem.name && newItem.name !== existingItem.name) || 
@@ -242,6 +260,9 @@ export const updateOrAddItems = async (
       } else {
         // New Item
         result.added++;
+        // If it's a new item, we effectively set price from 0 to NewPrice, but usually history tracks changes. 
+        // We'll skip history for initial creation to keep table clean, or add if preferred.
+        
         upsertPayload.push({
           part_number: newItem.partNumber,
           name: newItem.name || 'Unknown Part',
@@ -255,7 +276,7 @@ export const updateOrAddItems = async (
       }
     });
 
-    // 4. Batch Push to Supabase
+    // 4. Batch Push Inventory Updates
     const UPLOAD_BATCH_SIZE = 500;
     for (let i = 0; i < upsertPayload.length; i += UPLOAD_BATCH_SIZE) {
       const batch = upsertPayload.slice(i, i + UPLOAD_BATCH_SIZE);
@@ -267,6 +288,12 @@ export const updateOrAddItems = async (
         console.error("Batch upsert error:", error);
         result.errors.push(`Database Error: ${error.message}`);
       }
+    }
+
+    // 5. Batch Push Price History
+    if (priceHistoryPayload.length > 0) {
+      const { error: phError } = await supabase.from('price_history').insert(priceHistoryPayload);
+      if (phError) console.error("Failed to log price history", phError);
     }
 
     return result;
@@ -409,4 +436,22 @@ export const revertUploadBatch = async (historyId: string): Promise<{ success: b
     console.error("Revert failed:", err);
     return { success: false, message: `Revert failed: ${err.message}` };
   }
+};
+
+export const fetchPriceHistory = async (partNumber: string): Promise<PriceHistoryEntry[]> => {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('price_history')
+    .select('*')
+    .ilike('part_number', partNumber)
+    .order('change_date', { ascending: false });
+
+  if (error) return [];
+  return data.map((d: any) => ({
+    id: d.id,
+    partNumber: d.part_number,
+    oldPrice: d.old_price,
+    newPrice: d.new_price,
+    changeDate: d.change_date
+  }));
 };

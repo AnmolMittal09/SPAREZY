@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+// @ts-ignore
 import { useParams } from 'react-router-dom';
 import { Brand, StockItem } from '../types';
 import { fetchInventory } from '../services/inventoryService';

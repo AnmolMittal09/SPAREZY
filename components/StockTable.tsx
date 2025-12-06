@@ -1,5 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
+// @ts-ignore
+import { Link } from 'react-router-dom';
 import { StockItem, Brand } from '../types';
 import { Search, Filter, AlertTriangle, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -114,7 +116,11 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter }) =>
                 
                 return (
                   <tr key={item.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 font-medium text-gray-900">{item.partNumber}</td>
+                    <td className="px-6 py-4 font-medium text-gray-900">
+                      <Link to={`/item/${encodeURIComponent(item.partNumber)}`} className="text-blue-600 hover:underline">
+                        {item.partNumber}
+                      </Link>
+                    </td>
                     <td className="px-6 py-4 text-gray-600">{item.name}</td>
                     <td className="px-6 py-4">
                       <span className={`px-2 py-1 rounded-full text-xs font-semibold ${

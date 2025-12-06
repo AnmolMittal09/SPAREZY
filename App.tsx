@@ -1,4 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
+// @ts-ignore
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { User, Role } from './types';
 import Login from './pages/Login';
@@ -6,6 +8,7 @@ import Dashboard from './pages/Dashboard';
 import BrandDashboard from './pages/BrandDashboard';
 import UploadPage from './pages/Upload';
 import DailyTransactions from './pages/DailyTransactions';
+import ItemDetail from './pages/ItemDetail';
 import Layout from './components/Layout';
 
 const App: React.FC = () => {
@@ -40,6 +43,7 @@ const App: React.FC = () => {
           <Route path="/" element={<Dashboard user={user} />} />
           <Route path="/transactions" element={<DailyTransactions user={user} />} />
           <Route path="/brand/:brandName" element={<BrandDashboard />} />
+          <Route path="/item/:partNumber" element={<ItemDetail />} />
           {/* Protect Upload Route: Only Owner can access */}
           <Route 
             path="/upload" 

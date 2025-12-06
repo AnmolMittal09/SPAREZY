@@ -72,8 +72,17 @@ export interface UploadHistoryEntry {
   createdAt: string;
 }
 
+export interface PriceHistoryEntry {
+  id: string;
+  partNumber: string;
+  oldPrice: number;
+  newPrice: number;
+  changeDate: string;
+}
+
 // Database Schema Representation (Mock)
 // Table: Users { id (PK), username, role, name, password_hash }
 // Table: Inventory { id (PK), part_number (Unique), name, brand, hsn_code, quantity, threshold, price, last_updated }
 // Table: Transactions { id (PK), part_number, type, quantity, price, customer_name, status, created_by_role, created_at, related_transaction_id }
 // Table: UploadHistory { id (PK), file_name, upload_mode, item_count, status, snapshot_data, created_at }
+// Table: PriceHistory { id (PK), part_number, old_price, new_price, change_date }

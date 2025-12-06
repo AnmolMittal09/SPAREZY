@@ -26,4 +26,12 @@ export const supabase = (supabaseUrl && supabaseKey)
  *   price numeric default 0,
  *   last_updated timestamptz default now()
  * );
+ * 
+ * create table price_history (
+ *   id uuid default gen_random_uuid() primary key,
+ *   part_number text not null,
+ *   old_price numeric,
+ *   new_price numeric,
+ *   change_date timestamptz default now()
+ * );
  */
