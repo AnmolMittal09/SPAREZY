@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { User, Role } from '../types';
 import { authenticate } from '../services/userService';
@@ -103,20 +104,6 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 {loading ? <Loader2 className="animate-spin" size={20} /> : 'Sign In'}
             </button>
           </form>
-          
-          <div className="mt-8 pt-6 border-t border-gray-100">
-            <p className="text-center text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Default Credentials</p>
-            <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="bg-blue-50 p-2 rounded text-center border border-blue-100">
-                    <span className="block font-bold text-blue-800">Owner</span>
-                    <span className="text-blue-600">admin / admin</span>
-                </div>
-                <div className="bg-gray-50 p-2 rounded text-center border border-gray-200 opacity-50">
-                    <span className="block font-bold text-gray-700">Manager</span>
-                    <span className="text-gray-500">Created by Admin</span>
-                </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
