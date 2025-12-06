@@ -77,10 +77,6 @@ export const createBulkTransactions = async (
     // In a robust backend, this would be a Postgres Trigger or Function
     for (const tx of transactions) {
        // Purchase Orders (Future delivery) do not affect current stock count immediately upon creation/approval
-       // They usually affect stock only when 'Received'. 
-       // However, based on typical simple flows, 'PURCHASE' (Immediate) adds stock.
-       // 'PURCHASE_ORDER' might just be a record. 
-       // For this app, we treat PURCHASE as immediate stock add.
        if (tx.type !== TransactionType.PURCHASE_ORDER) {
          await updateStockForTransaction(tx.partNumber, tx.type, tx.quantity);
        }
@@ -156,7 +152,7 @@ const updateStockForTransaction = async (partNumber: string, type: TransactionTy
     .limit(1);
 
   if (!items || items.length === 0) {
-    // Item doesn't exist. If it's a purchase, maybe we should create it?
+    // Item doesn't exist. If it's a purchase or return, maybe we should create it?
     // For now, we skip. The user should add the item in the "Update Stock" page first.
     return;
   }
@@ -167,7 +163,8 @@ const updateStockForTransaction = async (partNumber: string, type: TransactionTy
 
   if (type === TransactionType.SALE) {
     newQty = currentQty - quantity;
-  } else if (type === TransactionType.PURCHASE) {
+  } else if (type === TransactionType.PURCHASE || type === TransactionType.RETURN) {
+    // Purchase adds stock, Return also adds stock back
     newQty = currentQty + quantity;
   }
 
@@ -179,4 +176,58 @@ const updateStockForTransaction = async (partNumber: string, type: TransactionTy
     .from('inventory')
     .update({ quantity: newQty, last_updated: new Date().toISOString() })
     .eq('part_number', dbItem.part_number);
+};
+
+// Analytics Helper
+export interface AnalyticsData {
+  totalSales: number;
+  totalReturns: number;
+  totalPurchases: number;
+  netRevenue: number;
+  salesCount: number;
+  returnCount: number;
+}
+
+export const fetchAnalytics = async (startDate: Date, endDate: Date): Promise<AnalyticsData> => {
+  if (!supabase) return { totalSales: 0, totalReturns: 0, totalPurchases: 0, netRevenue: 0, salesCount: 0, returnCount: 0 };
+
+  const { data, error } = await supabase
+    .from('transactions')
+    .select('type, price, quantity, status')
+    .eq('status', 'APPROVED')
+    .gte('created_at', startDate.toISOString())
+    .lte('created_at', endDate.toISOString());
+
+  if (error || !data) {
+    console.error("Analytics fetch error", error);
+    return { totalSales: 0, totalReturns: 0, totalPurchases: 0, netRevenue: 0, salesCount: 0, returnCount: 0 };
+  }
+
+  let totalSales = 0;
+  let totalReturns = 0;
+  let totalPurchases = 0;
+  let salesCount = 0;
+  let returnCount = 0;
+
+  data.forEach((t: any) => {
+    const val = (t.price || 0) * (t.quantity || 0);
+    if (t.type === TransactionType.SALE) {
+      totalSales += val;
+      salesCount += 1;
+    } else if (t.type === TransactionType.RETURN) {
+      totalReturns += val;
+      returnCount += 1;
+    } else if (t.type === TransactionType.PURCHASE) {
+      totalPurchases += val;
+    }
+  });
+
+  return {
+    totalSales,
+    totalReturns,
+    totalPurchases,
+    netRevenue: totalSales - totalReturns, // Revenue minus refunds
+    salesCount,
+    returnCount
+  };
 };

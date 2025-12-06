@@ -5,7 +5,9 @@ import {
   createBulkTransactions, 
   fetchTransactions, 
   approveTransaction, 
-  rejectTransaction 
+  rejectTransaction,
+  fetchAnalytics,
+  AnalyticsData
 } from '../services/transactionService';
 import { fetchInventory } from '../services/inventoryService';
 import * as XLSX from 'xlsx';
@@ -20,8 +22,15 @@ import {
   Search,
   Loader2,
   Trash2,
-  FileSpreadsheet
+  FileSpreadsheet,
+  RotateCcw,
+  BarChart3,
+  Calendar,
+  IndianRupee,
+  TrendingUp,
+  TrendingDown
 } from 'lucide-react';
+import StatCard from '../components/StatCard';
 
 interface Props {
   user: User;
@@ -39,7 +48,7 @@ interface CartItem {
 }
 
 const DailyTransactions: React.FC<Props> = ({ user }) => {
-  const [activeTab, setActiveTab] = useState<'NEW' | 'PENDING' | 'HISTORY'>('NEW');
+  const [activeTab, setActiveTab] = useState<'NEW' | 'PENDING' | 'HISTORY' | 'ANALYTICS'>('NEW');
   const [pendingList, setPendingList] = useState<Transaction[]>([]);
   const [historyList, setHistoryList] = useState<Transaction[]>([]);
   const [inventory, setInventory] = useState<StockItem[]>([]);
@@ -62,6 +71,10 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const searchTimeoutRef = useRef<any>(null);
 
+  // --- ANALYTICS STATE ---
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
+  const [dateFilter, setDateFilter] = useState<'TODAY' | 'MONTH' | 'YEAR'>('TODAY');
+
   useEffect(() => {
     // Load inventory for autocomplete suggestions and smart lookup
     const loadInv = async () => {
@@ -74,7 +87,8 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
   useEffect(() => {
     if (activeTab === 'PENDING') loadPending();
     if (activeTab === 'HISTORY') loadHistory();
-  }, [activeTab]);
+    if (activeTab === 'ANALYTICS') loadAnalytics();
+  }, [activeTab, dateFilter]);
 
   const loadPending = async () => {
     setLoading(true);
@@ -87,6 +101,27 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
     setLoading(true);
     const data = await fetchTransactions();
     setHistoryList(data);
+    setLoading(false);
+  };
+
+  const loadAnalytics = async () => {
+    if (user.role !== Role.OWNER) return;
+    setLoading(true);
+    
+    const now = new Date();
+    let startDate = new Date();
+    const endDate = new Date(); // Now
+
+    if (dateFilter === 'TODAY') {
+      startDate.setHours(0, 0, 0, 0);
+    } else if (dateFilter === 'MONTH') {
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    } else if (dateFilter === 'YEAR') {
+      startDate = new Date(now.getFullYear(), 0, 1);
+    }
+
+    const data = await fetchAnalytics(startDate, endDate);
+    setAnalyticsData(data);
     setLoading(false);
   };
 
@@ -150,11 +185,8 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
           if (existingItem) {
              // If Excel price is 0 or missing, use inventory price
              if (!price) price = existingItem.price;
-             // If Excel name is missing, use inventory name for reference (though not stored in tx table strictly)
-             // We generally use Customer Name for name, but for internal reference:
           }
 
-          // If no specific customer/supplier name in Excel row, fall back to form default or generic
           const finalName = name || formName || (transactionType === TransactionType.SALE ? 'Walk-in' : 'Supplier');
 
           newItems.push({
@@ -253,6 +285,7 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
     if (transactionType === type) {
        if (type === TransactionType.SALE) return 'bg-green-50 border-green-200 ring-2 ring-green-500';
        if (type === TransactionType.PURCHASE) return 'bg-blue-50 border-blue-200 ring-2 ring-blue-500';
+       if (type === TransactionType.RETURN) return 'bg-red-50 border-red-200 ring-2 ring-red-500';
     }
     return 'bg-white border-gray-200 hover:bg-gray-50';
   };
@@ -262,21 +295,26 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Daily Transactions</h1>
-          <p className="text-gray-500">Record Sales, Purchases, and manage approval queues.</p>
+          <p className="text-gray-500">Record Sales, Purchases, Returns, and manage approvals.</p>
         </div>
       </div>
 
       {/* Top Nav Tabs */}
-      <div className="flex bg-white rounded-xl shadow-sm border border-gray-200 p-1">
+      <div className="flex flex-wrap gap-1 bg-white rounded-xl shadow-sm border border-gray-200 p-1">
         <button onClick={() => setActiveTab('NEW')} className={getTabClass('NEW')}>
-          <PlusCircle size={18} /> New Batch Entry
+          <PlusCircle size={18} /> New Batch
         </button>
         <button onClick={() => setActiveTab('PENDING')} className={getTabClass('PENDING')}>
-          <Clock size={18} /> Pending Approvals
+          <Clock size={18} /> Pending
         </button>
         <button onClick={() => setActiveTab('HISTORY')} className={getTabClass('HISTORY')}>
           <History size={18} /> History
         </button>
+        {user.role === Role.OWNER && (
+          <button onClick={() => setActiveTab('ANALYTICS')} className={getTabClass('ANALYTICS')}>
+            <BarChart3 size={18} /> Analytics
+          </button>
+        )}
       </div>
 
       {/* ================= NEW ENTRY TAB ================= */}
@@ -284,18 +322,24 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
         <div className="space-y-6 animate-fade-in">
           
           {/* 1. Transaction Type Selection */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
                <button onClick={() => setTransactionType(TransactionType.SALE)} className={`p-4 rounded-xl border transition-all text-left ${getTypeClass(TransactionType.SALE)}`}>
                   <div className="flex items-center gap-2 text-green-700 font-bold mb-1">
                     <ShoppingCart size={20} /> SALE
                   </div>
-                  <p className="text-xs text-gray-500">Outgoing Stock</p>
+                  <p className="text-xs text-gray-500">Stock Out</p>
                </button>
                <button onClick={() => setTransactionType(TransactionType.PURCHASE)} className={`p-4 rounded-xl border transition-all text-left ${getTypeClass(TransactionType.PURCHASE)}`}>
                   <div className="flex items-center gap-2 text-blue-700 font-bold mb-1">
                     <Truck size={20} /> PURCHASE
                   </div>
-                  <p className="text-xs text-gray-500">Incoming Stock</p>
+                  <p className="text-xs text-gray-500">Stock In</p>
+               </button>
+               <button onClick={() => setTransactionType(TransactionType.RETURN)} className={`p-4 rounded-xl border transition-all text-left ${getTypeClass(TransactionType.RETURN)}`}>
+                  <div className="flex items-center gap-2 text-red-700 font-bold mb-1">
+                    <RotateCcw size={20} /> RETURN
+                  </div>
+                  <p className="text-xs text-gray-500">Stock In (Refund)</p>
                </button>
           </div>
 
@@ -309,12 +353,12 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
                       {/* Name Field */}
                       <div>
                          <label className="text-xs font-semibold text-gray-500 uppercase">
-                           {transactionType === TransactionType.SALE ? 'Customer Name' : 'Supplier Name'}
+                           {transactionType === TransactionType.PURCHASE ? 'Supplier Name' : 'Customer Name'}
                          </label>
                          <input 
                            type="text" 
                            className="w-full mt-1 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                           placeholder={transactionType === TransactionType.SALE ? "Walk-in" : "Distributor"}
+                           placeholder={transactionType === TransactionType.PURCHASE ? "Distributor" : "Walk-in"}
                            value={formName}
                            onChange={e => setFormName(e.target.value)}
                          />
@@ -412,7 +456,7 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
                       <h3 className="font-bold text-gray-800 flex items-center gap-2">
                         Current Batch ({cart.length})
                         {cart.length > 0 && (
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${transactionType === 'SALE' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${transactionType === 'SALE' ? 'bg-green-100 text-green-800' : transactionType === 'RETURN' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`}>
                             {transactionType}
                           </span>
                         )}
@@ -517,7 +561,7 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
                         {new Date(tx.createdAt).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4">
-                         <span className={`px-2 py-1 rounded text-xs font-bold ${tx.type === TransactionType.SALE ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+                         <span className={`px-2 py-1 rounded text-xs font-bold ${tx.type === TransactionType.SALE ? 'bg-green-100 text-green-700' : tx.type === TransactionType.RETURN ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
                            {tx.type}
                          </span>
                       </td>
@@ -583,7 +627,7 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
                         {new Date(tx.createdAt).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4">
-                         <span className={`px-2 py-1 rounded text-xs font-bold ${tx.type === TransactionType.SALE ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+                         <span className={`px-2 py-1 rounded text-xs font-bold ${tx.type === TransactionType.SALE ? 'bg-green-100 text-green-700' : tx.type === TransactionType.RETURN ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
                            {tx.type}
                          </span>
                       </td>
@@ -608,6 +652,87 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
             </div>
           )}
         </div>
+      )}
+
+      {/* ================= ANALYTICS TAB (OWNER ONLY) ================= */}
+      {activeTab === 'ANALYTICS' && user.role === Role.OWNER && (
+         <div className="space-y-6 animate-fade-in">
+            <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+               <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                 <BarChart3 className="text-blue-600" size={24} />
+                 Profit & Sales Analytics
+               </h2>
+               <div className="flex bg-gray-100 p-1 rounded-lg">
+                  <button 
+                    onClick={() => setDateFilter('TODAY')}
+                    className={`px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${dateFilter === 'TODAY' ? 'bg-white shadow-sm text-blue-700' : 'text-gray-600 hover:text-gray-900'}`}
+                  >
+                    Today
+                  </button>
+                  <button 
+                    onClick={() => setDateFilter('MONTH')}
+                    className={`px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${dateFilter === 'MONTH' ? 'bg-white shadow-sm text-blue-700' : 'text-gray-600 hover:text-gray-900'}`}
+                  >
+                    This Month
+                  </button>
+                  <button 
+                    onClick={() => setDateFilter('YEAR')}
+                    className={`px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${dateFilter === 'YEAR' ? 'bg-white shadow-sm text-blue-700' : 'text-gray-600 hover:text-gray-900'}`}
+                  >
+                    This Year
+                  </button>
+               </div>
+            </div>
+
+            {loading ? (
+               <div className="p-12 flex justify-center"><Loader2 className="animate-spin text-gray-400" size={32} /></div>
+            ) : analyticsData ? (
+               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <StatCard 
+                     title="Total Sales" 
+                     value={`₹${analyticsData.totalSales.toLocaleString()}`} 
+                     icon={ShoppingCart} 
+                     colorClass="bg-green-50 border-green-100"
+                  />
+                  <StatCard 
+                     title="Total Returns (Refunds)" 
+                     value={`-₹${analyticsData.totalReturns.toLocaleString()}`} 
+                     icon={RotateCcw} 
+                     colorClass="bg-red-50 border-red-100"
+                  />
+                  <StatCard 
+                     title="Net Revenue" 
+                     value={`₹${analyticsData.netRevenue.toLocaleString()}`} 
+                     icon={IndianRupee} 
+                     trend={analyticsData.netRevenue > 0 ? "Profit" : "Loss"}
+                     colorClass="bg-blue-50 border-blue-100"
+                  />
+                  <StatCard 
+                     title="Total Purchases (Expense)" 
+                     value={`₹${analyticsData.totalPurchases.toLocaleString()}`} 
+                     icon={Truck} 
+                  />
+                  
+                  {/* Summary Cards */}
+                  <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
+                     <div>
+                        <h4 className="text-gray-500 text-sm font-medium">Sales Volume</h4>
+                        <p className="text-2xl font-bold text-gray-900">{analyticsData.salesCount} <span className="text-sm font-normal text-gray-400">Transactions</span></p>
+                     </div>
+                     <TrendingUp className="text-green-500" size={32} />
+                  </div>
+                  <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
+                     <div>
+                        <h4 className="text-gray-500 text-sm font-medium">Return Volume</h4>
+                        <p className="text-2xl font-bold text-gray-900">{analyticsData.returnCount} <span className="text-sm font-normal text-gray-400">Transactions</span></p>
+                     </div>
+                     <TrendingDown className="text-red-500" size={32} />
+                  </div>
+               </div>
+            ) : (
+               <div className="text-center p-12 text-gray-500">No analytics data available for this period.</div>
+            )}
+         </div>
       )}
 
     </div>

@@ -38,6 +38,7 @@ export interface StockStats {
 export enum TransactionType {
   SALE = 'SALE',
   PURCHASE = 'PURCHASE',
+  RETURN = 'RETURN', // Customer returned item
   PURCHASE_ORDER = 'PURCHASE_ORDER',
 }
 
