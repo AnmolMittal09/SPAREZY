@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User } from '../types';
 import { authenticate } from '../services/userService';
 import { ShieldCheck, User as UserIcon, Lock, Loader2, KeyRound } from 'lucide-react';
@@ -11,8 +11,18 @@ interface LoginProps {
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Load saved username on mount
+  useEffect(() => {
+    const savedUsername = localStorage.getItem('sparezy_saved_username');
+    if (savedUsername) {
+      setUsername(savedUsername);
+      setRememberMe(true);
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,6 +33,13 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       const result = await authenticate(username, password);
       
       if (result.success && result.user) {
+        // Handle Remember Me (Only saves username, not the session)
+        if (rememberMe) {
+          localStorage.setItem('sparezy_saved_username', username);
+        } else {
+          localStorage.removeItem('sparezy_saved_username');
+        }
+
         onLogin(result.user);
       } else {
         setError(result.message || 'Login failed');
@@ -139,6 +156,20 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                               required
                           />
                       </div>
+                  </div>
+
+                  {/* Remember Me Checkbox */}
+                  <div className="flex items-center gap-2">
+                      <input 
+                        type="checkbox" 
+                        id="rememberMe"
+                        checked={rememberMe}
+                        onChange={(e) => setRememberMe(e.target.checked)}
+                        className="w-4 h-4 rounded border-gray-600 bg-black/40 text-blue-600 focus:ring-blue-500 focus:ring-offset-black/50"
+                      />
+                      <label htmlFor="rememberMe" className="text-sm text-gray-400 select-none cursor-pointer hover:text-white transition-colors">
+                        Remember username
+                      </label>
                   </div>
 
                   <button 

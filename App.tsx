@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 // @ts-ignore
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { User, Role } from './types';
@@ -12,26 +12,52 @@ import ItemDetail from './pages/ItemDetail';
 import UserManagement from './pages/UserManagement';
 import Layout from './components/Layout';
 
+const INACTIVITY_LIMIT_MS = 30 * 60 * 1000; // 30 Minutes
+
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
 
-  // Check for existing session
-  useEffect(() => {
-    const savedUser = localStorage.getItem('sparezy_user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-  }, []);
+  // --- STRICT SECURITY: NO SESSION PERSISTENCE ---
+  // We intentionally DO NOT load user from localStorage on mount.
+  // This ensures a page refresh clears the session.
 
   const handleLogin = (newUser: User) => {
     setUser(newUser);
-    localStorage.setItem('sparezy_user', JSON.stringify(newUser));
   };
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     setUser(null);
-    localStorage.removeItem('sparezy_user');
-  };
+  }, []);
+
+  // --- INACTIVITY TIMER ---
+  useEffect(() => {
+    if (!user) return;
+
+    let timeoutId: ReturnType<typeof setTimeout>;
+
+    const resetTimer = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        alert("Session expired due to inactivity (30 mins). Please log in again.");
+        handleLogout();
+      }, INACTIVITY_LIMIT_MS);
+    };
+
+    // Events to track activity
+    const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
+    
+    // Attach listeners
+    events.forEach(event => window.addEventListener(event, resetTimer));
+
+    // Initialize timer
+    resetTimer();
+
+    // Cleanup
+    return () => {
+      clearTimeout(timeoutId);
+      events.forEach(event => window.removeEventListener(event, resetTimer));
+    };
+  }, [user, handleLogout]);
 
   if (!user) {
     return <Login onLogin={handleLogin} />;
