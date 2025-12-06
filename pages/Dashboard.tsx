@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { User, Role, StockItem, Brand } from '../types';
-import { getInventory, getStats } from '../services/inventoryService';
+import { fetchInventory, getStats } from '../services/inventoryService';
 import { generateInventoryInsights } from '../services/geminiService';
 import StatCard from '../components/StatCard';
 import StockTable from '../components/StockTable';
@@ -24,9 +24,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   const [loadingAi, setLoadingAi] = useState(false);
 
   useEffect(() => {
-    const data = getInventory();
-    setInventory(data);
-    setLoading(false);
+    const loadData = async () => {
+      setLoading(true);
+      const data = await fetchInventory();
+      setInventory(data);
+      setLoading(false);
+    };
+    loadData();
   }, []);
 
   const stats = getStats(inventory);
@@ -38,7 +42,14 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
     setLoadingAi(false);
   };
 
-  if (loading) return <div className="p-8">Loading...</div>;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64 text-blue-600">
+        <Loader2 className="animate-spin" size={32} />
+        <span className="ml-2 font-medium">Loading Dashboard...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

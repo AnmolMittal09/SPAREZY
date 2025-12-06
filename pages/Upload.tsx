@@ -14,7 +14,7 @@ const UploadPage: React.FC = () => {
   const [targetBrand, setTargetBrand] = useState<Brand>(Brand.HYUNDAI);
   const [uploadMode, setUploadMode] = useState<UploadMode>('MASTER');
 
-  const processRowData = (rows: any[][]) => {
+  const processRowData = async (rows: any[][]) => {
     const parsedItems: Partial<StockItem>[] = [];
     
     rows.forEach((row, index) => {
@@ -69,7 +69,8 @@ const UploadPage: React.FC = () => {
     });
 
     if (parsedItems.length > 0) {
-        const result = updateOrAddItems(parsedItems);
+        // Await the async update
+        const result = await updateOrAddItems(parsedItems);
         setLog(result);
         setTextData('');
     } else {
@@ -78,13 +79,13 @@ const UploadPage: React.FC = () => {
     setIsProcessing(false);
   };
 
-  const handlePasteProcess = () => {
+  const handlePasteProcess = async () => {
     setIsProcessing(true);
     // Basic CSV/TSV parser for pasted text
     const rows = textData.trim().split('\n').map(row => 
         row.split(/[\t,]+/).map(c => c.trim())
     );
-    processRowData(rows);
+    await processRowData(rows);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -97,12 +98,12 @@ const UploadPage: React.FC = () => {
     try {
         if (file.name.toLowerCase().endsWith('.csv')) {
             const reader = new FileReader();
-            reader.onload = (evt) => {
+            reader.onload = async (evt) => {
                 const text = evt.target?.result as string;
                 const rows = text.trim().split('\n').map(row => 
                     row.split(',').map(c => c.trim())
                 );
-                processRowData(rows);
+                await processRowData(rows);
             };
             reader.readAsText(file);
         } else if (file.name.match(/\.xlsx?$/i)) {
@@ -111,7 +112,7 @@ const UploadPage: React.FC = () => {
             const sheetName = workbook.SheetNames[0];
             const sheet = workbook.Sheets[sheetName];
             const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
-            processRowData(jsonData);
+            await processRowData(jsonData);
         } else {
             setLog({ added: 0, updated: 0, priceUpdates: 0, stockUpdates: 0, errors: ['Unsupported file format. Please use CSV or Excel (.xlsx, .xls)'] });
             setIsProcessing(false);

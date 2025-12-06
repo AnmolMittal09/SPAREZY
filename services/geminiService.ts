@@ -2,11 +2,8 @@ import { GoogleGenAI } from "@google/genai";
 import { StockItem } from "../types";
 
 export const generateInventoryInsights = async (inventory: StockItem[]): Promise<string> => {
-  if (!process.env.API_KEY) {
-    return "API Key is missing. Cannot generate insights.";
-  }
-
   try {
+    // @ts-ignore
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
     // Summarize data to send to Gemini to avoid token limits with huge inventories

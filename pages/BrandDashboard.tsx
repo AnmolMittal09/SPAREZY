@@ -1,27 +1,41 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Brand, StockItem } from '../types';
-import { getInventory } from '../services/inventoryService';
+import { fetchInventory } from '../services/inventoryService';
 import StockTable from '../components/StockTable';
 import StatCard from '../components/StatCard';
-import { Package, AlertTriangle, AlertCircle } from 'lucide-react';
+import { Package, AlertTriangle, AlertCircle, Loader2 } from 'lucide-react';
 
 const BrandDashboard: React.FC = () => {
   const { brandName } = useParams<{ brandName: string }>();
   const [inventory, setInventory] = useState<StockItem[]>([]);
+  const [loading, setLoading] = useState(true);
   
   // Normalize brand from URL
   const targetBrand = brandName?.toUpperCase() === 'HYUNDAI' ? Brand.HYUNDAI : Brand.MAHINDRA;
   const brandColor = targetBrand === Brand.HYUNDAI ? 'text-blue-700' : 'text-red-700';
 
   useEffect(() => {
-    const allItems = getInventory();
-    setInventory(allItems.filter(i => i.brand === targetBrand));
+    const loadData = async () => {
+        setLoading(true);
+        const allItems = await fetchInventory();
+        setInventory(allItems.filter(i => i.brand === targetBrand));
+        setLoading(false);
+    };
+    loadData();
   }, [targetBrand]);
 
   const total = inventory.length;
   const low = inventory.filter(i => i.quantity > 0 && i.quantity < i.minStockThreshold).length;
   const zero = inventory.filter(i => i.quantity === 0).length;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64 text-gray-500">
+        <Loader2 className="animate-spin" size={32} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

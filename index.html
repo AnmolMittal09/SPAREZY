@@ -20,22 +20,29 @@
         }
       }
     </script>
-  <script type="importmap">
+    <!-- Polyfill for process.env to avoid crashes in browser preview -->
+    <script>
+      window.process = { env: { API_KEY: '' } };
+    </script>
+    <script type="importmap">
 {
   "imports": {
-    "react": "https://aistudiocdn.com/react@^19.2.1",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
-    "react/": "https://aistudiocdn.com/react@^19.2.1/",
+    "react": "https://aistudiocdn.com/react@^18.3.1",
+    "react-dom/client": "https://aistudiocdn.com/react-dom@^18.3.1",
+    "react/": "https://aistudiocdn.com/react@^18.3.1/",
+    "react-dom": "https://aistudiocdn.com/react-dom@^18.3.1",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^18.3.1/",
     "@google/genai": "https://aistudiocdn.com/@google/genai@^1.31.0",
-    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.10.1",
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.556.0",
+    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^6.27.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.454.0",
     "xlsx": "https://aistudiocdn.com/xlsx@^0.18.5",
+    "@supabase/supabase-js": "https://aistudiocdn.com/@supabase/supabase-js@^2.39.7",
     "vite": "https://aistudiocdn.com/vite@^7.2.6",
     "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1"
   }
 }
 </script>
-</head>
+  </head>
   <body class="bg-gray-50 text-gray-900 font-sans antialiased">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
