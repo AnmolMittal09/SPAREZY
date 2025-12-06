@@ -282,7 +282,13 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
     const res = await createBulkTransactions(payload);
 
     if (res.success) {
-      setMsg({ type: 'success', text: user.role === Role.MANAGER ? 'Batch submitted for approval.' : 'Batch transaction recorded successfully.' });
+      // Auto-approved if Owner OR if Manager doing Returns
+      const isAutoApproved = user.role === Role.OWNER || (user.role === Role.MANAGER && transactionType === TransactionType.RETURN);
+
+      setMsg({ 
+        type: 'success', 
+        text: isAutoApproved ? 'Batch transaction recorded successfully.' : 'Batch submitted for approval.' 
+      });
       setCart([]); // Clear Cart
     } else {
       setMsg({ type: 'error', text: res.message || 'Failed to submit batch.' });

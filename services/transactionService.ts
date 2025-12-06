@@ -50,8 +50,11 @@ export const createBulkTransactions = async (
   // Assume all transactions in a batch have the same creator role
   const createdByRole = transactions[0].createdByRole;
   
-  // Logic: Owners auto-approve, Managers are Pending
-  const initialStatus = createdByRole === Role.OWNER 
+  // Check if all items are returns (Managers can auto-approve returns)
+  const isReturnBatch = transactions.every(t => t.type === TransactionType.RETURN);
+
+  // Logic: Owners auto-approve everything. Managers auto-approve RETURNS.
+  const initialStatus = (createdByRole === Role.OWNER || (createdByRole === Role.MANAGER && isReturnBatch))
     ? TransactionStatus.APPROVED 
     : TransactionStatus.PENDING;
 
@@ -71,7 +74,7 @@ export const createBulkTransactions = async (
     return { success: false, message: error.message };
   }
 
-  // If auto-approved (Owner), update stock immediately
+  // If auto-approved, update stock immediately
   if (initialStatus === TransactionStatus.APPROVED) {
     // We process these sequentially to ensure stock accuracy
     // In a robust backend, this would be a Postgres Trigger or Function
