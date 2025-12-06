@@ -103,7 +103,7 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter }) =>
               <th className="px-6 py-3">Brand</th>
               <th className="px-6 py-3">HSN CD</th>
               <th className="px-6 py-3 text-right">Price</th>
-              <th className="px-6 py-3 text-center">Status</th>
+              <th className="px-6 py-3 text-center">Stock</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
