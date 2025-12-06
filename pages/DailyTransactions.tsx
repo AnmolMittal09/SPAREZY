@@ -32,7 +32,9 @@ import {
   TrendingDown,
   ArrowDownLeft,
   PackageCheck,
-  AlertOctagon
+  AlertOctagon,
+  Minus,
+  Plus
 } from 'lucide-react';
 import StatCard from '../components/StatCard';
 
@@ -192,6 +194,29 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
     setShowSuggestions(false);
   };
 
+  // --- CART QUANTITY UPDATE ---
+  const updateCartQuantity = (tempId: string, delta: number) => {
+    setCart(prev => prev.map(item => {
+      if (item.tempId === tempId) {
+        const newQty = item.quantity + delta;
+        if (newQty < 1) return item; // Min quantity 1
+
+        let isStockError = item.stockError;
+        if (item.type === TransactionType.SALE) {
+           const stockItem = inventory.find(i => i.partNumber.toLowerCase() === item.partNumber.toLowerCase());
+           const maxStock = stockItem ? stockItem.quantity : 0;
+           if (newQty > maxStock) {
+              alert(`Cannot increase quantity. Max available stock is ${maxStock}.`);
+              return item;
+           }
+           isStockError = false; // Valid
+        }
+        return { ...item, quantity: newQty, stockError: isStockError };
+      }
+      return item;
+    }));
+  };
+
   // --- EXCEL UPLOAD LOGIC ---
   const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -203,11 +228,10 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
 
-      const newItems: CartItem[] = [];
+      const excelItems: CartItem[] = [];
       
       rows.forEach((row, idx) => {
         if (idx === 0) return; // Skip Header
-        // Expected Columns: PartNo | Qty | Price | Name
         let partNo = String(row[0] || '').trim();
         let qty = parseInt(row[1]) || 1;
         let price = parseFloat(row[2]) || 0;
@@ -217,37 +241,59 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
         if (qty > 1000000) return; 
 
         if (partNo) {
-          // --- SMART FETCH LOGIC ---
-          // Check if item exists in inventory to auto-fill details
+          // Smart Fetch
           const existingItem = inventory.find(i => i.partNumber.toLowerCase() === partNo.toLowerCase());
-          
-          if (existingItem) {
-             // If Excel price is 0 or missing, use inventory price
-             if (!price) price = existingItem.price;
-          }
+          if (existingItem && !price) price = existingItem.price;
 
           const finalName = name || formName || (transactionType === TransactionType.SALE ? 'Walk-in' : 'Supplier');
-
-          // Check stock validation for Excel
-          let isStockError = false;
-          if (transactionType === TransactionType.SALE) {
-              const currentStock = existingItem ? existingItem.quantity : 0;
-              if (qty > currentStock) isStockError = true;
-          }
-
-          newItems.push({
+          
+          excelItems.push({
             tempId: Math.random().toString(36),
             partNumber: partNo,
             type: transactionType,
             quantity: qty,
             price: price,
             customerName: finalName,
-            stockError: isStockError
           });
         }
       });
 
-      setCart(prev => [...prev, ...newItems]);
+      // MERGE EXCEL ITEMS INTO CURRENT CART
+      setCart(prevCart => {
+         const newCart = [...prevCart];
+         
+         excelItems.forEach(newItem => {
+             const existingIdx = newCart.findIndex(c => c.partNumber.toLowerCase() === newItem.partNumber.toLowerCase());
+             
+             if (existingIdx >= 0) {
+                 // Merge duplicate
+                 const existingItem = newCart[existingIdx];
+                 const mergedQty = existingItem.quantity + newItem.quantity;
+                 
+                 // Check Stock
+                 let isError = existingItem.stockError || false;
+                 if (transactionType === TransactionType.SALE) {
+                    const stockItem = inventory.find(i => i.partNumber.toLowerCase() === newItem.partNumber.toLowerCase());
+                    const maxStock = stockItem ? stockItem.quantity : 0;
+                    if (mergedQty > maxStock) isError = true;
+                 }
+                 
+                 newCart[existingIdx] = { ...existingItem, quantity: mergedQty, stockError: isError };
+             } else {
+                 // Add new
+                 let isError = false;
+                 if (transactionType === TransactionType.SALE) {
+                    const stockItem = inventory.find(i => i.partNumber.toLowerCase() === newItem.partNumber.toLowerCase());
+                    const maxStock = stockItem ? stockItem.quantity : 0;
+                    if (newItem.quantity > maxStock) isError = true;
+                 }
+                 newCart.push({ ...newItem, stockError: isError });
+             }
+         });
+         
+         return newCart;
+      });
+
       e.target.value = ''; // Reset input
     } catch (err) {
       alert("Failed to parse Excel file. Ensure columns are: Part No, Qty, Price, Name");
@@ -259,35 +305,53 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
     e.preventDefault();
     if (!formPartNumber) return;
 
-    // VALIDATION: Check stock for sales
-    if (transactionType === TransactionType.SALE) {
-        const item = inventory.find(i => i.partNumber.toLowerCase() === formPartNumber.toLowerCase());
-        const currentStock = item ? item.quantity : 0;
-        
-        if (formQty > currentStock) {
-            alert(`Insufficient Stock! You only have ${currentStock} in stock.`);
-            return;
-        }
+    const stockItem = inventory.find(i => i.partNumber.toLowerCase() === formPartNumber.toLowerCase());
+    const currentStock = stockItem ? stockItem.quantity : 0;
+
+    // CHECK DUPLICATES
+    const existingIndex = cart.findIndex(item => 
+       item.partNumber.toLowerCase() === formPartNumber.toLowerCase() &&
+       item.relatedTransactionId === formRelatedId
+    );
+
+    if (existingIndex > -1) {
+       // MERGE
+       const existingItem = cart[existingIndex];
+       const newTotalQty = existingItem.quantity + formQty;
+
+       // Stock Check
+       if (transactionType === TransactionType.SALE && newTotalQty > currentStock) {
+           alert(`Insufficient Stock! You already have ${existingItem.quantity} in cart. Total would be ${newTotalQty}, but only ${currentStock} available.`);
+           return;
+       }
+
+       const newCart = [...cart];
+       newCart[existingIndex] = { ...existingItem, quantity: newTotalQty };
+       setCart(newCart);
+    } else {
+       // ADD NEW
+       if (transactionType === TransactionType.SALE && formQty > currentStock) {
+           alert(`Insufficient Stock! You only have ${currentStock} in stock.`);
+           return;
+       }
+
+       const newItem: CartItem = {
+          tempId: Math.random().toString(36),
+          partNumber: formPartNumber,
+          type: transactionType,
+          quantity: formQty,
+          price: formPrice,
+          customerName: formName,
+          relatedTransactionId: transactionType === TransactionType.RETURN ? formRelatedId : undefined
+       };
+       setCart(prev => [newItem, ...prev]);
     }
 
-    const newItem: CartItem = {
-      tempId: Math.random().toString(36),
-      partNumber: formPartNumber,
-      type: transactionType,
-      quantity: formQty,
-      price: formPrice,
-      customerName: formName,
-      relatedTransactionId: transactionType === TransactionType.RETURN ? formRelatedId : undefined
-    };
-
-    setCart(prev => [newItem, ...prev]); // Add to top
-    
     // Reset inputs
     setFormPartNumber('');
     setFormQty(1);
     setFormPrice(0);
     setFormRelatedId(undefined);
-    // Keep Customer Name as it might be same for batch
   };
 
   const removeFromCart = (id: string) => {
@@ -637,8 +701,22 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
                                         {item.partNumber}
                                      </td>
                                      <td className="px-4 py-3">
-                                        {item.quantity}
-                                        {item.stockError && <div className="text-[10px] text-red-600 font-bold">Exceeds Stock</div>}
+                                        <div className="flex items-center gap-2 bg-gray-100 rounded-lg w-fit px-1">
+                                            <button 
+                                                onClick={() => updateCartQuantity(item.tempId, -1)}
+                                                className="p-1 hover:bg-gray-200 rounded text-gray-600"
+                                            >
+                                                <Minus size={12} />
+                                            </button>
+                                            <span className="font-bold text-gray-800 w-6 text-center">{item.quantity}</span>
+                                            <button 
+                                                onClick={() => updateCartQuantity(item.tempId, 1)}
+                                                className="p-1 hover:bg-gray-200 rounded text-gray-600"
+                                            >
+                                                <Plus size={12} />
+                                            </button>
+                                        </div>
+                                        {item.stockError && <div className="text-[10px] text-red-600 font-bold mt-1">Exceeds Stock</div>}
                                      </td>
                                      <td className="px-4 py-3">₹{item.price}</td>
                                      <td className="px-4 py-3 text-gray-600">₹{(item.quantity * item.price).toLocaleString()}</td>
