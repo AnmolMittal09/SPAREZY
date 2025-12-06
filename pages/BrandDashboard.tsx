@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 // @ts-ignore
 import { useParams } from 'react-router-dom';
@@ -5,7 +6,8 @@ import { Brand, StockItem } from '../types';
 import { fetchInventory } from '../services/inventoryService';
 import StockTable from '../components/StockTable';
 import StatCard from '../components/StatCard';
-import { Package, AlertTriangle, AlertCircle, Loader2, Search, TrendingUp, Boxes } from 'lucide-react';
+import TharLoader from '../components/TharLoader';
+import { Package, AlertTriangle, AlertCircle, Search, TrendingUp, Boxes } from 'lucide-react';
 
 const BrandDashboard: React.FC = () => {
   const { brandName } = useParams<{ brandName: string }>();
@@ -43,11 +45,7 @@ const BrandDashboard: React.FC = () => {
   const totalValue = inventory.reduce((acc, item) => acc + (item.quantity * item.price), 0);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64 text-gray-500">
-        <Loader2 className="animate-spin" size={32} />
-      </div>
-    );
+    return <TharLoader />;
   }
 
   return (

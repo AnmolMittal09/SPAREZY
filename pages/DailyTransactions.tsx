@@ -37,6 +37,7 @@ import {
   Plus
 } from 'lucide-react';
 import StatCard from '../components/StatCard';
+import TharLoader from '../components/TharLoader';
 
 interface Props {
   user: User;
@@ -767,7 +768,7 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
       {activeTab === 'PENDING' && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden animate-fade-in">
           {loading ? (
-             <div className="p-12 flex justify-center"><Loader2 className="animate-spin text-gray-400" size={32} /></div>
+             <div className="p-12 flex justify-center"><TharLoader /></div>
           ) : pendingList.length === 0 ? (
              <div className="p-12 text-center text-gray-500">No pending approvals found.</div>
           ) : (
@@ -834,7 +835,7 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
       {activeTab === 'HISTORY' && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden animate-fade-in">
           {loading ? (
-             <div className="p-12 flex justify-center"><Loader2 className="animate-spin text-gray-400" size={32} /></div>
+             <div className="p-12 flex justify-center"><TharLoader /></div>
           ) : historyList.length === 0 ? (
              <div className="p-12 text-center text-gray-500">No transaction history found.</div>
           ) : (
@@ -915,7 +916,7 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
             </div>
 
             {loading ? (
-               <div className="p-12 flex justify-center"><Loader2 className="animate-spin text-gray-400" size={32} /></div>
+               <div className="p-12 flex justify-center"><TharLoader /></div>
             ) : analyticsData ? (
                <div className="space-y-6">
                   {/* Cards Grid */}

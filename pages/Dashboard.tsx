@@ -5,6 +5,7 @@ import { fetchInventory, getStats } from '../services/inventoryService';
 import { generateInventoryInsights } from '../services/geminiService';
 import StatCard from '../components/StatCard';
 import StockTable from '../components/StockTable';
+import TharLoader from '../components/TharLoader';
 import { 
   Package, 
   AlertTriangle, 
@@ -63,12 +64,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   });
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64 text-blue-600">
-        <Loader2 className="animate-spin" size={32} />
-        <span className="ml-2 font-medium">Loading Dashboard...</span>
-      </div>
-    );
+    return <TharLoader />;
   }
 
   return (

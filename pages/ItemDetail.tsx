@@ -5,6 +5,7 @@ import { useParams, Link } from 'react-router-dom';
 import { fetchItemDetails, fetchPriceHistory } from '../services/inventoryService';
 import { PriceHistoryEntry, StockItem, Brand } from '../types';
 import { ArrowLeft, Loader2, TrendingUp, TrendingDown, Clock, Tag, Box, Hash } from 'lucide-react';
+import TharLoader from '../components/TharLoader';
 
 const ItemDetail: React.FC = () => {
   const { partNumber } = useParams<{ partNumber: string }>();
@@ -28,11 +29,7 @@ const ItemDetail: React.FC = () => {
   }, [partNumber]);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64 text-gray-500">
-        <Loader2 className="animate-spin" size={32} />
-      </div>
-    );
+    return <TharLoader />;
   }
 
   if (!item) {

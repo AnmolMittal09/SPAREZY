@@ -1,7 +1,9 @@
+
 import React, { useEffect, useState } from 'react';
 import { User, Role } from '../types';
 import { getUsers, addUser, deleteUser } from '../services/userService';
 import { Users, Plus, Trash2, Shield, Loader2, UserPlus, CheckCircle } from 'lucide-react';
+import TharLoader from '../components/TharLoader';
 
 const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -146,7 +148,7 @@ const UserManagement: React.FC = () => {
          <div className="md:col-span-2">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                {loading ? (
-                  <div className="p-12 flex justify-center"><Loader2 className="animate-spin text-gray-400" size={32} /></div>
+                  <div className="p-12 flex justify-center"><TharLoader /></div>
                ) : (
                   <table className="w-full text-sm text-left">
                      <thead className="bg-gray-50 text-gray-600 font-medium border-b border-gray-200">

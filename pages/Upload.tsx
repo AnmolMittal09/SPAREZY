@@ -4,6 +4,7 @@ import { Upload as UploadIcon, FileSpreadsheet, CheckCircle, AlertCircle, Refres
 import { updateOrAddItems, UpdateResult, fetchUploadHistory, revertUploadBatch } from '../services/inventoryService';
 import { Brand, StockItem, UploadHistoryEntry } from '../types';
 import * as XLSX from 'xlsx';
+import TharLoader from '../components/TharLoader';
 
 type UploadMode = 'MASTER' | 'STOCK';
 
@@ -283,7 +284,7 @@ const UploadPage: React.FC = () => {
                  </div>
                  
                  {loadingHistory ? (
-                   <div className="flex justify-center p-8"><Loader2 className="animate-spin text-gray-400" /></div>
+                   <div className="flex justify-center p-8"><TharLoader /></div>
                  ) : historyList.length === 0 ? (
                    <p className="text-center text-gray-500 py-8">No upload history found.</p>
                  ) : (
