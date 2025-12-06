@@ -1,6 +1,6 @@
 
 import { INITIAL_STOCK_DATA } from '../constants';
-import { Brand, StockItem, StockStats } from '../types';
+import { Brand, StockItem, StockStats, UploadHistoryEntry } from '../types';
 import { supabase } from './supabase';
 
 const STORAGE_KEY = 'sparezy_inventory_v1';
@@ -97,12 +97,8 @@ export const fetchInventory = async (): Promise<StockItem[]> => {
 
 export const saveInventory = async (items: StockItem[]): Promise<void> => {
   if (supabase) {
-     // NOTE: We generally shouldn't overwrite the whole DB with a client-side array 
-     // in a real backend scenario, but for compatibility with the existing LS logic:
-     // We will skip this implementation because we now use updateOrAddItems for mutations.
      return;
   }
-  
   await delay(300);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
 };
@@ -124,7 +120,10 @@ export interface UpdateResult {
   errors: string[];
 }
 
-export const updateOrAddItems = async (newItems: Partial<StockItem>[]): Promise<UpdateResult> => {
+export const updateOrAddItems = async (
+  newItems: Partial<StockItem>[], 
+  metadata?: { fileName: string, mode: string }
+): Promise<UpdateResult> => {
   const result: UpdateResult = {
     added: 0,
     updated: 0,
@@ -164,12 +163,47 @@ export const updateOrAddItems = async (newItems: Partial<StockItem>[]): Promise<
       }
     }
 
+    // --- SNAPSHOT LOGIC FOR UNDO ---
+    if (metadata) {
+      // Create a snapshot of the current state of items being touched
+      const snapshot = newItems.map(newItem => {
+        if (!newItem.partNumber) return null;
+        const key = newItem.partNumber.toLowerCase();
+        const existing = existingItemsMap.get(key);
+        return {
+          part_number: newItem.partNumber,
+          previous_state: existing ? toDBItem(existing) : null // null means it didn't exist (it's new)
+        };
+      }).filter(Boolean);
+
+      // Save to upload_history
+      const { error: histError } = await supabase.from('upload_history').insert({
+        file_name: metadata.fileName,
+        upload_mode: metadata.mode,
+        item_count: snapshot.length,
+        status: 'SUCCESS',
+        snapshot_data: snapshot,
+        created_at: new Date().toISOString()
+      });
+
+      if (histError) {
+        console.error("Failed to save upload history:", histError);
+        // We continue anyway, but log warning
+      }
+    }
+
     // 3. Prepare Upsert Payload & Calculate Stats
     const upsertPayload: Partial<DBItem>[] = [];
 
     newItems.forEach((newItem, index) => {
       if (!newItem.partNumber) {
         result.errors.push(`Row ${index + 1}: Missing Part Number`);
+        return;
+      }
+      
+      // Integer Overflow Check
+      if (newItem.quantity !== undefined && (newItem.quantity > 1000000 || newItem.quantity < -1000000)) {
+        result.errors.push(`Row ${index + 1}: Skipped due to invalid quantity value (${newItem.quantity}). Check parsing.`);
         return;
       }
 
@@ -194,12 +228,8 @@ export const updateOrAddItems = async (newItems: Partial<StockItem>[]): Promise<
 
         if (itemChanged) result.updated++;
 
-        // Construct Merged Object for DB
-        // We only send fields that are defined. Supabase handles partial updates via Upsert if configured correctly,
-        // but explicit merging ensures we don't accidentally NULL something if we send a partial object.
         upsertPayload.push({
-          part_number: newItem.partNumber, // Key
-          // If newItem has value, use it. Else use existing.
+          part_number: newItem.partNumber, 
           name: newItem.name !== undefined ? newItem.name : existingItem.name,
           brand: newItem.brand !== undefined ? newItem.brand : existingItem.brand,
           hsn_code: newItem.hsnCode !== undefined ? newItem.hsnCode : existingItem.hsnCode,
@@ -304,4 +334,79 @@ export const updateOrAddItems = async (newItems: Partial<StockItem>[]): Promise<
 
   await saveInventory(currentInventory);
   return result;
+};
+
+// --- HISTORY FUNCTIONS ---
+
+const mapDBHistoryToApp = (row: any): UploadHistoryEntry => ({
+  id: row.id,
+  fileName: row.file_name,
+  uploadMode: row.upload_mode,
+  itemCount: row.item_count,
+  status: row.status,
+  snapshotData: row.snapshot_data,
+  createdAt: row.created_at
+});
+
+export const fetchUploadHistory = async (): Promise<UploadHistoryEntry[]> => {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('upload_history')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(20);
+  
+  if (error) {
+    console.error("Error fetching history:", error);
+    return [];
+  }
+  return data.map(mapDBHistoryToApp);
+};
+
+export const revertUploadBatch = async (historyId: string): Promise<{ success: boolean, message: string }> => {
+  if (!supabase) return { success: false, message: "Backend not connected" };
+
+  // 1. Fetch snapshot
+  const { data: history, error } = await supabase
+    .from('upload_history')
+    .select('*')
+    .eq('id', historyId)
+    .single();
+
+  if (error || !history) return { success: false, message: "History record not found" };
+  if (history.status === 'REVERTED') return { success: false, message: "Already reverted" };
+
+  const snapshot = history.snapshot_data as Array<{ part_number: string, previous_state: DBItem | null }>;
+  if (!snapshot || snapshot.length === 0) return { success: false, message: "No snapshot data available" };
+
+  // 2. Separate deletes (items that were new) and updates (items that existed)
+  const toDelete = snapshot.filter(s => s.previous_state === null).map(s => s.part_number);
+  const toRestore = snapshot.filter(s => s.previous_state !== null).map(s => s.previous_state as DBItem);
+
+  try {
+    // 3. Perform Revert
+    // Delete newly added items
+    if (toDelete.length > 0) {
+      await supabase.from('inventory').delete().in('part_number', toDelete);
+    }
+    
+    // Restore previous state of modified items
+    if (toRestore.length > 0) {
+      // Upsert in batches
+      const BATCH_SIZE = 500;
+      for (let i = 0; i < toRestore.length; i += BATCH_SIZE) {
+        const batch = toRestore.slice(i, i + BATCH_SIZE);
+        await supabase.from('inventory').upsert(batch, { onConflict: 'part_number' });
+      }
+    }
+
+    // 4. Mark history as reverted
+    await supabase.from('upload_history').update({ status: 'REVERTED' }).eq('id', historyId);
+
+    return { success: true, message: "Batch reverted successfully." };
+
+  } catch (err: any) {
+    console.error("Revert failed:", err);
+    return { success: false, message: `Revert failed: ${err.message}` };
+  }
 };

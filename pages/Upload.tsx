@@ -1,21 +1,56 @@
 
-import React, { useState } from 'react';
-import { Upload as UploadIcon, FileSpreadsheet, CheckCircle, AlertCircle, RefreshCw, FileText, DollarSign, Package } from 'lucide-react';
-import { updateOrAddItems, UpdateResult } from '../services/inventoryService';
-import { Brand, StockItem } from '../types';
+import React, { useState, useEffect } from 'react';
+import { Upload as UploadIcon, FileSpreadsheet, CheckCircle, AlertCircle, RefreshCw, FileText, DollarSign, Package, History, Undo2, Loader2 } from 'lucide-react';
+import { updateOrAddItems, UpdateResult, fetchUploadHistory, revertUploadBatch } from '../services/inventoryService';
+import { Brand, StockItem, UploadHistoryEntry } from '../types';
 import * as XLSX from 'xlsx';
 
 type UploadMode = 'MASTER' | 'STOCK';
 
 const UploadPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'paste' | 'file'>('file');
+  const [activeTab, setActiveTab] = useState<'paste' | 'file' | 'history'>('file');
   const [textData, setTextData] = useState('');
   const [log, setLog] = useState<UpdateResult | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [targetBrand, setTargetBrand] = useState<Brand>(Brand.HYUNDAI);
   const [uploadMode, setUploadMode] = useState<UploadMode>('MASTER');
+  
+  // History State
+  const [historyList, setHistoryList] = useState<UploadHistoryEntry[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [revertingId, setRevertingId] = useState<string | null>(null);
 
-  const processRowData = async (rows: any[][]) => {
+  useEffect(() => {
+    if (activeTab === 'history') {
+      loadHistory();
+    }
+  }, [activeTab]);
+
+  const loadHistory = async () => {
+    setLoadingHistory(true);
+    const data = await fetchUploadHistory();
+    setHistoryList(data);
+    setLoadingHistory(false);
+  };
+
+  const handleRevert = async (entry: UploadHistoryEntry) => {
+    if (!window.confirm(`Are you sure you want to revert the upload "${entry.fileName}"? This will undo all changes to ${entry.itemCount} items.`)) {
+      return;
+    }
+
+    setRevertingId(entry.id);
+    const res = await revertUploadBatch(entry.id);
+    
+    if (res.success) {
+      alert("Changes reverted successfully.");
+      loadHistory();
+    } else {
+      alert(res.message);
+    }
+    setRevertingId(null);
+  };
+
+  const processRowData = async (rows: any[][], fileName: string = 'Manual Paste') => {
     const parsedItems: Partial<StockItem>[] = [];
     
     rows.forEach((row, index) => {
@@ -70,8 +105,8 @@ const UploadPage: React.FC = () => {
     });
 
     if (parsedItems.length > 0) {
-        // Await the async update
-        const result = await updateOrAddItems(parsedItems);
+        // Await the async update with metadata
+        const result = await updateOrAddItems(parsedItems, { fileName, mode: uploadMode });
         setLog(result);
         setTextData('');
     } else {
@@ -104,7 +139,7 @@ const UploadPage: React.FC = () => {
                 const rows = text.trim().split('\n').map(row => 
                     row.split(',').map(c => c.trim())
                 );
-                await processRowData(rows);
+                await processRowData(rows, file.name);
             };
             reader.readAsText(file);
         } else if (file.name.match(/\.(xlsx|xls|xlsb|xlsm)$/i)) {
@@ -113,7 +148,7 @@ const UploadPage: React.FC = () => {
             const sheetName = workbook.SheetNames[0];
             const sheet = workbook.Sheets[sheetName];
             const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
-            await processRowData(jsonData);
+            await processRowData(jsonData, file.name);
         } else {
             setLog({ added: 0, updated: 0, priceUpdates: 0, stockUpdates: 0, errors: ['Unsupported file format. Please use CSV or Excel (.xlsx, .xls, .xlsb)'] });
             setIsProcessing(false);
@@ -210,10 +245,73 @@ const UploadPage: React.FC = () => {
                 <FileText size={18} />
                 Paste Raw Data
             </button>
+            <button 
+                onClick={() => setActiveTab('history')}
+                className={`flex-1 py-4 text-sm font-medium text-center transition-colors flex items-center justify-center gap-2 ${activeTab === 'history' ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-600' : 'text-gray-600 hover:bg-gray-50'}`}
+            >
+                <History size={18} />
+                History & Undo
+            </button>
         </div>
 
         <div className="p-8">
-            {activeTab === 'file' ? (
+            {activeTab === 'history' ? (
+              // --- HISTORY TAB CONTENT ---
+              <div className="space-y-4">
+                 <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-gray-800">Recent Uploads</h3>
+                    <button onClick={loadHistory} className="text-sm text-blue-600 hover:underline">Refresh</button>
+                 </div>
+                 
+                 {loadingHistory ? (
+                   <div className="flex justify-center p-8"><Loader2 className="animate-spin text-gray-400" /></div>
+                 ) : historyList.length === 0 ? (
+                   <p className="text-center text-gray-500 py-8">No upload history found.</p>
+                 ) : (
+                   <div className="overflow-x-auto">
+                     <table className="w-full text-sm text-left">
+                        <thead className="bg-gray-50 text-gray-600 font-medium">
+                           <tr>
+                              <th className="px-4 py-3">Date</th>
+                              <th className="px-4 py-3">File</th>
+                              <th className="px-4 py-3">Type</th>
+                              <th className="px-4 py-3">Items</th>
+                              <th className="px-4 py-3 text-right">Action</th>
+                           </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                           {historyList.map(entry => (
+                             <tr key={entry.id} className={entry.status === 'REVERTED' ? 'bg-red-50 opacity-75' : ''}>
+                                <td className="px-4 py-3 text-gray-500">
+                                   {new Date(entry.createdAt).toLocaleString()}
+                                </td>
+                                <td className="px-4 py-3 font-medium text-gray-800">{entry.fileName}</td>
+                                <td className="px-4 py-3">
+                                   <span className="text-xs px-2 py-1 rounded bg-gray-200">{entry.uploadMode}</span>
+                                </td>
+                                <td className="px-4 py-3">{entry.itemCount}</td>
+                                <td className="px-4 py-3 text-right">
+                                   {entry.status === 'REVERTED' ? (
+                                      <span className="text-xs font-bold text-red-600">REVERTED</span>
+                                   ) : (
+                                      <button 
+                                        onClick={() => handleRevert(entry)}
+                                        disabled={revertingId === entry.id}
+                                        className="text-blue-600 hover:text-blue-800 text-xs font-bold flex items-center justify-end gap-1 w-full disabled:opacity-50"
+                                      >
+                                         {revertingId === entry.id ? <Loader2 size={14} className="animate-spin" /> : <Undo2 size={14} />}
+                                         Undo
+                                      </button>
+                                   )}
+                                </td>
+                             </tr>
+                           ))}
+                        </tbody>
+                     </table>
+                   </div>
+                 )}
+              </div>
+            ) : activeTab === 'file' ? (
                 <div className="border-2 border-dashed border-blue-200 rounded-xl p-12 text-center bg-blue-50/50 hover:bg-blue-50 transition-colors relative group">
                     <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
                         <UploadIcon size={32} />
