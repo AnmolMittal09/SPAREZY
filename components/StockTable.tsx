@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 // @ts-ignore
 import { Link } from 'react-router-dom';
 import { StockItem, Brand } from '../types';
-import { Search, Filter, AlertTriangle, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Filter, AlertTriangle, AlertCircle, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 
 interface StockTableProps {
   items: StockItem[];
@@ -15,15 +15,16 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter }) =>
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'ALL' | 'LOW' | 'ZERO'>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortConfig, setSortConfig] = useState<{ key: keyof StockItem; direction: 'asc' | 'desc' } | null>(null);
   const itemsPerPage = 50;
 
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, filterType, brandFilter, items]);
+  }, [searchTerm, filterType, brandFilter, items, sortConfig]);
 
-  const filteredItems = useMemo(() => {
-    return items.filter(item => {
+  const filteredAndSortedItems = useMemo(() => {
+    let result = items.filter(item => {
       // Brand Filter
       if (brandFilter && item.brand !== brandFilter) return false;
 
@@ -42,14 +43,61 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter }) =>
 
       return true;
     });
-  }, [items, searchTerm, filterType, brandFilter]);
+
+    // Sorting Logic
+    if (sortConfig) {
+      result.sort((a, b) => {
+        const aValue = a[sortConfig.key];
+        const bValue = b[sortConfig.key];
+
+        if (aValue < bValue) {
+          return sortConfig.direction === 'asc' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'asc' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+
+    return result;
+  }, [items, searchTerm, filterType, brandFilter, sortConfig]);
 
   // Pagination Logic
-  const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
-  const currentItems = filteredItems.slice(
+  const totalPages = Math.ceil(filteredAndSortedItems.length / itemsPerPage);
+  const currentItems = filteredAndSortedItems.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
+
+  const requestSort = (key: keyof StockItem) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const SortHeader = ({ label, columnKey }: { label: string, columnKey: keyof StockItem }) => {
+     const isActive = sortConfig?.key === columnKey;
+     return (
+        <th 
+          className="px-6 py-4 cursor-pointer hover:bg-gray-100 transition-colors group select-none"
+          onClick={() => requestSort(columnKey)}
+        >
+          <div className={`flex items-center gap-2 ${isActive ? 'text-blue-700' : 'text-gray-500'}`}>
+             {label}
+             <span className="flex flex-col">
+                {isActive ? (
+                    sortConfig?.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />
+                ) : (
+                    <ArrowUpDown size={14} className="opacity-0 group-hover:opacity-50 transition-opacity" />
+                )}
+             </span>
+          </div>
+        </th>
+     );
+  };
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -57,7 +105,7 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter }) =>
         <div className="flex items-center gap-2">
            <h2 className="text-lg font-bold text-gray-800">{title || 'Inventory List'}</h2>
            <span className="text-xs font-medium text-gray-500 bg-white border border-gray-200 px-2 py-1 rounded-full shadow-sm">
-             {filteredItems.length} items
+             {filteredAndSortedItems.length} items
            </span>
         </div>
         
@@ -98,14 +146,42 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter }) =>
 
       <div className="overflow-x-auto">
         <table className="w-full text-sm text-left border-collapse">
-          <thead className="bg-gray-50 text-gray-500 font-semibold border-b border-gray-200 uppercase tracking-wider text-xs">
+          <thead className="bg-gray-50 font-semibold border-b border-gray-200 uppercase tracking-wider text-xs">
             <tr>
-              <th className="px-6 py-4">Part No.</th>
-              <th className="px-6 py-4">Name</th>
-              <th className="px-6 py-4">Brand</th>
-              <th className="px-6 py-4">HSN CD</th>
-              <th className="px-6 py-4 text-right">Price</th>
-              <th className="px-6 py-4 text-center">Stock</th>
+              <SortHeader label="Part No." columnKey="partNumber" />
+              <SortHeader label="Name" columnKey="name" />
+              <SortHeader label="Brand" columnKey="brand" />
+              <SortHeader label="HSN CD" columnKey="hsnCode" />
+              <th 
+                className="px-6 py-4 cursor-pointer hover:bg-gray-100 transition-colors group select-none text-right"
+                onClick={() => requestSort('price')}
+              >
+                 <div className={`flex items-center justify-end gap-2 ${sortConfig?.key === 'price' ? 'text-blue-700' : 'text-gray-500'}`}>
+                    Price
+                    <span className="flex flex-col">
+                        {sortConfig?.key === 'price' ? (
+                            sortConfig?.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />
+                        ) : (
+                            <ArrowUpDown size={14} className="opacity-0 group-hover:opacity-50 transition-opacity" />
+                        )}
+                    </span>
+                 </div>
+              </th>
+              <th 
+                className="px-6 py-4 cursor-pointer hover:bg-gray-100 transition-colors group select-none text-center"
+                onClick={() => requestSort('quantity')}
+              >
+                 <div className={`flex items-center justify-center gap-2 ${sortConfig?.key === 'quantity' ? 'text-blue-700' : 'text-gray-500'}`}>
+                    Stock
+                    <span className="flex flex-col">
+                        {sortConfig?.key === 'quantity' ? (
+                            sortConfig?.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />
+                        ) : (
+                            <ArrowUpDown size={14} className="opacity-0 group-hover:opacity-50 transition-opacity" />
+                        )}
+                    </span>
+                 </div>
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -173,7 +249,7 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter }) =>
       {totalPages > 1 && (
         <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 bg-gray-50">
            <div className="text-xs text-gray-500">
-              Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredItems.length)}</span> of <span className="font-medium">{filteredItems.length}</span> results
+              Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredAndSortedItems.length)}</span> of <span className="font-medium">{filteredAndSortedItems.length}</span> results
            </div>
            <div className="flex items-center gap-2">
               <button
