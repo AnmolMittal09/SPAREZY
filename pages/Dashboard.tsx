@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { User, Role, StockItem, Brand } from '../types';
 import { fetchInventory, getStats } from '../services/inventoryService';
@@ -10,7 +11,11 @@ import {
   AlertCircle, 
   Banknote, 
   Sparkles, 
-  Loader2 
+  Loader2,
+  Eye,
+  EyeOff,
+  Filter,
+  X
 } from 'lucide-react';
 
 interface DashboardProps {
@@ -22,6 +27,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [aiInsight, setAiInsight] = useState<string | null>(null);
   const [loadingAi, setLoadingAi] = useState(false);
+
+  // Filters
+  const [hideOutOfStock, setHideOutOfStock] = useState(false);
+  const [selectedBrand, setSelectedBrand] = useState<Brand | undefined>(undefined);
 
   useEffect(() => {
     const loadData = async () => {
@@ -42,6 +51,17 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
     setLoadingAi(false);
   };
 
+  const toggleBrand = (brand: Brand) => {
+    if (selectedBrand === brand) setSelectedBrand(undefined);
+    else setSelectedBrand(brand);
+  };
+
+  // Filter items passed to table
+  const displayedInventory = inventory.filter(item => {
+    if (hideOutOfStock && item.quantity === 0) return false;
+    return true;
+  });
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64 text-blue-600">
@@ -60,16 +80,31 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
           </h1>
           <p className="text-gray-500">Welcome back, {user.name}</p>
         </div>
-        {user.role === Role.OWNER && (
-          <button 
-            onClick={handleGenerateInsights}
-            disabled={loadingAi}
-            className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-2 rounded-lg hover:opacity-90 transition-all disabled:opacity-50"
-          >
-            {loadingAi ? <Loader2 className="animate-spin" size={18} /> : <Sparkles size={18} />}
-            {aiInsight ? 'Refresh AI Insights' : 'Get AI Insights'}
-          </button>
-        )}
+        
+        <div className="flex flex-wrap gap-2">
+           <button
+             onClick={() => setHideOutOfStock(!hideOutOfStock)}
+             className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all ${
+                hideOutOfStock 
+                ? 'bg-gray-800 text-white border-gray-800' 
+                : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+             }`}
+           >
+             {hideOutOfStock ? <EyeOff size={18} /> : <Eye size={18} />}
+             {hideOutOfStock ? 'Hidden Out of Stock' : 'Hide Out of Stock'}
+           </button>
+
+           {user.role === Role.OWNER && (
+            <button 
+                onClick={handleGenerateInsights}
+                disabled={loadingAi}
+                className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-2 rounded-lg hover:opacity-90 transition-all disabled:opacity-50"
+            >
+                {loadingAi ? <Loader2 className="animate-spin" size={18} /> : <Sparkles size={18} />}
+                {aiInsight ? 'Refresh Insights' : 'AI Insights'}
+            </button>
+           )}
+        </div>
       </div>
 
       {/* AI Insights Section */}
@@ -114,9 +149,21 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
         />
       </div>
 
-      {/* Brand Splits - Visual Only */}
+      {/* Brand Splits - Interactive */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-gradient-to-br from-blue-900 to-blue-800 rounded-xl p-6 text-white shadow-lg">
+        <div 
+            onClick={() => toggleBrand(Brand.HYUNDAI)}
+            className={`rounded-xl p-6 text-white shadow-lg cursor-pointer transition-all transform hover:scale-[1.01] relative overflow-hidden ${
+                selectedBrand === Brand.HYUNDAI 
+                ? 'bg-blue-900 ring-4 ring-blue-300 ring-offset-2' 
+                : selectedBrand === Brand.MAHINDRA // Dim if other selected
+                    ? 'bg-blue-900 opacity-60 hover:opacity-80'
+                    : 'bg-gradient-to-br from-blue-900 to-blue-800'
+            }`}
+        >
+          {selectedBrand === Brand.HYUNDAI && (
+             <div className="absolute top-4 right-4 bg-white/20 p-1 rounded-full"><Filter size={16} /></div>
+          )}
           <h3 className="text-lg font-bold opacity-90 mb-1">Hyundai Overview</h3>
           <div className="mt-4 flex justify-between items-end">
              <div>
@@ -130,7 +177,19 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-red-700 to-red-600 rounded-xl p-6 text-white shadow-lg">
+        <div 
+            onClick={() => toggleBrand(Brand.MAHINDRA)}
+            className={`rounded-xl p-6 text-white shadow-lg cursor-pointer transition-all transform hover:scale-[1.01] relative overflow-hidden ${
+                selectedBrand === Brand.MAHINDRA 
+                ? 'bg-red-700 ring-4 ring-red-300 ring-offset-2' 
+                : selectedBrand === Brand.HYUNDAI
+                    ? 'bg-red-700 opacity-60 hover:opacity-80'
+                    : 'bg-gradient-to-br from-red-700 to-red-600'
+            }`}
+        >
+          {selectedBrand === Brand.MAHINDRA && (
+             <div className="absolute top-4 right-4 bg-white/20 p-1 rounded-full"><Filter size={16} /></div>
+          )}
           <h3 className="text-lg font-bold opacity-90 mb-1">Mahindra Overview</h3>
           <div className="mt-4 flex justify-between items-end">
              <div>
@@ -145,8 +204,33 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
         </div>
       </div>
 
+      {/* Filter Status Bar if active */}
+      {(selectedBrand || hideOutOfStock) && (
+          <div className="flex items-center gap-2 text-sm text-gray-500 bg-gray-50 p-2 rounded-lg border border-gray-100">
+             <Filter size={14} />
+             <span>Active Filters:</span>
+             {selectedBrand && (
+                 <span className="bg-white border border-gray-200 px-2 py-0.5 rounded text-gray-800 font-medium flex items-center gap-1">
+                    {selectedBrand} 
+                    <button onClick={() => setSelectedBrand(undefined)} className="hover:text-red-500"><X size={12}/></button>
+                 </span>
+             )}
+             {hideOutOfStock && (
+                 <span className="bg-white border border-gray-200 px-2 py-0.5 rounded text-gray-800 font-medium flex items-center gap-1">
+                    No Zero Stock
+                    <button onClick={() => setHideOutOfStock(false)} className="hover:text-red-500"><X size={12}/></button>
+                 </span>
+             )}
+             <button onClick={() => {setSelectedBrand(undefined); setHideOutOfStock(false)}} className="text-blue-600 hover:underline ml-auto">Clear All</button>
+          </div>
+      )}
+
       {/* Main List */}
-      <StockTable items={inventory} title="Full Inventory" />
+      <StockTable 
+         items={displayedInventory} 
+         title={selectedBrand ? `${selectedBrand} Inventory` : "Full Inventory"} 
+         brandFilter={selectedBrand} 
+      />
     </div>
   );
 };
