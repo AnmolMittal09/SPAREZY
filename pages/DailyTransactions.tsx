@@ -96,6 +96,9 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
   const [selectedPending, setSelectedPending] = useState<Set<string>>(new Set());
   const [approvingBatch, setApprovingBatch] = useState(false);
 
+  // --- HISTORY SELECTION STATE ---
+  const [selectedHistory, setSelectedHistory] = useState<Set<string>>(new Set());
+
   useEffect(() => {
     // Load inventory for autocomplete suggestions and smart lookup
     const loadInv = async () => {
@@ -133,6 +136,7 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
     setLoading(true);
     const data = await fetchTransactions();
     setHistoryList(data);
+    setSelectedHistory(new Set()); // Reset selection
     setLoading(false);
   };
 
@@ -399,6 +403,12 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
         type: 'success', 
         text: isAutoApproved ? 'Batch transaction recorded successfully.' : 'Batch submitted for approval.' 
       });
+      
+      // AUTO PRINT INVOICE ON SUCCESSFUL SALE (OWNER)
+      if (isAutoApproved && transactionType === TransactionType.SALE) {
+          generateInvoice(cart, inventory);
+      }
+
       setCart([]); // Clear Cart
       // Refresh return history if we just processed returns, to remove them from the list
       if (transactionType === TransactionType.RETURN) {
@@ -489,6 +499,30 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
     } catch (err) {
       alert("Error rejecting transaction");
     }
+  };
+
+  // --- SELECTION HANDLERS FOR HISTORY (REPRINT) ---
+  const toggleHistorySelection = (id: string) => {
+    const newSet = new Set(selectedHistory);
+    if (newSet.has(id)) newSet.delete(id);
+    else newSet.add(id);
+    setSelectedHistory(newSet);
+  };
+
+  const toggleAllHistorySelection = () => {
+    if (selectedHistory.size === historyList.length) setSelectedHistory(new Set());
+    else setSelectedHistory(new Set(historyList.map(t => t.id)));
+  };
+
+  const handlePrintHistory = () => {
+      const selectedTx = historyList.filter(t => selectedHistory.has(t.id));
+      const saleItems = selectedTx.filter(t => t.type === TransactionType.SALE);
+      
+      if (saleItems.length === 0) {
+          alert("Please select Sale transactions to generate an invoice.");
+          return;
+      }
+      generateInvoice(saleItems, inventory);
   };
 
   // Helper styles for Tab
@@ -933,6 +967,21 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
       {/* ================= HISTORY TAB ================= */}
       {activeTab === 'HISTORY' && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden animate-fade-in">
+          {selectedHistory.size > 0 && (
+             <div className="bg-blue-50 p-4 border-b border-blue-100 flex justify-between items-center animate-slide-in">
+                <div className="text-sm text-blue-900">
+                   <span className="font-bold">{selectedHistory.size}</span> items selected
+                </div>
+                <button 
+                   onClick={handlePrintHistory}
+                   className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg shadow-sm flex items-center gap-2"
+                >
+                   <Printer size={18} />
+                   Generate Invoice
+                </button>
+             </div>
+          )}
+
           {loading ? (
              <div className="p-12 flex justify-center"><TharLoader /></div>
           ) : historyList.length === 0 ? (
@@ -942,6 +991,11 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
               <table className="w-full text-sm text-left">
                 <thead className="bg-gray-50 text-gray-600 font-medium border-b border-gray-200">
                   <tr>
+                    <th className="px-6 py-4 w-10">
+                      <button onClick={toggleAllHistorySelection} className="text-gray-400 hover:text-blue-600">
+                          <CheckSquare size={18} />
+                      </button>
+                    </th>
                     <th className="px-6 py-4">Date</th>
                     <th className="px-6 py-4">Type</th>
                     <th className="px-6 py-4">Part No</th>
@@ -951,32 +1005,43 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {historyList.map((tx) => (
-                    <tr key={tx.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-gray-500">
-                        {new Date(tx.createdAt).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4">
-                         <span className={`px-2 py-1 rounded text-xs font-bold ${tx.type === TransactionType.SALE ? 'bg-green-100 text-green-700' : tx.type === TransactionType.RETURN ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
-                           {tx.type}
-                         </span>
-                      </td>
-                      <td className="px-6 py-4 font-medium">{tx.partNumber}</td>
-                      <td className="px-6 py-4">{tx.quantity}</td>
-                      <td className="px-6 py-4">₹{tx.price}</td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                           tx.status === TransactionStatus.APPROVED 
-                             ? 'bg-green-50 text-green-700' 
-                             : tx.status === TransactionStatus.REJECTED 
-                               ? 'bg-red-50 text-red-700' 
-                               : 'bg-yellow-50 text-yellow-700'
-                        }`}>
-                          {tx.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  {historyList.map((tx) => {
+                    const isSelected = selectedHistory.has(tx.id);
+                    return (
+                      <tr key={tx.id} className={`hover:bg-gray-50 transition-colors ${isSelected ? 'bg-blue-50/50' : ''}`}>
+                        <td className="px-6 py-4">
+                            <input 
+                              type="checkbox" 
+                              checked={isSelected}
+                              onChange={() => toggleHistorySelection(tx.id)}
+                              className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                            />
+                        </td>
+                        <td className="px-6 py-4 text-gray-500">
+                          {new Date(tx.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4">
+                           <span className={`px-2 py-1 rounded text-xs font-bold ${tx.type === TransactionType.SALE ? 'bg-green-100 text-green-700' : tx.type === TransactionType.RETURN ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
+                             {tx.type}
+                           </span>
+                        </td>
+                        <td className="px-6 py-4 font-medium">{tx.partNumber}</td>
+                        <td className="px-6 py-4">{tx.quantity}</td>
+                        <td className="px-6 py-4">₹{tx.price}</td>
+                        <td className="px-6 py-4">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                             tx.status === TransactionStatus.APPROVED 
+                               ? 'bg-green-50 text-green-700' 
+                               : tx.status === TransactionStatus.REJECTED 
+                                 ? 'bg-red-50 text-red-700' 
+                                 : 'bg-yellow-50 text-yellow-700'
+                          }`}>
+                            {tx.status}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

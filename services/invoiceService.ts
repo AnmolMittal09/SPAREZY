@@ -1,18 +1,26 @@
 
-import { StockItem, Transaction } from "../types";
+import { StockItem } from "../types";
 
-export const generateInvoice = (transactions: Transaction[], inventory: StockItem[]) => {
-  if (transactions.length === 0) return;
+// Generic interface that fits both Transaction and CartItem
+export interface InvoiceItem {
+  partNumber: string;
+  quantity: number;
+  price: number;
+  customerName?: string;
+}
+
+export const generateInvoice = (items: InvoiceItem[], inventory: StockItem[]) => {
+  if (items.length === 0) return;
 
   // Grouping / Metadata
-  const customerName = transactions[0].customerName || 'Walk-in Customer';
+  const customerName = items[0].customerName || 'Walk-in Customer';
   const date = new Date().toLocaleDateString();
   const time = new Date().toLocaleTimeString();
   const invoiceId = `INV-${Date.now().toString().slice(-6)}`;
 
   // Calculate Totals and Map Details
   let grandTotal = 0;
-  const items = transactions.map((tx, index) => {
+  const rows = items.map((tx, index) => {
     const stockItem = inventory.find(i => i.partNumber.toLowerCase() === tx.partNumber.toLowerCase());
     const name = stockItem ? stockItem.name : 'Unknown Part';
     const amount = tx.quantity * tx.price;
@@ -48,7 +56,7 @@ export const generateInvoice = (transactions: Transaction[], inventory: StockIte
         .info-block h3 { margin: 0 0 5px; font-size: 14px; color: #888; text-transform: uppercase; }
         .info-block p { margin: 0; font-weight: bold; font-size: 16px; }
 
-        table { w-full; width: 100%; line-height: inherit; text-align: left; border-collapse: collapse; }
+        table { width: 100%; line-height: inherit; text-align: left; border-collapse: collapse; }
         table th { background: #f8f9fa; color: #444; font-weight: bold; padding: 12px; font-size: 12px; text-transform: uppercase; border-bottom: 1px solid #ddd; }
         table td { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; }
         .text-right { text-align: right; }
@@ -103,7 +111,7 @@ export const generateInvoice = (transactions: Transaction[], inventory: StockIte
             </tr>
           </thead>
           <tbody>
-            ${items}
+            ${rows}
           </tbody>
         </table>
 
