@@ -1,3 +1,4 @@
+
 import React from 'react';
 // @ts-ignore
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -86,13 +87,20 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
 
           <div className="px-6 py-4">
              <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-xl border border-gray-100">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm ${user.role === Role.OWNER ? 'bg-indigo-600' : 'bg-teal-600'}`}>
+                <div className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold shadow-sm ${user.role === Role.OWNER ? 'bg-indigo-600' : 'bg-teal-600'}`}>
                     {user.name.charAt(0)}
                 </div>
-                <div className="overflow-hidden">
+                <div className="overflow-hidden flex-1 min-w-0">
                     <p className="text-sm font-bold text-gray-900 truncate">{user.name}</p>
                     <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">{user.role}</p>
                 </div>
+                <button 
+                    onClick={onLogout}
+                    title="Sign Out"
+                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
+                >
+                    <LogOut size={18} />
+                </button>
              </div>
           </div>
 
@@ -112,16 +120,6 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
               </>
             )}
           </nav>
-
-          <div className="p-4 border-t border-gray-100">
-            <button
-              onClick={onLogout}
-              className="flex items-center gap-3 px-4 py-3 w-full text-gray-600 hover:bg-red-50 hover:text-red-600 rounded-lg transition-all group"
-            >
-              <LogOut size={20} className="group-hover:-translate-x-1 transition-transform" />
-              <span className="font-medium">Sign Out</span>
-            </button>
-          </div>
         </div>
       </aside>
 
