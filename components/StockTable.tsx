@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 // @ts-ignore
 import { Link } from 'react-router-dom';
 import { StockItem, Brand } from '../types';
-import { Search, Filter, AlertTriangle, AlertCircle, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import { Search, Filter, AlertTriangle, AlertCircle, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, Hourglass } from 'lucide-react';
 
 interface StockTableProps {
   items: StockItem[];
@@ -13,7 +13,7 @@ interface StockTableProps {
 
 const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState<'ALL' | 'LOW' | 'ZERO'>('ALL');
+  const [filterType, setFilterType] = useState<'ALL' | 'LOW' | 'ZERO' | 'RECENT_ZERO'>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const [sortConfig, setSortConfig] = useState<{ key: keyof StockItem; direction: 'asc' | 'desc' } | null>(null);
   const itemsPerPage = 50;
@@ -40,6 +40,13 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter }) =>
       // Status Filter
       if (filterType === 'LOW') return item.quantity > 0 && item.quantity < item.minStockThreshold;
       if (filterType === 'ZERO') return item.quantity === 0;
+      if (filterType === 'RECENT_ZERO') {
+        if (item.quantity !== 0) return false;
+        const lastUpdated = new Date(item.lastUpdated);
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        return lastUpdated >= sevenDaysAgo;
+      }
 
       return true;
     });
@@ -121,7 +128,7 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter }) =>
             />
           </div>
           
-          <div className="flex gap-2 bg-white p-1 rounded-lg border border-gray-200 shadow-sm">
+          <div className="flex flex-wrap gap-2 bg-white p-1 rounded-lg border border-gray-200 shadow-sm">
             <button
               onClick={() => setFilterType('ALL')}
               className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${filterType === 'ALL' ? 'bg-gray-800 text-white shadow-md' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
@@ -139,6 +146,12 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter }) =>
               className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${filterType === 'ZERO' ? 'bg-red-500 text-white shadow-md' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
             >
               <AlertCircle size={12} /> Zero
+            </button>
+            <button
+              onClick={() => setFilterType('RECENT_ZERO')}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${filterType === 'RECENT_ZERO' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+            >
+              <Hourglass size={12} /> Recent Stockout
             </button>
           </div>
         </div>
