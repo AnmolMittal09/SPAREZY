@@ -20,9 +20,7 @@ import {
   Search,
   Loader2,
   Trash2,
-  FileSpreadsheet,
-  Calendar,
-  ClipboardList
+  FileSpreadsheet
 } from 'lucide-react';
 
 interface Props {
@@ -59,7 +57,7 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
   const [formQty, setFormQty] = useState(1);
   const [formPrice, setFormPrice] = useState(0);
   const [formName, setFormName] = useState(''); // Customer or Supplier
-  const [formDate, setFormDate] = useState(''); // For PO
+  // const [formDate, setFormDate] = useState(''); // Removed PO Date
 
   // --- SUGGESTIONS STATE ---
   const [suggestions, setSuggestions] = useState<StockItem[]>([]);
@@ -167,8 +165,7 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
             type: transactionType,
             quantity: qty,
             price: price,
-            customerName: finalName,
-            expectedDeliveryDate: formDate
+            customerName: finalName
           });
         }
       });
@@ -192,7 +189,6 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
       quantity: formQty,
       price: formPrice,
       customerName: formName,
-      expectedDeliveryDate: transactionType === TransactionType.PURCHASE_ORDER ? formDate : undefined
     };
 
     setCart(prev => [newItem, ...prev]); // Add to top
@@ -220,7 +216,7 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
       price: item.price,
       customerName: item.customerName,
       createdByRole: user.role,
-      expectedDeliveryDate: item.expectedDeliveryDate
+      expectedDeliveryDate: undefined // Removed PO functionality
     }));
 
     const res = await createBulkTransactions(payload);
@@ -260,7 +256,6 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
     if (transactionType === type) {
        if (type === TransactionType.SALE) return 'bg-green-50 border-green-200 ring-2 ring-green-500';
        if (type === TransactionType.PURCHASE) return 'bg-blue-50 border-blue-200 ring-2 ring-blue-500';
-       return 'bg-purple-50 border-purple-200 ring-2 ring-purple-500';
     }
     return 'bg-white border-gray-200 hover:bg-gray-50';
   };
@@ -292,7 +287,7 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
         <div className="space-y-6 animate-fade-in">
           
           {/* 1. Transaction Type Selection */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
                <button onClick={() => setTransactionType(TransactionType.SALE)} className={`p-4 rounded-xl border transition-all text-left ${getTypeClass(TransactionType.SALE)}`}>
                   <div className="flex items-center gap-2 text-green-700 font-bold mb-1">
                     <ShoppingCart size={20} /> SALE
@@ -304,12 +299,6 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
                     <Truck size={20} /> PURCHASE
                   </div>
                   <p className="text-xs text-gray-500">Incoming Stock</p>
-               </button>
-               <button onClick={() => setTransactionType(TransactionType.PURCHASE_ORDER)} className={`p-4 rounded-xl border transition-all text-left ${getTypeClass(TransactionType.PURCHASE_ORDER)}`}>
-                  <div className="flex items-center gap-2 text-purple-700 font-bold mb-1">
-                    <ClipboardList size={20} /> ORDER
-                  </div>
-                  <p className="text-xs text-gray-500">Future Purchase</p>
                </button>
           </div>
 
@@ -392,22 +381,6 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
                             />
                          </div>
                       </div>
-
-                      {transactionType === TransactionType.PURCHASE_ORDER && (
-                         <div>
-                            <label className="text-xs font-semibold text-gray-500 uppercase">Expected Delivery</label>
-                            <div className="relative">
-                               <Calendar className="absolute left-3 top-2.5 text-gray-400" size={16} />
-                               <input 
-                                 type="date"
-                                 required 
-                                 className="w-full mt-1 pl-9 pr-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                                 value={formDate}
-                                 onChange={e => setFormDate(e.target.value)}
-                               />
-                            </div>
-                         </div>
-                      )}
 
                       <button type="submit" className="w-full bg-slate-800 hover:bg-slate-900 text-white font-medium py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2">
                          <PlusCircle size={18} /> Add to List
