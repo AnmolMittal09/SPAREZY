@@ -1,8 +1,8 @@
 
 import React, { useState } from 'react';
-import { User, Role } from '../types';
+import { User } from '../types';
 import { authenticate } from '../services/userService';
-import { ShieldCheck, User as UserIcon, Lock, Loader2 } from 'lucide-react';
+import { ShieldCheck, User as UserIcon, Lock, Loader2, KeyRound } from 'lucide-react';
 
 interface LoginProps {
   onLogin: (user: User) => void;
@@ -35,77 +35,130 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Background decoration */}
-      <div className="absolute inset-0 z-0">
-         <div className="absolute top-0 left-0 w-full h-1/2 bg-slate-900"></div>
-         <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gray-100"></div>
-         {/* Brand Accents */}
-         <div className="absolute top-0 right-0 w-1/2 h-2 bg-red-600"></div>
-         <div className="absolute top-0 left-0 w-1/2 h-2 bg-blue-900"></div>
-      </div>
-
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden z-10 relative">
-        <div className="bg-slate-900 p-8 text-center border-b-4 border-blue-900 relative overflow-hidden">
-            {/* Glossy overlay */}
-           <div className="absolute -top-10 -right-10 w-32 h-32 bg-white opacity-5 rounded-full blur-2xl"></div>
+    <div className="min-h-screen bg-black flex items-center justify-center relative overflow-hidden font-sans">
+      
+      {/* --- 3D ENVIRONMENT BACKGROUND --- */}
+      <div className="absolute inset-0 z-0 flex">
+        {/* HYUNDAI ZONE (Left) */}
+        <div className="w-1/2 h-full relative bg-slate-900 overflow-hidden">
+           {/* Deep Blue Gradient */}
+           <div className="absolute inset-0 bg-gradient-to-br from-blue-950 via-slate-900 to-black opacity-90"></div>
            
-           <div className="bg-white/10 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 backdrop-blur-md shadow-inner border border-white/10">
-             <ShieldCheck className="text-white" size={32} />
+           {/* "Headlight" Bloom */}
+           <div className="absolute top-1/2 left-1/4 w-64 h-64 bg-blue-500 rounded-full blur-[100px] opacity-20 animate-pulse"></div>
+           
+           {/* Perspective Grid Floor (Left) */}
+           <div 
+             className="absolute bottom-0 left-0 right-0 h-1/2 border-t border-blue-900/30"
+             style={{ 
+               background: 'linear-gradient(180deg, rgba(30, 58, 138, 0) 0%, rgba(30, 58, 138, 0.1) 100%)',
+               transform: 'perspective(500px) rotateX(60deg) translateY(100px) translateZ(-100px)'
+             }}
+           >
+              <div className="w-full h-full" style={{ backgroundImage: 'linear-gradient(90deg, rgba(59, 130, 246, 0.1) 1px, transparent 1px)', backgroundSize: '40px 100%' }}></div>
            </div>
-           <h1 className="text-3xl font-extrabold text-white tracking-tight">Sparezy</h1>
-           <p className="text-blue-200 mt-1 font-medium text-sm">Stock Management System</p>
+
+           {/* Brand Text Background */}
+           <h1 className="absolute bottom-10 left-10 text-9xl font-black text-blue-900 opacity-10 tracking-tighter select-none hidden md:block">HYUNDAI</h1>
         </div>
-        
-        <div className="p-8">
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {error && (
-                <div className="bg-red-50 text-red-600 text-xs font-bold p-3 rounded-lg text-center border border-red-100 flex items-center justify-center gap-2 animate-pulse">
-                    <Lock size={14} />
-                    {error}
-                </div>
-            )}
-            
-            <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wide ml-1">Username</label>
-                <div className="relative group">
-                    <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-600 transition-colors" size={18} />
-                    <input 
-                        type="text" 
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all font-medium text-gray-800"
-                        placeholder="Enter username"
-                        required
-                    />
-                </div>
-            </div>
 
-            <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wide ml-1">Password</label>
-                <div className="relative group">
-                     <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-600 transition-colors" size={18} />
-                    <input 
-                        type="password" 
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all font-medium text-gray-800"
-                        placeholder="••••••••"
-                        required
-                    />
-                </div>
-            </div>
+        {/* MAHINDRA ZONE (Right) */}
+        <div className="w-1/2 h-full relative bg-slate-900 overflow-hidden">
+           {/* Deep Red Gradient */}
+           <div className="absolute inset-0 bg-gradient-to-bl from-red-950 via-slate-900 to-black opacity-90"></div>
+           
+           {/* "Headlight" Bloom */}
+           <div className="absolute top-1/2 right-1/4 w-64 h-64 bg-red-600 rounded-full blur-[100px] opacity-20 animate-pulse delay-75"></div>
 
-            <button 
-                type="submit" 
-                disabled={loading}
-                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 duration-200 mt-2 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-            >
-                {loading ? <Loader2 className="animate-spin" size={20} /> : 'Sign In'}
-            </button>
-          </form>
+           {/* Perspective Grid Floor (Right) */}
+           <div 
+             className="absolute bottom-0 left-0 right-0 h-1/2 border-t border-red-900/30"
+             style={{ 
+               background: 'linear-gradient(180deg, rgba(153, 27, 27, 0) 0%, rgba(153, 27, 27, 0.1) 100%)',
+               transform: 'perspective(500px) rotateX(60deg) translateY(100px) translateZ(-100px)'
+             }}
+           >
+              <div className="w-full h-full" style={{ backgroundImage: 'linear-gradient(90deg, rgba(239, 68, 68, 0.1) 1px, transparent 1px)', backgroundSize: '40px 100%' }}></div>
+           </div>
+
+           {/* Brand Text Background */}
+           <h1 className="absolute top-10 right-10 text-9xl font-black text-red-900 opacity-10 tracking-tighter select-none text-right hidden md:block">MAHINDRA</h1>
         </div>
       </div>
+
+      {/* --- FLOATING GLASS LOGIN CARD --- */}
+      <div className="relative z-10 w-full max-w-md p-4">
+        <div className="backdrop-blur-xl bg-white/5 border border-white/10 shadow-2xl rounded-2xl overflow-hidden relative">
+           
+           {/* Glossy Reflection */}
+           <div className="absolute -top-24 -left-24 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl"></div>
+
+           {/* Header */}
+           <div className="p-8 text-center border-b border-white/5 relative">
+              <div className="mx-auto w-16 h-16 bg-gradient-to-tr from-blue-600 to-red-600 rounded-2xl flex items-center justify-center shadow-lg mb-4">
+                  <KeyRound className="text-white" size={32} />
+              </div>
+              <h2 className="text-3xl font-bold text-white tracking-tight">Sparezy</h2>
+              <p className="text-gray-400 text-sm mt-1">Authorized Access Only</p>
+           </div>
+
+           {/* Form */}
+           <div className="p-8 space-y-6">
+              <form onSubmit={handleSubmit} className="space-y-5">
+                  {error && (
+                    <div className="bg-red-500/20 border border-red-500/50 text-red-200 text-xs font-bold p-3 rounded-lg text-center flex items-center justify-center gap-2">
+                        <Lock size={14} /> {error}
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                      <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Username</label>
+                      <div className="relative group">
+                          <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-white transition-colors" size={18} />
+                          <input 
+                              type="text" 
+                              value={username}
+                              onChange={(e) => setUsername(e.target.value)}
+                              className="w-full bg-black/20 border border-white/10 rounded-xl px-10 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500/50 focus:bg-black/40 transition-all"
+                              placeholder="Enter ID"
+                              required
+                          />
+                      </div>
+                  </div>
+
+                  <div className="space-y-2">
+                      <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Password</label>
+                      <div className="relative group">
+                          <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-white transition-colors" size={18} />
+                          <input 
+                              type="password" 
+                              value={password}
+                              onChange={(e) => setPassword(e.target.value)}
+                              className="w-full bg-black/20 border border-white/10 rounded-xl px-10 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-red-500/50 focus:bg-black/40 transition-all"
+                              placeholder="••••••••"
+                              required
+                          />
+                      </div>
+                  </div>
+
+                  <button 
+                    type="submit" 
+                    disabled={loading}
+                    className="w-full bg-gradient-to-r from-blue-700 to-red-700 hover:from-blue-600 hover:to-red-600 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-blue-900/20 transition-all transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-4"
+                  >
+                     {loading ? <Loader2 className="animate-spin" size={20} /> : 'Authenticate'}
+                  </button>
+              </form>
+           </div>
+           
+           {/* Footer Decor */}
+           <div className="bg-black/30 p-4 flex justify-between items-center text-[10px] text-gray-600 uppercase tracking-widest font-bold border-t border-white/5">
+              <span>System v2.4</span>
+              <span>Secure Connection</span>
+           </div>
+        </div>
+      </div>
+
     </div>
   );
 };
