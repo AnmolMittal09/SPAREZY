@@ -38,6 +38,7 @@ interface CartItem {
   price: number;
   customerName: string;
   expectedDeliveryDate?: string;
+  stockError?: boolean; // UI flag if we try to sell more than we have
 }
 
 const DailyTransactions: React.FC<Props> = ({ user }) => {
@@ -66,7 +67,7 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
   const searchTimeoutRef = useRef<any>(null);
 
   useEffect(() => {
-    // Load inventory for autocomplete suggestions
+    // Load inventory for autocomplete suggestions and smart lookup
     const loadInv = async () => {
       const data = await fetchInventory();
       setInventory(data);
@@ -137,19 +138,36 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
       rows.forEach((row, idx) => {
         if (idx === 0) return; // Skip Header
         // Expected Columns: PartNo | Qty | Price | Name
-        const partNo = String(row[0] || '').trim();
-        const qty = parseInt(row[1]) || 1;
-        const price = parseFloat(row[2]) || 0;
-        const name = row[3] ? String(row[3]).trim() : formName;
+        let partNo = String(row[0] || '').trim();
+        let qty = parseInt(row[1]) || 1;
+        let price = parseFloat(row[2]) || 0;
+        let name = row[3] ? String(row[3]).trim() : '';
+
+        // Integer Overflow Protection
+        if (qty > 1000000) return; 
 
         if (partNo) {
+          // --- SMART FETCH LOGIC ---
+          // Check if item exists in inventory to auto-fill details
+          const existingItem = inventory.find(i => i.partNumber.toLowerCase() === partNo.toLowerCase());
+          
+          if (existingItem) {
+             // If Excel price is 0 or missing, use inventory price
+             if (!price) price = existingItem.price;
+             // If Excel name is missing, use inventory name for reference (though not stored in tx table strictly)
+             // We generally use Customer Name for name, but for internal reference:
+          }
+
+          // If no specific customer/supplier name in Excel row, fall back to form default or generic
+          const finalName = name || formName || (transactionType === TransactionType.SALE ? 'Walk-in' : 'Supplier');
+
           newItems.push({
             tempId: Math.random().toString(36),
             partNumber: partNo,
             type: transactionType,
             quantity: qty,
             price: price,
-            customerName: name,
+            customerName: finalName,
             expectedDeliveryDate: formDate
           });
         }
@@ -412,7 +430,7 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
                       />
                    </label>
                    <p className="text-[10px] text-center text-gray-400 mt-2">
-                      Format: Part No | Qty | Price | Name
+                      Format: Part No | Qty | Price (Optional) | Name (Optional)
                    </p>
                 </div>
              </div>

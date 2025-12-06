@@ -150,11 +150,12 @@ export const rejectTransaction = async (id: string): Promise<void> => {
 const updateStockForTransaction = async (partNumber: string, type: TransactionType, quantity: number) => {
   if (!supabase) return;
 
-  // Fetch current item
+  // Fetch current item (CASE INSENSITIVE)
+  // .ilike ensures 'hy-001' finds 'HY-001'
   const { data: items } = await supabase
     .from('inventory')
-    .select('quantity')
-    .eq('part_number', partNumber)
+    .select('quantity, part_number')
+    .ilike('part_number', partNumber) 
     .limit(1);
 
   if (!items || items.length === 0) {
@@ -163,7 +164,8 @@ const updateStockForTransaction = async (partNumber: string, type: TransactionTy
     return;
   }
 
-  const currentQty = items[0].quantity;
+  const dbItem = items[0];
+  const currentQty = dbItem.quantity;
   let newQty = currentQty;
 
   if (type === TransactionType.SALE) {
@@ -175,8 +177,9 @@ const updateStockForTransaction = async (partNumber: string, type: TransactionTy
   // Prevent negative stock for sales
   if (newQty < 0 && type === TransactionType.SALE) newQty = 0;
 
+  // Update using the ACTUAL casing found in DB to ensure match
   await supabase
     .from('inventory')
     .update({ quantity: newQty, last_updated: new Date().toISOString() })
-    .eq('part_number', partNumber);
+    .eq('part_number', dbItem.part_number);
 };
