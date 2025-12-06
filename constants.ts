@@ -1,0 +1,61 @@
+import { Brand, StockItem } from './types';
+
+export const INITIAL_STOCK_DATA: StockItem[] = [
+  {
+    id: '1',
+    partNumber: 'HY-AIR-001',
+    name: 'Air Filter (Creta)',
+    brand: Brand.HYUNDAI,
+    hsnCode: '8421',
+    quantity: 50,
+    minStockThreshold: 10,
+    price: 450,
+    lastUpdated: new Date().toISOString(),
+  },
+  {
+    id: '2',
+    partNumber: 'HY-BRK-022',
+    name: 'Brake Pads Front (i20)',
+    brand: Brand.HYUNDAI,
+    hsnCode: '8708',
+    quantity: 4,
+    minStockThreshold: 8,
+    price: 1200,
+    lastUpdated: new Date().toISOString(),
+  },
+  {
+    id: '3',
+    partNumber: 'MH-OIL-990',
+    name: 'Oil Filter (XUV700)',
+    brand: Brand.MAHINDRA,
+    hsnCode: '8421',
+    quantity: 0,
+    minStockThreshold: 15,
+    price: 380,
+    lastUpdated: new Date().toISOString(),
+  },
+  {
+    id: '4',
+    partNumber: 'MH-CLU-101',
+    name: 'Clutch Plate (Scorpio)',
+    brand: Brand.MAHINDRA,
+    hsnCode: '8708',
+    quantity: 2,
+    minStockThreshold: 5,
+    price: 4500,
+    lastUpdated: new Date().toISOString(),
+  },
+  {
+    id: '5',
+    partNumber: 'HY-LGT-555',
+    name: 'Headlight Assembly (Verna)',
+    brand: Brand.HYUNDAI,
+    hsnCode: '8512',
+    quantity: 12,
+    minStockThreshold: 5,
+    price: 6500,
+    lastUpdated: new Date().toISOString(),
+  },
+];
+
+export const LOW_STOCK_THRESHOLD_DEFAULT = 10;

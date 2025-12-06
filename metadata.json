@@ -1,0 +1,5 @@
+{
+  "name": "Sparezy",
+  "description": "A modern stock management web app for car spare parts (Hyundai & Mahindra) featuring role-based access, Excel-based stock updates, and AI-powered inventory insights.",
+  "requestFramePermissions": []
+}
