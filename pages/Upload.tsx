@@ -89,9 +89,28 @@ const UploadPage: React.FC = () => {
             }
         } else {
             // --- STOCK LIST MODE (Updates Quantity Only) ---
-            // Format: Col 0: Part No | Col 1: Quantity
-            const qtyStr = String(row[1] || '0').replace(/[^0-9]/g, '');
-            if (row[1] !== undefined) quantity = parseInt(qtyStr);
+            // Standard: Col 0: Part No | Col 1: Quantity
+            // Alternative (3-col): Col 0: Part No | Col 1: Name | Col 2: Stock (Quantity)
+            
+            const col1 = row[1];
+            const col2 = row[2];
+
+            let quantityRaw = col1;
+
+            // Heuristic to detect 3-column format (No | Name | Qty)
+            // If Col 2 looks like a number AND Col 1 looks like text (NaN)
+            const isCol2Number = col2 !== undefined && col2 !== null && String(col2).trim() !== '' && !isNaN(Number(col2));
+            const isCol1Number = col1 !== undefined && col1 !== null && String(col1).trim() !== '' && !isNaN(Number(col1));
+
+            if (isCol2Number && !isCol1Number) {
+                quantityRaw = col2;
+            }
+
+            const qtyStr = String(quantityRaw || '0').replace(/[^0-9]/g, '');
+            // Prevent setting quantity if raw data was clearly invalid/empty
+            if (quantityRaw !== undefined && quantityRaw !== null && String(quantityRaw).trim() !== '') {
+                quantity = parseInt(qtyStr);
+            }
         }
 
         parsedItems.push({
@@ -353,7 +372,8 @@ const UploadPage: React.FC = () => {
                             )
                         ) : (
                             <code className="block bg-white p-2 rounded border border-gray-200 text-xs text-gray-800">
-                                Col 1: PART NO | Col 2: QUANTITY
+                                Col 1: PART NO | Col 2: QUANTITY <br/>
+                                <span className="text-gray-500 font-normal">OR: Col 1: PART NO | Col 2: NAME | Col 3: QUANTITY</span>
                             </code>
                         )}
                     </div>

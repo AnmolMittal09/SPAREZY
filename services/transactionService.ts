@@ -231,3 +231,27 @@ export const fetchAnalytics = async (startDate: Date, endDate: Date): Promise<An
     returnCount
   };
 };
+
+export const fetchSalesForReturn = async (search?: string): Promise<Transaction[]> => {
+  if (!supabase) return [];
+
+  let query = supabase
+    .from('transactions')
+    .select('*')
+    .eq('type', 'SALE')
+    .eq('status', 'APPROVED')
+    .order('created_at', { ascending: false })
+    .limit(10);
+
+  if (search && search.trim().length > 0) {
+    // Supabase .or syntax: column.ilike.value,column2.ilike.value
+    query = query.or(`part_number.ilike.%${search}%,customer_name.ilike.%${search}%`);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.error(error);
+    return [];
+  }
+  return data.map(mapDBToTransaction);
+};

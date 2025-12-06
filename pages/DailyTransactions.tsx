@@ -7,6 +7,7 @@ import {
   approveTransaction, 
   rejectTransaction,
   fetchAnalytics,
+  fetchSalesForReturn,
   AnalyticsData
 } from '../services/transactionService';
 import { fetchInventory } from '../services/inventoryService';
@@ -28,7 +29,8 @@ import {
   Calendar,
   IndianRupee,
   TrendingUp,
-  TrendingDown
+  TrendingDown,
+  ArrowDownLeft
 } from 'lucide-react';
 import StatCard from '../components/StatCard';
 
@@ -71,6 +73,11 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const searchTimeoutRef = useRef<any>(null);
 
+  // --- RETURN SEARCH STATE ---
+  const [returnSearch, setReturnSearch] = useState('');
+  const [returnHistory, setReturnHistory] = useState<Transaction[]>([]);
+  const [loadingReturns, setLoadingReturns] = useState(false);
+
   // --- ANALYTICS STATE ---
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
   const [dateFilter, setDateFilter] = useState<'TODAY' | 'MONTH' | 'YEAR'>('TODAY');
@@ -89,6 +96,13 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
     if (activeTab === 'HISTORY') loadHistory();
     if (activeTab === 'ANALYTICS') loadAnalytics();
   }, [activeTab, dateFilter]);
+
+  // Special effect for Return Tab in "New" mode
+  useEffect(() => {
+     if (activeTab === 'NEW' && transactionType === TransactionType.RETURN) {
+        handleReturnSearch('');
+     }
+  }, [transactionType, activeTab]);
 
   const loadPending = async () => {
     setLoading(true);
@@ -123,6 +137,23 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
     const data = await fetchAnalytics(startDate, endDate);
     setAnalyticsData(data);
     setLoading(false);
+  };
+
+  const handleReturnSearch = async (val: string) => {
+    setReturnSearch(val);
+    setLoadingReturns(true);
+    const results = await fetchSalesForReturn(val);
+    setReturnHistory(results);
+    setLoadingReturns(false);
+  };
+
+  const selectReturnItem = (tx: Transaction) => {
+    setFormPartNumber(tx.partNumber);
+    setFormName(tx.customerName || '');
+    setFormPrice(tx.price);
+    setFormQty(tx.quantity); 
+    // Scroll to form?
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // --- AUTOCOMPLETE LOGIC ---
@@ -447,6 +478,52 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
                       Format: Part No | Qty | Price (Optional) | Name (Optional)
                    </p>
                 </div>
+                
+                {/* --- RETURN FROM HISTORY UI --- */}
+                {transactionType === TransactionType.RETURN && (
+                   <div className="bg-red-50 rounded-xl shadow-sm border border-red-100 p-5">
+                       <h3 className="font-bold text-red-800 mb-2 flex items-center gap-2 text-sm">
+                           <History size={16} /> Find Original Sale
+                       </h3>
+                       <div className="relative mb-3">
+                            <Search className="absolute left-3 top-2.5 text-red-300" size={14} />
+                            <input 
+                                type="text"
+                                className="w-full pl-8 pr-3 py-2 border border-red-200 rounded-lg text-sm focus:ring-2 focus:ring-red-300 outline-none"
+                                placeholder="Part No or Customer Name..."
+                                value={returnSearch}
+                                onChange={e => handleReturnSearch(e.target.value)}
+                            />
+                       </div>
+                       
+                       <div className="max-h-64 overflow-y-auto space-y-2">
+                           {loadingReturns ? (
+                               <div className="flex justify-center py-4"><Loader2 className="animate-spin text-red-400" size={20}/></div>
+                           ) : returnHistory.length === 0 ? (
+                               <div className="text-center text-xs text-gray-500 py-4">No matching sales found.</div>
+                           ) : (
+                               returnHistory.map(tx => (
+                                   <div key={tx.id} className="bg-white p-3 rounded-lg border border-red-100 shadow-sm flex flex-col gap-1">
+                                       <div className="flex justify-between items-start">
+                                           <span className="font-bold text-xs text-gray-800">{tx.partNumber}</span>
+                                           <span className="text-xs text-gray-500">{new Date(tx.createdAt).toLocaleDateString()}</span>
+                                       </div>
+                                       <div className="text-xs text-gray-600 flex justify-between">
+                                            <span>{tx.customerName || 'Walk-in'}</span>
+                                            <span>₹{tx.price} x {tx.quantity}</span>
+                                       </div>
+                                       <button 
+                                            onClick={() => selectReturnItem(tx)}
+                                            className="mt-1 w-full bg-red-100 hover:bg-red-200 text-red-700 text-xs font-bold py-1.5 rounded flex items-center justify-center gap-1 transition-colors"
+                                       >
+                                           <ArrowDownLeft size={12} /> Return This
+                                       </button>
+                                   </div>
+                               ))
+                           )}
+                       </div>
+                   </div>
+                )}
              </div>
 
              {/* 3. Right Column: Cart / Batch List */}
