@@ -11,6 +11,7 @@ import {
   AnalyticsData
 } from '../services/transactionService';
 import { fetchInventory } from '../services/inventoryService';
+import { generateInvoice } from '../services/invoiceService';
 import * as XLSX from 'xlsx';
 import { 
   ShoppingCart, 
@@ -34,7 +35,9 @@ import {
   PackageCheck,
   AlertOctagon,
   Minus,
-  Plus
+  Plus,
+  Printer,
+  CheckSquare
 } from 'lucide-react';
 import StatCard from '../components/StatCard';
 import TharLoader from '../components/TharLoader';
@@ -89,6 +92,10 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
   const [dateFilter, setDateFilter] = useState<'TODAY' | 'MONTH' | 'YEAR'>('TODAY');
 
+  // --- PENDING SELECTION STATE ---
+  const [selectedPending, setSelectedPending] = useState<Set<string>>(new Set());
+  const [approvingBatch, setApprovingBatch] = useState(false);
+
   useEffect(() => {
     // Load inventory for autocomplete suggestions and smart lookup
     const loadInv = async () => {
@@ -118,6 +125,7 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
     setLoading(true);
     const data = await fetchTransactions(TransactionStatus.PENDING);
     setPendingList(data);
+    setSelectedPending(new Set()); // Reset selection
     setLoading(false);
   };
 
@@ -407,11 +415,66 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
     setSubmitting(false);
   };
 
-  const handleApprove = async (tx: Transaction) => {
+  // --- SELECTION HANDLERS FOR PENDING ---
+  const toggleSelection = (id: string) => {
+    const newSet = new Set(selectedPending);
+    if (newSet.has(id)) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
+    }
+    setSelectedPending(newSet);
+  };
+
+  const toggleAllSelection = () => {
+    if (selectedPending.size === pendingList.length) {
+      setSelectedPending(new Set());
+    } else {
+      setSelectedPending(new Set(pendingList.map(t => t.id)));
+    }
+  };
+
+  const handleApproveSelected = async () => {
+    if (selectedPending.size === 0) return;
+    setApprovingBatch(true);
+    
+    try {
+      // 1. Convert Set to Array
+      const idsToApprove = Array.from(selectedPending);
+      
+      // 2. Identify transaction details (for printing)
+      const transactionsToApprove = pendingList.filter(t => selectedPending.has(t.id));
+      
+      // 3. Loop Approve
+      for (const tx of transactionsToApprove) {
+         await approveTransaction(tx.id, tx.partNumber, tx.type, tx.quantity);
+      }
+
+      // 4. Generate Invoice (If Sales)
+      // Check if any selected item is a Sale
+      const saleItems = transactionsToApprove.filter(t => t.type === TransactionType.SALE);
+      if (saleItems.length > 0) {
+        generateInvoice(saleItems, inventory);
+      }
+
+      // 5. Cleanup
+      loadPending();
+      // Update inventory 
+      const inv = await fetchInventory();
+      setInventory(inv);
+      setSelectedPending(new Set());
+      
+    } catch (err: any) {
+      alert(err.message || "Error processing batch approval.");
+    }
+    setApprovingBatch(false);
+  };
+
+  const handleApproveSingle = async (tx: Transaction) => {
     try {
       await approveTransaction(tx.id, tx.partNumber, tx.type, tx.quantity);
       loadPending();
-      // Update inventory on approval too
+      // Update inventory
       const inv = await fetchInventory();
       setInventory(inv);
     } catch (err: any) {
@@ -767,6 +830,22 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
       {/* ================= PENDING TAB ================= */}
       {activeTab === 'PENDING' && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden animate-fade-in">
+          {user.role === Role.OWNER && selectedPending.size > 0 && (
+             <div className="bg-blue-50 p-4 border-b border-blue-100 flex justify-between items-center animate-slide-in">
+                <div className="text-sm text-blue-900">
+                   <span className="font-bold">{selectedPending.size}</span> items selected
+                </div>
+                <button 
+                   onClick={handleApproveSelected}
+                   disabled={approvingBatch}
+                   className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg shadow-sm flex items-center gap-2 disabled:opacity-70"
+                >
+                   {approvingBatch ? <Loader2 className="animate-spin" size={18} /> : <Printer size={18} />}
+                   Approve & Print Invoice
+                </button>
+             </div>
+          )}
+
           {loading ? (
              <div className="p-12 flex justify-center"><TharLoader /></div>
           ) : pendingList.length === 0 ? (
@@ -776,6 +855,13 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
               <table className="w-full text-sm text-left">
                 <thead className="bg-gray-50 text-gray-600 font-medium border-b border-gray-200">
                   <tr>
+                    {user.role === Role.OWNER && (
+                      <th className="px-6 py-4 w-10">
+                        <button onClick={toggleAllSelection} className="text-gray-400 hover:text-blue-600">
+                           <CheckSquare size={18} />
+                        </button>
+                      </th>
+                    )}
                     <th className="px-6 py-4">Date</th>
                     <th className="px-6 py-4">Type</th>
                     <th className="px-6 py-4">Part No</th>
@@ -786,44 +872,57 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {pendingList.map((tx) => (
-                    <tr key={tx.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-gray-500">
-                        {new Date(tx.createdAt).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4">
-                         <span className={`px-2 py-1 rounded text-xs font-bold ${tx.type === TransactionType.SALE ? 'bg-green-100 text-green-700' : tx.type === TransactionType.RETURN ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
-                           {tx.type}
-                         </span>
-                      </td>
-                      <td className="px-6 py-4 font-medium">{tx.partNumber}</td>
-                      <td className="px-6 py-4">{tx.quantity}</td>
-                      <td className="px-6 py-4">₹{tx.price}</td>
-                      <td className="px-6 py-4 text-gray-600">{tx.customerName || '-'}</td>
-                      <td className="px-6 py-4 text-center">
-                        {user.role === Role.OWNER ? (
-                          <div className="flex items-center justify-center gap-2">
-                             <button 
-                               onClick={() => handleApprove(tx)}
-                               className="bg-green-100 hover:bg-green-200 text-green-700 p-2 rounded-lg transition-colors" 
-                               title="Approve"
-                             >
-                               <CheckCircle2 size={18} />
-                             </button>
-                             <button 
-                               onClick={() => handleReject(tx.id)}
-                               className="bg-red-100 hover:bg-red-200 text-red-700 p-2 rounded-lg transition-colors"
-                               title="Reject"
-                             >
-                               <XCircle size={18} />
-                             </button>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-gray-400 italic">Waiting Approval</span>
+                  {pendingList.map((tx) => {
+                    const isSelected = selectedPending.has(tx.id);
+                    return (
+                      <tr key={tx.id} className={`hover:bg-gray-50 transition-colors ${isSelected ? 'bg-blue-50/50' : ''}`}>
+                        {user.role === Role.OWNER && (
+                          <td className="px-6 py-4">
+                            <input 
+                              type="checkbox" 
+                              checked={isSelected}
+                              onChange={() => toggleSelection(tx.id)}
+                              className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                            />
+                          </td>
                         )}
-                      </td>
-                    </tr>
-                  ))}
+                        <td className="px-6 py-4 text-gray-500">
+                          {new Date(tx.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`px-2 py-1 rounded text-xs font-bold ${tx.type === TransactionType.SALE ? 'bg-green-100 text-green-700' : tx.type === TransactionType.RETURN ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
+                            {tx.type}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 font-medium">{tx.partNumber}</td>
+                        <td className="px-6 py-4">{tx.quantity}</td>
+                        <td className="px-6 py-4">₹{tx.price}</td>
+                        <td className="px-6 py-4 text-gray-600">{tx.customerName || '-'}</td>
+                        <td className="px-6 py-4 text-center">
+                          {user.role === Role.OWNER ? (
+                            <div className="flex items-center justify-center gap-2">
+                              <button 
+                                onClick={() => handleApproveSingle(tx)}
+                                className="bg-green-100 hover:bg-green-200 text-green-700 p-2 rounded-lg transition-colors" 
+                                title="Approve"
+                              >
+                                <CheckCircle2 size={18} />
+                              </button>
+                              <button 
+                                onClick={() => handleReject(tx.id)}
+                                className="bg-red-100 hover:bg-red-200 text-red-700 p-2 rounded-lg transition-colors"
+                                title="Reject"
+                              >
+                                <XCircle size={18} />
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-gray-400 italic">Waiting Approval</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
