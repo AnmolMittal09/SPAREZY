@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { User, Role } from '../types';
-import { ShieldCheck, User as UserIcon, Lock } from 'lucide-react';
+import { authenticate } from '../services/userService';
+import { ShieldCheck, User as UserIcon, Lock, Loader2 } from 'lucide-react';
 
 interface LoginProps {
   onLogin: (user: User) => void;
@@ -10,16 +11,25 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Mock Auth
-    if (username === 'admin' && password === 'admin') {
-      onLogin({ id: '1', username: 'admin', name: 'Mr. Owner', role: Role.OWNER });
-    } else if (username === 'manager' && password === 'manager') {
-      onLogin({ id: '2', username: 'manager', name: 'Rajesh Manager', role: Role.MANAGER });
-    } else {
-      setError('Invalid credentials. Try admin/admin or manager/manager');
+    setError('');
+    setLoading(true);
+
+    try {
+      const result = await authenticate(username, password);
+      
+      if (result.success && result.user) {
+        onLogin(result.user);
+      } else {
+        setError(result.message || 'Login failed');
+      }
+    } catch (err) {
+      setError('An unexpected error occurred');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -49,7 +59,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         <div className="p-8">
           <form onSubmit={handleSubmit} className="space-y-5">
             {error && (
-                <div className="bg-red-50 text-red-600 text-xs font-bold p-3 rounded-lg text-center border border-red-100 flex items-center justify-center gap-2">
+                <div className="bg-red-50 text-red-600 text-xs font-bold p-3 rounded-lg text-center border border-red-100 flex items-center justify-center gap-2 animate-pulse">
                     <Lock size={14} />
                     {error}
                 </div>
@@ -65,6 +75,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                         onChange={(e) => setUsername(e.target.value)}
                         className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all font-medium text-gray-800"
                         placeholder="Enter username"
+                        required
                     />
                 </div>
             </div>
@@ -79,28 +90,30 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                         onChange={(e) => setPassword(e.target.value)}
                         className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all font-medium text-gray-800"
                         placeholder="••••••••"
+                        required
                     />
                 </div>
             </div>
 
             <button 
                 type="submit" 
-                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 duration-200 mt-2"
+                disabled={loading}
+                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 duration-200 mt-2 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
             >
-                Sign In
+                {loading ? <Loader2 className="animate-spin" size={20} /> : 'Sign In'}
             </button>
           </form>
           
           <div className="mt-8 pt-6 border-t border-gray-100">
-            <p className="text-center text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Demo Credentials</p>
+            <p className="text-center text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Default Credentials</p>
             <div className="grid grid-cols-2 gap-3 text-xs">
                 <div className="bg-blue-50 p-2 rounded text-center border border-blue-100">
                     <span className="block font-bold text-blue-800">Owner</span>
                     <span className="text-blue-600">admin / admin</span>
                 </div>
-                <div className="bg-gray-50 p-2 rounded text-center border border-gray-200">
+                <div className="bg-gray-50 p-2 rounded text-center border border-gray-200 opacity-50">
                     <span className="block font-bold text-gray-700">Manager</span>
-                    <span className="text-gray-500">manager / manager</span>
+                    <span className="text-gray-500">Created by Admin</span>
                 </div>
             </div>
           </div>

@@ -12,7 +12,8 @@ import {
   X,
   PackageSearch,
   ShoppingCart,
-  ChevronRight
+  ChevronRight,
+  Users
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -117,6 +118,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
               <>
                 <p className="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mt-6 mb-2">Admin</p>
                 <NavItem to="/upload" icon={Upload} label="Manage Data" themeColor="gray" />
+                <NavItem to="/users" icon={Users} label="User Management" themeColor="gray" />
               </>
             )}
           </nav>

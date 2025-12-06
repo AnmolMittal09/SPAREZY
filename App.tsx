@@ -9,6 +9,7 @@ import BrandDashboard from './pages/BrandDashboard';
 import UploadPage from './pages/Upload';
 import DailyTransactions from './pages/DailyTransactions';
 import ItemDetail from './pages/ItemDetail';
+import UserManagement from './pages/UserManagement';
 import Layout from './components/Layout';
 
 const App: React.FC = () => {
@@ -44,11 +45,17 @@ const App: React.FC = () => {
           <Route path="/transactions" element={<DailyTransactions user={user} />} />
           <Route path="/brand/:brandName" element={<BrandDashboard />} />
           <Route path="/item/:partNumber" element={<ItemDetail />} />
-          {/* Protect Upload Route: Only Owner can access */}
+          
+          {/* Protect Admin Routes */}
           <Route 
             path="/upload" 
             element={user.role === Role.OWNER ? <UploadPage /> : <Navigate to="/" replace />} 
           />
+          <Route 
+            path="/users" 
+            element={user.role === Role.OWNER ? <UserManagement /> : <Navigate to="/" replace />} 
+          />
+
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>

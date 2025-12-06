@@ -34,4 +34,36 @@ export const supabase = (supabaseUrl && supabaseKey)
  *   new_price numeric,
  *   change_date timestamptz default now()
  * );
+ * 
+ * create table transactions (
+ *   id uuid default gen_random_uuid() primary key,
+ *   part_number text not null,
+ *   type text not null,
+ *   quantity int not null,
+ *   price numeric,
+ *   customer_name text,
+ *   status text default 'PENDING',
+ *   created_by_role text,
+ *   created_at timestamptz default now(),
+ *   related_transaction_id uuid
+ * );
+ * 
+ * create table upload_history (
+ *   id uuid default gen_random_uuid() primary key,
+ *   file_name text,
+ *   upload_mode text,
+ *   item_count int,
+ *   status text default 'SUCCESS',
+ *   snapshot_data jsonb,
+ *   created_at timestamptz default now()
+ * );
+ * 
+ * create table app_users (
+ *   id uuid default gen_random_uuid() primary key,
+ *   username text unique not null,
+ *   password text not null,
+ *   name text not null,
+ *   role text not null check (role in ('OWNER', 'MANAGER')),
+ *   created_at timestamptz default now()
+ * );
  */
