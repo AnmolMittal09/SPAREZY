@@ -97,7 +97,7 @@ const TharLoader: React.FC = () => {
       </div>
       
       <p className="mt-4 text-xs font-bold text-gray-400 tracking-widest uppercase animate-pulse">
-        Loading Assets...
+        SPAREZY SYSTEM LOADING...
       </p>
     </div>
   );

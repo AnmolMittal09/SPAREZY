@@ -2,7 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { User } from '../types';
 import { authenticate } from '../services/userService';
-import { ShieldCheck, User as UserIcon, Lock, Loader2, KeyRound } from 'lucide-react';
+import { ShieldCheck, User as UserIcon, Lock, Loader2 } from 'lucide-react';
+import Logo from '../components/Logo';
 
 interface LoginProps {
   onLogin: (user: User) => void;
@@ -111,12 +112,12 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
            <div className="absolute -top-24 -left-24 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl"></div>
 
            {/* Header */}
-           <div className="p-8 text-center border-b border-white/5 relative">
-              <div className="mx-auto w-16 h-16 bg-gradient-to-tr from-blue-600 to-red-600 rounded-2xl flex items-center justify-center shadow-lg mb-4">
-                  <KeyRound className="text-white" size={32} />
+           <div className="p-8 pb-4 text-center border-b border-white/5 relative">
+              <div className="flex justify-center mb-6">
+                 {/* New Logo Implementation */}
+                 <Logo className="h-28 w-auto drop-shadow-lg" variant="white" />
               </div>
-              <h2 className="text-3xl font-bold text-white tracking-tight">Sparezy</h2>
-              <p className="text-gray-400 text-sm mt-1">Authorized Access Only</p>
+              <p className="text-gray-400 text-sm">Authorized Access Only</p>
            </div>
 
            {/* Form */}

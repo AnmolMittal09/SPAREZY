@@ -3,6 +3,7 @@ import React from 'react';
 // @ts-ignore
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { User, Role } from '../types';
+import Logo from './Logo';
 import { 
   LayoutDashboard, 
   Car, 
@@ -74,16 +75,11 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
         }`}
       >
         <div className="h-full flex flex-col">
-          <div className="p-8 border-b border-gray-100 flex flex-col gap-1">
-            <h1 className="text-2xl font-extrabold text-slate-900 flex items-center gap-2 tracking-tight">
-              <div className="bg-slate-900 text-white p-1.5 rounded-lg">
-                <PackageSearch size={24} />
-              </div>
-              Sparezy
-            </h1>
-            <p className="text-xs text-gray-500 font-medium pl-10">
-              Stock Management System
-            </p>
+          {/* Logo Header linked to Home */}
+          <div className="p-6 border-b border-gray-100 flex justify-center">
+            <Link to="/" onClick={() => setIsSidebarOpen(false)} className="hover:opacity-90 transition-opacity">
+               <Logo className="h-24 w-auto" />
+            </Link>
           </div>
 
           <div className="px-6 py-4">
@@ -128,9 +124,9 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
         <header className="bg-white border-b border-gray-200 lg:hidden p-4 flex items-center justify-between sticky top-0 z-10 shadow-sm">
-          <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-            <PackageSearch className="text-blue-900" /> Sparezy
-          </h1>
+          <Link to="/" className="flex items-center gap-2">
+            <Logo className="h-10 w-auto" />
+          </Link>
           <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-gray-600 bg-gray-50 rounded-lg">
             {isSidebarOpen ? <X /> : <Menu />}
           </button>
