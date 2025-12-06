@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+
+import React, { useState, useMemo, useEffect } from 'react';
 import { StockItem, Brand } from '../types';
-import { Search, Filter, AlertTriangle, AlertCircle } from 'lucide-react';
+import { Search, Filter, AlertTriangle, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface StockTableProps {
   items: StockItem[];
@@ -11,6 +12,13 @@ interface StockTableProps {
 const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'ALL' | 'LOW' | 'ZERO'>('ALL');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 50;
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterType, brandFilter, items]);
 
   const filteredItems = useMemo(() => {
     return items.filter(item => {
@@ -34,10 +42,22 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter }) =>
     });
   }, [items, searchTerm, filterType, brandFilter]);
 
+  // Pagination Logic
+  const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+  const currentItems = filteredItems.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
       <div className="p-6 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <h2 className="text-lg font-bold text-gray-800">{title || 'Inventory List'}</h2>
+        <div className="flex items-center gap-2">
+           <h2 className="text-lg font-bold text-gray-800">{title || 'Inventory List'}</h2>
+           <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+             {filteredItems.length} items
+           </span>
+        </div>
         
         <div className="flex flex-col md:flex-row gap-3">
           <div className="relative">
@@ -87,8 +107,8 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter }) =>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {filteredItems.length > 0 ? (
-              filteredItems.map((item) => {
+            {currentItems.length > 0 ? (
+              currentItems.map((item) => {
                 const isZero = item.quantity === 0;
                 const isLow = item.quantity < item.minStockThreshold;
                 
@@ -135,6 +155,34 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter }) =>
           </tbody>
         </table>
       </div>
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 bg-gray-50">
+           <div className="text-xs text-gray-500">
+              Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredItems.length)}</span> of <span className="font-medium">{filteredItems.length}</span> results
+           </div>
+           <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="p-2 rounded-lg hover:bg-white border border-transparent hover:border-gray-200 disabled:opacity-50 disabled:hover:bg-transparent transition-all"
+              >
+                <ChevronLeft size={16} className="text-gray-600" />
+              </button>
+              <span className="text-xs font-medium text-gray-700">
+                 Page {currentPage} of {totalPages}
+              </span>
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className="p-2 rounded-lg hover:bg-white border border-transparent hover:border-gray-200 disabled:opacity-50 disabled:hover:bg-transparent transition-all"
+              >
+                <ChevronRight size={16} className="text-gray-600" />
+              </button>
+           </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -58,16 +58,36 @@ const getFromLS = (): StockItem[] => {
 
 export const fetchInventory = async (): Promise<StockItem[]> => {
   if (supabase) {
-    const { data, error } = await supabase
-      .from('inventory')
-      .select('*')
-      .order('part_number', { ascending: true });
-    
-    if (error) {
-      console.error('Supabase fetch error:', error);
-      return [];
+    let allData: DBItem[] = [];
+    let page = 0;
+    const PAGE_SIZE = 1000;
+    let hasMore = true;
+
+    // Loop to fetch all pages
+    while (hasMore) {
+      const { data, error } = await supabase
+        .from('inventory')
+        .select('*')
+        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
+        .order('part_number', { ascending: true });
+      
+      if (error) {
+        console.error('Supabase fetch error:', error);
+        break; // Stop fetching on error
+      }
+
+      if (data && data.length > 0) {
+        allData = allData.concat(data as DBItem[]);
+        // If we got fewer items than requested, we've reached the end
+        if (data.length < PAGE_SIZE) {
+          hasMore = false;
+        }
+        page++;
+      } else {
+        hasMore = false;
+      }
     }
-    return (data as DBItem[]).map(toAppItem);
+    return allData.map(toAppItem);
   }
 
   // Fallback to LocalStorage
