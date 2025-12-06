@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 interface LogoProps {
@@ -17,13 +18,14 @@ const Logo: React.FC<LogoProps> = ({ className = "h-16 w-auto", variant = 'defau
   return (
     <svg 
       xmlns="http://www.w3.org/2000/svg" 
-      viewBox="0 0 300 160" 
+      viewBox="0 0 300 180" 
       className={className} 
       role="img" 
       aria-label="Sparezy Logo"
     >
       {/* --- ICON GRAPHIC (Top) --- */}
-      <g transform="translate(150, 60)">
+      {/* Shifted down to y=80 to prevent top clipping of gear teeth */}
+      <g transform="translate(150, 80)">
         {/* Gear Outline (Half Circle) */}
         <path 
           d="M-55,10 A60,60 0 1,1 55,10" 
@@ -95,9 +97,10 @@ const Logo: React.FC<LogoProps> = ({ className = "h-16 w-auto", variant = 'defau
       </g>
 
       {/* --- TEXT (Bottom) --- */}
+      {/* Shifted down to accomodate graphic move */}
       <text 
         x="150" 
-        y="120" 
+        y="145" 
         textAnchor="middle" 
         fill={titleColor} 
         fontFamily="sans-serif" 
@@ -108,7 +111,7 @@ const Logo: React.FC<LogoProps> = ({ className = "h-16 w-auto", variant = 'defau
         SPAREZY
       </text>
       
-      <g transform="translate(150, 140)">
+      <g transform="translate(150, 165)">
         <line x1="-90" y1="-5" x2="-80" y2="-5" stroke={subtitleColor} strokeWidth="1" />
         <text 
             x="0" 
