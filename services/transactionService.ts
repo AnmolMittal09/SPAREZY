@@ -49,6 +49,40 @@ export const createBulkTransactions = async (
 
   if (transactions.length === 0) return { success: true };
 
+  // --- PRE-VALIDATION FOR SALES (Backend Check) ---
+  const saleTransactions = transactions.filter(t => t.type === TransactionType.SALE);
+  if (saleTransactions.length > 0) {
+      // Fetch current stock for these items
+      const partNumbers = saleTransactions.map(t => t.partNumber);
+      // Create unique list for query
+      const uniquePartNumbers = [...new Set(partNumbers)];
+
+      // Note: Supabase .in() has a limit, but for daily batches usually fine. 
+      // If batch is huge (>500), might need splitting, but UI limits batch size practically.
+      const { data: stocks, error } = await supabase
+          .from('inventory')
+          .select('part_number, quantity')
+          .in('part_number', uniquePartNumbers);
+      
+      if (!error && stocks) {
+          // Create map for case-insensitive lookup: part_number -> quantity
+          const stockMap = new Map<string, number>();
+          stocks.forEach((s: any) => stockMap.set(s.part_number.toLowerCase(), s.quantity));
+
+          // Check each sale
+          for (const tx of saleTransactions) {
+              const currentStock = stockMap.get(tx.partNumber.toLowerCase());
+              // If item doesn't exist (stock 0) or quantity > stock
+              if (currentStock === undefined || tx.quantity > currentStock) {
+                  return { 
+                      success: false, 
+                      message: `Insufficient stock for part '${tx.partNumber}'. Available: ${currentStock || 0}, Requested: ${tx.quantity}` 
+                  };
+              }
+          }
+      }
+  }
+
   // Assume all transactions in a batch have the same creator role
   const createdByRole = transactions[0].createdByRole;
   
@@ -119,6 +153,19 @@ export const fetchTransactions = async (status?: TransactionStatus): Promise<Tra
 
 export const approveTransaction = async (id: string, partNumber: string, type: TransactionType, quantity: number): Promise<void> => {
   if (!supabase) return;
+
+  // 0. Pre-Approval Validation for Sales
+  if (type === TransactionType.SALE) {
+      const { data: item } = await supabase
+          .from('inventory')
+          .select('quantity')
+          .ilike('part_number', partNumber)
+          .single();
+      
+      if (!item || item.quantity < quantity) {
+          throw new Error(`Cannot approve: Insufficient stock. Available: ${item?.quantity || 0}`);
+      }
+  }
 
   // 1. Update Transaction Status
   const { error: txError } = await supabase

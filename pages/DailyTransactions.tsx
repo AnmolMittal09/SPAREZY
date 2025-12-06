@@ -31,7 +31,8 @@ import {
   TrendingUp,
   TrendingDown,
   ArrowDownLeft,
-  PackageCheck
+  PackageCheck,
+  AlertOctagon
 } from 'lucide-react';
 import StatCard from '../components/StatCard';
 
@@ -227,13 +228,21 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
 
           const finalName = name || formName || (transactionType === TransactionType.SALE ? 'Walk-in' : 'Supplier');
 
+          // Check stock validation for Excel
+          let isStockError = false;
+          if (transactionType === TransactionType.SALE) {
+              const currentStock = existingItem ? existingItem.quantity : 0;
+              if (qty > currentStock) isStockError = true;
+          }
+
           newItems.push({
             tempId: Math.random().toString(36),
             partNumber: partNo,
             type: transactionType,
             quantity: qty,
             price: price,
-            customerName: finalName
+            customerName: finalName,
+            stockError: isStockError
           });
         }
       });
@@ -249,6 +258,17 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
   const addToCart = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formPartNumber) return;
+
+    // VALIDATION: Check stock for sales
+    if (transactionType === TransactionType.SALE) {
+        const item = inventory.find(i => i.partNumber.toLowerCase() === formPartNumber.toLowerCase());
+        const currentStock = item ? item.quantity : 0;
+        
+        if (formQty > currentStock) {
+            alert(`Insufficient Stock! You only have ${currentStock} in stock.`);
+            return;
+        }
+    }
 
     const newItem: CartItem = {
       tempId: Math.random().toString(36),
@@ -276,6 +296,13 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
 
   const handleBatchSubmit = async () => {
     if (cart.length === 0) return;
+    
+    // Double check errors
+    if (cart.some(i => i.stockError)) {
+        alert("Please remove out-of-stock items before submitting.");
+        return;
+    }
+
     setSubmitting(true);
     setMsg(null);
 
@@ -304,6 +331,11 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
       if (transactionType === TransactionType.RETURN) {
          handleReturnSearch(returnSearch);
       }
+      
+      // Refresh inventory to keep stock updated on frontend
+      const inv = await fetchInventory();
+      setInventory(inv);
+
     } else {
       setMsg({ type: 'error', text: res.message || 'Failed to submit batch.' });
     }
@@ -314,8 +346,11 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
     try {
       await approveTransaction(tx.id, tx.partNumber, tx.type, tx.quantity);
       loadPending();
-    } catch (err) {
-      alert("Error approving transaction");
+      // Update inventory on approval too
+      const inv = await fetchInventory();
+      setInventory(inv);
+    } catch (err: any) {
+      alert(err.message || "Error approving transaction");
     }
   };
 
@@ -340,6 +375,9 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
     }
     return 'bg-white border-gray-200 hover:bg-gray-50';
   };
+
+  // Check if cart has errors
+  const hasCartErrors = cart.some(i => i.stockError);
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -589,9 +627,19 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                                {cart.map((item) => (
-                                  <tr key={item.tempId} className="hover:bg-gray-50 group">
-                                     <td className="px-4 py-3 font-medium text-gray-900">{item.partNumber}</td>
-                                     <td className="px-4 py-3">{item.quantity}</td>
+                                  <tr key={item.tempId} className={`hover:bg-gray-50 group ${item.stockError ? 'bg-red-50' : ''}`}>
+                                     <td className="px-4 py-3 font-medium text-gray-900 flex items-center gap-2">
+                                        {item.stockError && (
+                                            <span title="Insufficient Stock" className="flex items-center">
+                                                <AlertOctagon size={14} className="text-red-600" />
+                                            </span>
+                                        )}
+                                        {item.partNumber}
+                                     </td>
+                                     <td className="px-4 py-3">
+                                        {item.quantity}
+                                        {item.stockError && <div className="text-[10px] text-red-600 font-bold">Exceeds Stock</div>}
+                                     </td>
                                      <td className="px-4 py-3">₹{item.price}</td>
                                      <td className="px-4 py-3 text-gray-600">₹{(item.quantity * item.price).toLocaleString()}</td>
                                      <td className="px-4 py-3 text-right">
@@ -615,10 +663,11 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
                          <p className="text-xl font-bold text-gray-900">
                            ₹{cart.reduce((sum, item) => sum + (item.quantity * item.price), 0).toLocaleString()}
                          </p>
+                         {hasCartErrors && <p className="text-xs text-red-600 font-bold mt-1">Error: Remove items exceeding stock</p>}
                       </div>
                       <button 
                         onClick={handleBatchSubmit}
-                        disabled={cart.length === 0 || submitting}
+                        disabled={cart.length === 0 || submitting || hasCartErrors}
                         className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                          {submitting ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle2 size={20} />}
