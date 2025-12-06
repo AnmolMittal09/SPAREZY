@@ -30,7 +30,8 @@ import {
   IndianRupee,
   TrendingUp,
   TrendingDown,
-  ArrowDownLeft
+  ArrowDownLeft,
+  PackageCheck
 } from 'lucide-react';
 import StatCard from '../components/StatCard';
 
@@ -789,47 +790,83 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
             {loading ? (
                <div className="p-12 flex justify-center"><Loader2 className="animate-spin text-gray-400" size={32} /></div>
             ) : analyticsData ? (
-               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <StatCard 
-                     title="Total Sales" 
-                     value={`₹${analyticsData.totalSales.toLocaleString()}`} 
-                     icon={ShoppingCart} 
-                     colorClass="bg-green-50 border-green-100"
-                  />
-                  <StatCard 
-                     title="Total Returns (Refunds)" 
-                     value={`-₹${analyticsData.totalReturns.toLocaleString()}`} 
-                     icon={RotateCcw} 
-                     colorClass="bg-red-50 border-red-100"
-                  />
-                  <StatCard 
-                     title="Net Revenue" 
-                     value={`₹${analyticsData.netRevenue.toLocaleString()}`} 
-                     icon={IndianRupee} 
-                     trend={analyticsData.netRevenue > 0 ? "Profit" : "Loss"}
-                     colorClass="bg-blue-50 border-blue-100"
-                  />
-                  <StatCard 
-                     title="Total Purchases (Expense)" 
-                     value={`₹${analyticsData.totalPurchases.toLocaleString()}`} 
-                     icon={Truck} 
-                  />
-                  
-                  {/* Summary Cards */}
-                  <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
-                     <div>
-                        <h4 className="text-gray-500 text-sm font-medium">Sales Volume</h4>
-                        <p className="text-2xl font-bold text-gray-900">{analyticsData.salesCount} <span className="text-sm font-normal text-gray-400">Transactions</span></p>
+               <div className="space-y-6">
+                  {/* Cards Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                     <StatCard 
+                        title="Total Sales" 
+                        value={`₹${analyticsData.totalSales.toLocaleString()}`} 
+                        icon={ShoppingCart} 
+                        colorClass="bg-green-50 border-green-100"
+                     />
+                     <StatCard 
+                        title="Total Returns (Refunds)" 
+                        value={`-₹${analyticsData.totalReturns.toLocaleString()}`} 
+                        icon={RotateCcw} 
+                        colorClass="bg-red-50 border-red-100"
+                     />
+                     <StatCard 
+                        title="Net Revenue" 
+                        value={`₹${analyticsData.netRevenue.toLocaleString()}`} 
+                        icon={IndianRupee} 
+                        trend={analyticsData.netRevenue > 0 ? "Profit" : "Loss"}
+                        colorClass="bg-blue-50 border-blue-100"
+                     />
+                     <StatCard 
+                        title="Total Purchases (Expense)" 
+                        value={`₹${analyticsData.totalPurchases.toLocaleString()}`} 
+                        icon={Truck} 
+                     />
+                     
+                     {/* Summary Cards */}
+                     <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
+                        <div>
+                           <h4 className="text-gray-500 text-sm font-medium">Sales Volume</h4>
+                           <p className="text-2xl font-bold text-gray-900">{analyticsData.salesCount} <span className="text-sm font-normal text-gray-400">Transactions</span></p>
+                        </div>
+                        <TrendingUp className="text-green-500" size={32} />
                      </div>
-                     <TrendingUp className="text-green-500" size={32} />
-                  </div>
-                  <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
-                     <div>
-                        <h4 className="text-gray-500 text-sm font-medium">Return Volume</h4>
-                        <p className="text-2xl font-bold text-gray-900">{analyticsData.returnCount} <span className="text-sm font-normal text-gray-400">Transactions</span></p>
+                     <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
+                        <div>
+                           <h4 className="text-gray-500 text-sm font-medium">Return Volume</h4>
+                           <p className="text-2xl font-bold text-gray-900">{analyticsData.returnCount} <span className="text-sm font-normal text-gray-400">Transactions</span></p>
+                        </div>
+                        <TrendingDown className="text-red-500" size={32} />
                      </div>
-                     <TrendingDown className="text-red-500" size={32} />
                   </div>
+
+                  {/* SOLD PARTS BREAKDOWN TABLE */}
+                  {analyticsData.soldItems && analyticsData.soldItems.length > 0 && (
+                      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden animate-fade-in">
+                         <div className="p-5 border-b border-gray-100 bg-gray-50 flex items-center gap-2">
+                             <PackageCheck className="text-blue-600" size={20} />
+                             <h3 className="font-bold text-gray-800">Sold Parts Breakdown</h3>
+                             <span className="text-xs bg-white border px-2 py-0.5 rounded-full text-gray-500">{analyticsData.soldItems.length} items</span>
+                         </div>
+                         <div className="overflow-x-auto max-h-[500px]">
+                            <table className="w-full text-sm text-left">
+                               <thead className="bg-white text-gray-600 font-medium border-b border-gray-200 sticky top-0 shadow-sm">
+                                  <tr>
+                                     <th className="px-6 py-3">Part No</th>
+                                     <th className="px-6 py-3">Name</th>
+                                     <th className="px-6 py-3 text-right">Qty Sold</th>
+                                     <th className="px-6 py-3 text-right">Revenue</th>
+                                  </tr>
+                               </thead>
+                               <tbody className="divide-y divide-gray-100">
+                                  {analyticsData.soldItems.map((item) => (
+                                     <tr key={item.partNumber} className="hover:bg-gray-50 transition-colors">
+                                        <td className="px-6 py-3 font-medium text-gray-900">{item.partNumber}</td>
+                                        <td className="px-6 py-3 text-gray-500">{item.name}</td>
+                                        <td className="px-6 py-3 text-right font-bold text-gray-800">{item.quantitySold}</td>
+                                        <td className="px-6 py-3 text-right text-green-600 font-medium">₹{item.totalRevenue.toLocaleString()}</td>
+                                     </tr>
+                                  ))}
+                               </tbody>
+                            </table>
+                         </div>
+                      </div>
+                  )}
                </div>
             ) : (
                <div className="text-center p-12 text-gray-500">No analytics data available for this period.</div>

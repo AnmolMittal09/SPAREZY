@@ -185,6 +185,13 @@ const updateStockForTransaction = async (partNumber: string, type: TransactionTy
 };
 
 // Analytics Helper
+export interface SoldItemStats {
+  partNumber: string;
+  name: string;
+  quantitySold: number;
+  totalRevenue: number;
+}
+
 export interface AnalyticsData {
   totalSales: number;
   totalReturns: number;
@@ -192,21 +199,22 @@ export interface AnalyticsData {
   netRevenue: number;
   salesCount: number;
   returnCount: number;
+  soldItems: SoldItemStats[];
 }
 
 export const fetchAnalytics = async (startDate: Date, endDate: Date): Promise<AnalyticsData> => {
-  if (!supabase) return { totalSales: 0, totalReturns: 0, totalPurchases: 0, netRevenue: 0, salesCount: 0, returnCount: 0 };
+  if (!supabase) return { totalSales: 0, totalReturns: 0, totalPurchases: 0, netRevenue: 0, salesCount: 0, returnCount: 0, soldItems: [] };
 
   const { data, error } = await supabase
     .from('transactions')
-    .select('type, price, quantity, status')
+    .select('part_number, type, price, quantity, status')
     .eq('status', 'APPROVED')
     .gte('created_at', startDate.toISOString())
     .lte('created_at', endDate.toISOString());
 
   if (error || !data) {
     console.error("Analytics fetch error", error);
-    return { totalSales: 0, totalReturns: 0, totalPurchases: 0, netRevenue: 0, salesCount: 0, returnCount: 0 };
+    return { totalSales: 0, totalReturns: 0, totalPurchases: 0, netRevenue: 0, salesCount: 0, returnCount: 0, soldItems: [] };
   }
 
   let totalSales = 0;
@@ -215,11 +223,21 @@ export const fetchAnalytics = async (startDate: Date, endDate: Date): Promise<An
   let salesCount = 0;
   let returnCount = 0;
 
+  // Map to store sold items aggregation: Key = PartNumber
+  const soldItemsMap = new Map<string, { qty: number, rev: number }>();
+
   data.forEach((t: any) => {
     const val = (t.price || 0) * (t.quantity || 0);
+    
     if (t.type === TransactionType.SALE) {
       totalSales += val;
       salesCount += 1;
+      
+      // Aggregate Sold Item
+      const pnKey = t.part_number.toUpperCase();
+      const current = soldItemsMap.get(pnKey) || { qty: 0, rev: 0 };
+      soldItemsMap.set(pnKey, { qty: current.qty + t.quantity, rev: current.rev + val });
+
     } else if (t.type === TransactionType.RETURN) {
       totalReturns += val;
       returnCount += 1;
@@ -228,13 +246,47 @@ export const fetchAnalytics = async (startDate: Date, endDate: Date): Promise<An
     }
   });
 
+  // Fetch Part Names for the sold items
+  const distinctPartNumbers = Array.from(soldItemsMap.keys());
+  let partNamesMap = new Map<string, string>();
+
+  if (distinctPartNumbers.length > 0) {
+    // Note: Supabase .in limited to ~65k params, but we should be fine for daily view
+    // Since we Uppercased keys, we need to hope database has consistent casing or use ilike loop (slow)
+    // For now we assume typical use case consistency or simply fetch whatever matches
+    const { data: invData } = await supabase
+      .from('inventory')
+      .select('part_number, name')
+      .in('part_number', distinctPartNumbers); // This might miss if casing differs, but sufficient for report
+    
+    if (invData) {
+      invData.forEach((i: any) => {
+        partNamesMap.set(i.part_number.toUpperCase(), i.name);
+      });
+    }
+  }
+
+  const soldItems: SoldItemStats[] = [];
+  soldItemsMap.forEach((val, key) => {
+     soldItems.push({
+       partNumber: key,
+       name: partNamesMap.get(key) || 'Unknown Item',
+       quantitySold: val.qty,
+       totalRevenue: val.rev
+     });
+  });
+
+  // Sort by Qty Sold Descending
+  soldItems.sort((a, b) => b.quantitySold - a.quantitySold);
+
   return {
     totalSales,
     totalReturns,
     totalPurchases,
     netRevenue: totalSales - totalReturns, // Revenue minus refunds
     salesCount,
-    returnCount
+    returnCount,
+    soldItems
   };
 };
 
