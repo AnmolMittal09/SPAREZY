@@ -1,3 +1,4 @@
+
 import { supabase } from './supabase';
 import { Role, Transaction, TransactionStatus, TransactionType } from '../types';
 
@@ -13,6 +14,7 @@ import { Role, Transaction, TransactionStatus, TransactionType } from '../types'
  *   customer_name text,
  *   status text default 'PENDING',
  *   created_by_role text,
+ *   expected_delivery_date date,
  *   created_at timestamptz default now()
  * );
  */
@@ -27,32 +29,46 @@ const mapDBToTransaction = (item: any): Transaction => ({
   status: item.status as TransactionStatus,
   createdByRole: item.created_by_role as Role,
   createdAt: item.created_at,
+  expectedDeliveryDate: item.expected_delivery_date
 });
 
 export const createTransaction = async (
   transaction: Omit<Transaction, 'id' | 'status' | 'createdAt'>
 ): Promise<{ success: boolean; message?: string }> => {
+  return createBulkTransactions([transaction]);
+};
+
+export const createBulkTransactions = async (
+  transactions: Omit<Transaction, 'id' | 'status' | 'createdAt'>[]
+): Promise<{ success: boolean; message?: string }> => {
   
-  // If no Supabase, return mock success
   if (!supabase) {
-    console.log("Mock Transaction Created:", transaction);
+    console.log("Mock Transactions Created:", transactions.length);
     return { success: true };
   }
 
+  if (transactions.length === 0) return { success: true };
+
+  // Assume all transactions in a batch have the same creator role
+  const createdByRole = transactions[0].createdByRole;
+  
   // Logic: Owners auto-approve, Managers are Pending
-  const initialStatus = transaction.createdByRole === Role.OWNER 
+  const initialStatus = createdByRole === Role.OWNER 
     ? TransactionStatus.APPROVED 
     : TransactionStatus.PENDING;
 
-  const { error } = await supabase.from('transactions').insert({
-    part_number: transaction.partNumber,
-    type: transaction.type,
-    quantity: transaction.quantity,
-    price: transaction.price,
-    customer_name: transaction.customerName,
+  const dbRows = transactions.map(t => ({
+    part_number: t.partNumber,
+    type: t.type,
+    quantity: t.quantity,
+    price: t.price,
+    customer_name: t.customerName,
     status: initialStatus,
-    created_by_role: transaction.createdByRole,
-  });
+    created_by_role: t.createdByRole,
+    expected_delivery_date: t.expectedDeliveryDate || null
+  }));
+
+  const { error } = await supabase.from('transactions').insert(dbRows);
 
   if (error) {
     return { success: false, message: error.message };
@@ -60,7 +76,18 @@ export const createTransaction = async (
 
   // If auto-approved (Owner), update stock immediately
   if (initialStatus === TransactionStatus.APPROVED) {
-    await updateStockForTransaction(transaction.partNumber, transaction.type, transaction.quantity);
+    // We process these sequentially to ensure stock accuracy
+    // In a robust backend, this would be a Postgres Trigger or Function
+    for (const tx of transactions) {
+       // Purchase Orders (Future delivery) do not affect current stock count immediately upon creation/approval
+       // They usually affect stock only when 'Received'. 
+       // However, based on typical simple flows, 'PURCHASE' (Immediate) adds stock.
+       // 'PURCHASE_ORDER' might just be a record. 
+       // For this app, we treat PURCHASE as immediate stock add.
+       if (tx.type !== TransactionType.PURCHASE_ORDER) {
+         await updateStockForTransaction(tx.partNumber, tx.type, tx.quantity);
+       }
+    }
   }
 
   return { success: true };
@@ -102,8 +129,10 @@ export const approveTransaction = async (id: string, partNumber: string, type: T
 
   if (txError) throw new Error(txError.message);
 
-  // 2. Update Inventory
-  await updateStockForTransaction(partNumber, type, quantity);
+  // 2. Update Inventory (if it's an immediate transaction)
+  if (type !== TransactionType.PURCHASE_ORDER) {
+    await updateStockForTransaction(partNumber, type, quantity);
+  }
 };
 
 export const rejectTransaction = async (id: string): Promise<void> => {
@@ -129,9 +158,8 @@ const updateStockForTransaction = async (partNumber: string, type: TransactionTy
     .limit(1);
 
   if (!items || items.length === 0) {
-    // If purchasing a new item that doesn't exist yet, we might want to create it?
-    // For now, we assume stock exists or was uploaded via Excel.
-    // If it's a purchase of a new item, users should use the Upload Page first.
+    // Item doesn't exist. If it's a purchase, maybe we should create it?
+    // For now, we skip. The user should add the item in the "Update Stock" page first.
     return;
   }
 
@@ -140,12 +168,12 @@ const updateStockForTransaction = async (partNumber: string, type: TransactionTy
 
   if (type === TransactionType.SALE) {
     newQty = currentQty - quantity;
-  } else {
+  } else if (type === TransactionType.PURCHASE) {
     newQty = currentQty + quantity;
   }
 
-  // Prevent negative stock? (Optional, but good practice)
-  if (newQty < 0) newQty = 0;
+  // Prevent negative stock for sales
+  if (newQty < 0 && type === TransactionType.SALE) newQty = 0;
 
   await supabase
     .from('inventory')

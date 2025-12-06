@@ -38,6 +38,7 @@ export interface StockStats {
 export enum TransactionType {
   SALE = 'SALE',
   PURCHASE = 'PURCHASE',
+  PURCHASE_ORDER = 'PURCHASE_ORDER',
 }
 
 export enum TransactionStatus {
@@ -56,9 +57,10 @@ export interface Transaction {
   status: TransactionStatus;
   createdByRole: Role;
   createdAt: string;
+  expectedDeliveryDate?: string;
 }
 
 // Database Schema Representation (Mock)
 // Table: Users { id (PK), username, role, name, password_hash }
 // Table: Inventory { id (PK), part_number (Unique), name, brand, hsn_code, quantity, threshold, price, last_updated }
-// Table: Transactions { id (PK), part_number, type, quantity, price, customer_name, status, created_by_role, created_at }
+// Table: Transactions { id (PK), part_number, type, quantity, price, customer_name, status, created_by_role, created_at, expected_delivery_date }
