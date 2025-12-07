@@ -37,7 +37,8 @@ import {
   Minus,
   Plus,
   Printer,
-  CheckSquare
+  CheckSquare,
+  Zap
 } from 'lucide-react';
 import StatCard from '../components/StatCard';
 import TharLoader from '../components/TharLoader';
@@ -79,10 +80,14 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
   const [formName, setFormName] = useState(''); // Customer or Supplier
   const [formRelatedId, setFormRelatedId] = useState<string | undefined>(undefined); // Track selected sale ID for return
 
+  // Refs for Quick Add Focus Management
+  const partInputRef = useRef<HTMLInputElement>(null);
+  const qtyInputRef = useRef<HTMLInputElement>(null);
+  const searchTimeoutRef = useRef<any>(null);
+
   // --- SUGGESTIONS STATE ---
   const [suggestions, setSuggestions] = useState<StockItem[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const searchTimeoutRef = useRef<any>(null);
 
   // --- RETURN SEARCH STATE ---
   const [returnSearch, setReturnSearch] = useState('');
@@ -210,9 +215,18 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
 
   const selectSuggestion = (item: StockItem) => {
     setFormPartNumber(item.partNumber);
-    setFormPrice(item.price);
+    // Auto-fill price for Sales
+    if (transactionType === TransactionType.SALE) {
+       setFormPrice(item.price);
+    }
     setSuggestions([]);
     setShowSuggestions(false);
+    
+    // Auto focus quantity input for speed
+    setTimeout(() => {
+      qtyInputRef.current?.focus();
+      qtyInputRef.current?.select();
+    }, 10);
   };
 
   // --- CART QUANTITY UPDATE ---
@@ -322,8 +336,8 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
   };
 
   // --- CART ACTIONS ---
-  const addToCart = (e: React.FormEvent) => {
-    e.preventDefault();
+  const addToCart = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!formPartNumber) return;
 
     const stockItem = inventory.find(i => i.partNumber.toLowerCase() === formPartNumber.toLowerCase());
@@ -373,6 +387,18 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
     setFormQty(1);
     setFormPrice(0);
     setFormRelatedId(undefined);
+    
+    // Focus back to part number for next entry
+    setTimeout(() => {
+      partInputRef.current?.focus();
+    }, 10);
+  };
+
+  const handleQuickAdd = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addToCart();
+    }
   };
 
   const removeFromCart = (id: string) => {
@@ -543,11 +569,11 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
   // Helper styles for Transaction Type
   const getTypeClass = (type: TransactionType) => {
     if (transactionType === type) {
-       if (type === TransactionType.SALE) return 'bg-green-50 border-green-200 ring-2 ring-green-500';
-       if (type === TransactionType.PURCHASE) return 'bg-blue-50 border-blue-200 ring-2 ring-blue-500';
-       if (type === TransactionType.RETURN) return 'bg-red-50 border-red-200 ring-2 ring-red-500';
+       if (type === TransactionType.SALE) return 'bg-green-50 border-green-200 ring-2 ring-green-500 shadow-md transform scale-[1.02]';
+       if (type === TransactionType.PURCHASE) return 'bg-blue-50 border-blue-200 ring-2 ring-blue-500 shadow-md transform scale-[1.02]';
+       if (type === TransactionType.RETURN) return 'bg-red-50 border-red-200 ring-2 ring-red-500 shadow-md transform scale-[1.02]';
     }
-    return 'bg-white border-gray-200 hover:bg-gray-50';
+    return 'bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300';
   };
 
   // Check if cart has errors
@@ -617,7 +643,10 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
              {/* 2. Left Column: Input Form */}
              <div className="lg:col-span-1 space-y-4">
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-                   <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">Add Item to Batch</h3>
+                   <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                    <Zap size={18} className="text-yellow-500" />
+                    Quick Add
+                   </h3>
                    <form onSubmit={addToCart} className="space-y-4">
                       {/* Name Field */}
                       <div>
@@ -639,6 +668,7 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
                          <div className="relative">
                             <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
                             <input 
+                              ref={partInputRef}
                               type="text" 
                               required
                               className="w-full mt-1 pl-9 pr-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none uppercase font-mono"
@@ -650,20 +680,37 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
                          </div>
                          {/* Suggestions Dropdown */}
                          {showSuggestions && suggestions.length > 0 && (
-                           <div className="absolute left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                              {suggestions.map(s => (
-                                <div 
-                                  key={s.id}
-                                  onClick={() => selectSuggestion(s)}
-                                  className="px-4 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-0"
-                                >
-                                  <div className="font-bold text-sm text-gray-800">{s.partNumber}</div>
-                                  <div className="text-xs text-gray-500 flex justify-between">
-                                    <span>{s.name}</span>
-                                    <span>Stock: {s.quantity}</span>
+                           <div className="absolute left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-y-auto">
+                              {suggestions.map(s => {
+                                const isZero = s.quantity === 0;
+                                const isLow = s.quantity < s.minStockThreshold;
+                                const stockClass = isZero ? 'bg-red-100 text-red-700' : isLow ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700';
+                                const isDisabled = isZero && transactionType === TransactionType.SALE;
+
+                                return (
+                                  <div 
+                                    key={s.id}
+                                    onClick={() => !isDisabled && selectSuggestion(s)}
+                                    className={`px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-0 flex justify-between items-center ${isDisabled ? 'opacity-70 cursor-not-allowed bg-gray-50' : ''}`}
+                                  >
+                                    <div>
+                                        <div className="font-bold text-sm text-gray-800 flex items-center gap-2">
+                                          {s.partNumber}
+                                          {isDisabled && (
+                                              <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded border border-red-200 font-bold">OUT OF STOCK</span>
+                                          )}
+                                        </div>
+                                        <div className="text-xs text-gray-500">{s.name}</div>
+                                    </div>
+                                    <div className="text-right">
+                                      <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${stockClass}`}>
+                                          Stock: {s.quantity}
+                                      </span>
+                                      <div className="text-[10px] text-gray-400 mt-1">₹{s.price}</div>
+                                    </div>
                                   </div>
-                                </div>
-                              ))}
+                                );
+                              })}
                            </div>
                          )}
                       </div>
@@ -672,12 +719,14 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
                          <div>
                             <label className="text-xs font-semibold text-gray-500 uppercase">Quantity *</label>
                             <input 
+                              ref={qtyInputRef}
                               type="number" 
                               min="1"
                               required
                               className="w-full mt-1 px-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
                               value={formQty}
                               onChange={e => setFormQty(parseInt(e.target.value) || 0)}
+                              onKeyDown={handleQuickAdd}
                             />
                          </div>
                          <div>
@@ -688,6 +737,7 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
                               className="w-full mt-1 px-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
                               value={formPrice}
                               onChange={e => setFormPrice(parseFloat(e.target.value) || 0)}
+                              onKeyDown={handleQuickAdd}
                             />
                          </div>
                       </div>
@@ -701,6 +751,9 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
                       <button type="submit" className="w-full bg-slate-800 hover:bg-slate-900 text-white font-medium py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2">
                          <PlusCircle size={18} /> Add to List
                       </button>
+                      <p className="text-[10px] text-center text-gray-400">
+                        Tip: Press <strong>Enter</strong> in Quantity/Price to Quick Add
+                      </p>
                    </form>
 
                    <div className="my-6 border-t border-gray-100 relative">
