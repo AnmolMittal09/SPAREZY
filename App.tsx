@@ -10,6 +10,7 @@ import UploadPage from './pages/Upload';
 import DailyTransactions from './pages/DailyTransactions';
 import ItemDetail from './pages/ItemDetail';
 import UserManagement from './pages/UserManagement';
+import StockRequests from './pages/StockRequests';
 import Layout from './components/Layout';
 
 const INACTIVITY_LIMIT_MS = 30 * 60 * 1000; // 30 Minutes
@@ -69,6 +70,7 @@ const App: React.FC = () => {
         <Routes>
           <Route path="/" element={<Dashboard user={user} />} />
           <Route path="/transactions" element={<DailyTransactions user={user} />} />
+          <Route path="/requests" element={<StockRequests user={user} />} />
           <Route path="/brand/:brandName" element={<BrandDashboard />} />
           <Route path="/item/:partNumber" element={<ItemDetail />} />
           

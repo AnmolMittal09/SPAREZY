@@ -66,4 +66,13 @@ export const supabase = (supabaseUrl && supabaseKey)
  *   role text not null check (role in ('OWNER', 'MANAGER')),
  *   created_at timestamptz default now()
  * );
+ * 
+ * create table stock_requests (
+ *   id uuid default gen_random_uuid() primary key,
+ *   part_number text not null,
+ *   quantity_needed int not null,
+ *   requester_name text,
+ *   status text default 'PENDING',
+ *   created_at timestamptz default now()
+ * );
  */

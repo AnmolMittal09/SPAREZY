@@ -80,9 +80,17 @@ export interface PriceHistoryEntry {
   changeDate: string;
 }
 
-// Database Schema Representation (Mock)
-// Table: Users { id (PK), username, role, name, password_hash }
-// Table: Inventory { id (PK), part_number (Unique), name, brand, hsn_code, quantity, threshold, price, last_updated }
-// Table: Transactions { id (PK), part_number, type, quantity, price, customer_name, status, created_by_role, created_at, related_transaction_id }
-// Table: UploadHistory { id (PK), file_name, upload_mode, item_count, status, snapshot_data, created_at }
-// Table: PriceHistory { id (PK), part_number, old_price, new_price, change_date }
+export enum RequestStatus {
+  PENDING = 'PENDING',
+  ORDERED = 'ORDERED',
+  REJECTED = 'REJECTED',
+}
+
+export interface StockRequest {
+  id: string;
+  partNumber: string;
+  quantityNeeded: number;
+  requesterName: string;
+  status: RequestStatus;
+  createdAt: string;
+}

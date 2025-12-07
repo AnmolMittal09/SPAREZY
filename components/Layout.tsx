@@ -14,7 +14,8 @@ import {
   PackageSearch,
   ShoppingCart,
   ChevronRight,
-  Users
+  Users,
+  ClipboardList
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -105,6 +106,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
             <p className="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mt-4 mb-2">Main Menu</p>
             <NavItem to="/" icon={LayoutDashboard} label="Overview" themeColor="gray" />
             <NavItem to="/transactions" icon={ShoppingCart} label="Daily Transactions" themeColor="gray" />
+            <NavItem to="/requests" icon={ClipboardList} label="Stock Requests" themeColor="gray" />
             
             <p className="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mt-6 mb-2">Inventory</p>
             <NavItem to="/brand/hyundai" icon={Car} label="Hyundai Stock" themeColor="blue" />
