@@ -32,6 +32,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   // Filters
   const [hideOutOfStock, setHideOutOfStock] = useState(false);
   const [selectedBrand, setSelectedBrand] = useState<Brand | undefined>(undefined);
+  
+  // Privacy State
+  const [showTotalValue, setShowTotalValue] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -120,9 +123,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard 
           title="Total Inventory Value" 
-          value={`₹${stats.totalValue.toLocaleString()}`} 
+          value={showTotalValue ? `₹${stats.totalValue.toLocaleString()}` : "₹ •••••••"} 
           icon={Banknote}
-          colorClass="bg-white"
+          colorClass="bg-white select-none cursor-pointer"
+          onClick={() => setShowTotalValue(!showTotalValue)}
         />
         <StatCard 
           title="Total Parts Count" 
