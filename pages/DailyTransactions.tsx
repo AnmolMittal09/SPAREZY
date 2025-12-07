@@ -64,6 +64,7 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
   const [historyList, setHistoryList] = useState<Transaction[]>([]);
   const [inventory, setInventory] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
 
   // --- CART / BATCH STATE ---
   const [transactionType, setTransactionType] = useState<TransactionType>(TransactionType.SALE);
@@ -106,6 +107,7 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
       setInventory(data);
     };
     loadInv();
+    updatePendingCount();
   }, []);
 
   useEffect(() => {
@@ -124,10 +126,16 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
      }
   }, [transactionType, activeTab]);
 
+  const updatePendingCount = async () => {
+    const data = await fetchTransactions(TransactionStatus.PENDING);
+    setPendingCount(data.length);
+  };
+
   const loadPending = async () => {
     setLoading(true);
     const data = await fetchTransactions(TransactionStatus.PENDING);
     setPendingList(data);
+    setPendingCount(data.length); // Update count while we are at it
     setSelectedPending(new Set()); // Reset selection
     setLoading(false);
   };
@@ -415,9 +423,10 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
          handleReturnSearch(returnSearch);
       }
       
-      // Refresh inventory to keep stock updated on frontend
+      // Refresh inventory and pending count
       const inv = await fetchInventory();
       setInventory(inv);
+      updatePendingCount();
 
     } else {
       setMsg({ type: 'error', text: res.message || 'Failed to submit batch.' });
@@ -469,6 +478,7 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
 
       // 5. Cleanup
       loadPending();
+      updatePendingCount();
       // Update inventory 
       const inv = await fetchInventory();
       setInventory(inv);
@@ -484,6 +494,7 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
     try {
       await approveTransaction(tx.id, tx.partNumber, tx.type, tx.quantity);
       loadPending();
+      updatePendingCount();
       // Update inventory
       const inv = await fetchInventory();
       setInventory(inv);
@@ -496,6 +507,7 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
     try {
       await rejectTransaction(id);
       loadPending();
+      updatePendingCount();
     } catch (err) {
       alert("Error rejecting transaction");
     }
@@ -555,8 +567,14 @@ const DailyTransactions: React.FC<Props> = ({ user }) => {
         <button onClick={() => setActiveTab('NEW')} className={getTabClass('NEW')}>
           <PlusCircle size={18} /> New Batch
         </button>
-        <button onClick={() => setActiveTab('PENDING')} className={getTabClass('PENDING')}>
-          <Clock size={18} /> Pending
+        <button onClick={() => setActiveTab('PENDING')} className={`${getTabClass('PENDING')} relative`}>
+          <Clock size={18} />
+          Pending
+          {pendingCount > 0 && (
+             <span className="absolute top-1.5 right-2 sm:top-2 sm:right-3 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] text-white font-bold ring-2 ring-white animate-pulse">
+                {pendingCount}
+             </span>
+          )}
         </button>
         <button onClick={() => setActiveTab('HISTORY')} className={getTabClass('HISTORY')}>
           <History size={18} /> History
