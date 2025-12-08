@@ -4,7 +4,7 @@ import { User, Transaction } from '../types';
 import { fetchUninvoicedSales, generateTaxInvoiceRecord, fetchInvoices } from '../services/transactionService';
 import { fetchInventory } from '../services/inventoryService';
 import { generateInvoice } from '../services/invoiceService'; // Uses the print logic
-import { FileText, Printer, Search, RefreshCw, AlertCircle, CheckCircle2, History } from 'lucide-react';
+import { FileText, Printer, Search, RefreshCw, AlertCircle, CheckCircle2, History, Calculator } from 'lucide-react';
 import TharLoader from '../components/TharLoader';
 
 interface Props {
@@ -62,6 +62,13 @@ const Invoices: React.FC<Props> = ({ user }) => {
     setSelectedIds(newSet);
   };
 
+  // --- CALCULATIONS ---
+  const selectedItems = sales.filter(s => selectedIds.has(s.id));
+  const subTotal = selectedItems.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
+  const taxRate = 0.18; // 18% GST
+  const taxAmount = subTotal * taxRate;
+  const grandTotal = subTotal + taxAmount;
+
   const handleGenerateInvoice = async () => {
     if (selectedIds.size === 0) return;
     if (!customerName) {
@@ -69,14 +76,10 @@ const Invoices: React.FC<Props> = ({ user }) => {
       return;
     }
 
-    const selectedItems = sales.filter(s => selectedIds.has(s.id));
-    const totalAmount = selectedItems.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
-    const taxAmount = totalAmount * 0.18; // Simple 18% assumption, real logic would sum tax per item
-
     const result = await generateTaxInvoiceRecord(
       Array.from(selectedIds),
       { name: customerName, phone: customerPhone, address: customerAddress, gst: customerGst, paymentMode },
-      { amount: totalAmount, tax: taxAmount },
+      { amount: grandTotal, tax: taxAmount },
       user.role
     );
 
@@ -87,9 +90,10 @@ const Invoices: React.FC<Props> = ({ user }) => {
       const printItems = selectedItems.map(s => ({
         partNumber: s.partNumber,
         quantity: s.quantity,
-        price: s.price,
+        price: s.price, // Note: In a real app, you might want to print Unit Price + Tax breakdown per line
         customerName: customerName
       }));
+      // Note: Passing original inventory to helper for name lookup
       generateInvoice(printItems, inventory);
 
       // Reset
@@ -290,15 +294,26 @@ const Invoices: React.FC<Props> = ({ user }) => {
                    </div>
                    
                    <div className="p-5 bg-slate-50 border-t border-slate-200 rounded-b-xl">
+                      <div className="space-y-2 mb-4 border-b border-slate-200 pb-4">
+                          <div className="flex justify-between items-center text-xs text-slate-500">
+                             <span>Subtotal ({selectedIds.size} items)</span>
+                             <span className="font-medium">₹{subTotal.toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-xs text-slate-500">
+                             <span>GST (18%)</span>
+                             <span className="font-medium">₹{taxAmount.toLocaleString()}</span>
+                          </div>
+                      </div>
+
                       <div className="flex justify-between items-end mb-4">
-                         <div className="text-xs text-slate-500 font-medium">{selectedIds.size} items selected</div>
-                         <div className="text-right">
-                             <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Total Amount</div>
-                             <div className="text-2xl font-bold text-indigo-700 leading-none">
-                                ₹{sales.filter(s => selectedIds.has(s.id)).reduce((a,c) => a + (c.price*c.quantity), 0).toLocaleString()}
-                             </div>
+                         <div className="flex items-center gap-1 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                            <Calculator size={14} /> Grand Total
+                         </div>
+                         <div className="text-2xl font-bold text-indigo-700 leading-none">
+                            ₹{grandTotal.toLocaleString()}
                          </div>
                       </div>
+                      
                       <button 
                         onClick={handleGenerateInvoice}
                         disabled={selectedIds.size === 0}
@@ -328,6 +343,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
                                <th className="px-6 py-4">Date</th>
                                <th className="px-6 py-4">Customer</th>
                                <th className="px-6 py-4">Items</th>
+                               <th className="px-6 py-4 text-right">Tax</th>
                                <th className="px-6 py-4 text-right">Total</th>
                                <th className="px-6 py-4 text-center">Action</th>
                             </tr>
@@ -342,6 +358,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
                                      <div className="text-xs text-slate-400">{inv.customerPhone}</div>
                                   </td>
                                   <td className="px-6 py-4">{inv.itemsCount}</td>
+                                  <td className="px-6 py-4 text-right text-slate-500">₹{(inv.taxAmount || 0).toLocaleString()}</td>
                                   <td className="px-6 py-4 text-right font-bold text-indigo-700">₹{inv.totalAmount.toLocaleString()}</td>
                                   <td className="px-6 py-4 text-center">
                                      <button 
