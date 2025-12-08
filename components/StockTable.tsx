@@ -3,19 +3,33 @@ import React, { useState, useMemo, useEffect } from 'react';
 // @ts-ignore
 import { Link } from 'react-router-dom';
 import { StockItem, Brand, Role } from '../types';
-import { toggleArchiveStatus, bulkArchiveItems } from '../services/inventoryService';
-import { Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, Archive, ArchiveRestore, MoreHorizontal, Filter, Loader2 } from 'lucide-react';
+import { bulkArchiveItems } from '../services/inventoryService';
+import { Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, Archive, ArchiveRestore, MoreHorizontal, Loader2, Filter } from 'lucide-react';
 
 interface StockTableProps {
   items: StockItem[];
   title?: string;
-  brandFilter?: Brand;
+  brandFilter?: Brand; // If provided, strictly filters by this brand
   userRole?: Role;
   enableActions?: boolean;
+  
+  // New Props for Dashboard Control
+  externalSearch?: string;
+  hideToolbar?: boolean;
+  stockStatusFilter?: 'ALL' | 'LOW' | 'OUT';
 }
 
-const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, userRole, enableActions = true }) => {
-  const [search, setSearch] = useState('');
+const StockTable: React.FC<StockTableProps> = ({ 
+    items, 
+    title, 
+    brandFilter, 
+    userRole, 
+    enableActions = true,
+    externalSearch,
+    hideToolbar = false,
+    stockStatusFilter = 'ALL'
+}) => {
+  const [internalSearch, setInternalSearch] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [sortConfig, setSortConfig] = useState<{ key: keyof StockItem; direction: 'asc' | 'desc' } | null>(null);
@@ -27,11 +41,14 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, user
 
   // Permission
   const isOwner = userRole === Role.OWNER;
+  
+  // Use external search if provided, otherwise internal
+  const effectiveSearch = externalSearch !== undefined ? externalSearch : internalSearch;
 
   useEffect(() => {
     setCurrentPage(1);
     setSelectedParts(new Set());
-  }, [search, brandFilter, showArchived]);
+  }, [effectiveSearch, brandFilter, showArchived, stockStatusFilter]);
 
   const toggleSelect = (partNumber: string) => {
       const newSet = new Set(selectedParts);
@@ -46,7 +63,7 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, user
       try {
         await bulkArchiveItems(Array.from(selectedParts), true);
         setSelectedParts(new Set());
-        window.location.reload(); // Simple reload to refresh data
+        window.location.reload(); 
       } catch (e) {
         alert("Failed to archive items. Please try again.");
       } finally {
@@ -57,12 +74,20 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, user
   // Filter & Sort
   const filteredItems = useMemo(() => {
     let result = items.filter(item => {
+        // Archive Logic
         if (!showArchived && item.isArchived) return false;
         if (showArchived && !item.isArchived) return false;
+        
+        // Brand Logic
         if (brandFilter && item.brand !== brandFilter) return false;
         
-        if (search) {
-            const lower = search.toLowerCase();
+        // Status Logic (New)
+        if (stockStatusFilter === 'LOW' && (item.quantity === 0 || item.quantity >= item.minStockThreshold)) return false;
+        if (stockStatusFilter === 'OUT' && item.quantity > 0) return false;
+
+        // Search Logic
+        if (effectiveSearch) {
+            const lower = effectiveSearch.toLowerCase();
             return (
                 item.partNumber.toLowerCase().includes(lower) ||
                 item.name.toLowerCase().includes(lower) ||
@@ -82,7 +107,7 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, user
         });
     }
     return result;
-  }, [items, search, brandFilter, showArchived, sortConfig]);
+  }, [items, effectiveSearch, brandFilter, showArchived, sortConfig, stockStatusFilter]);
 
   const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
   const currentItems = filteredItems.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -94,10 +119,8 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, user
   const toggleSelectAllPage = () => {
     const newSet = new Set(selectedParts);
     if (isAllPageSelected) {
-        // Deselect current page
         currentItems.forEach(i => newSet.delete(i.partNumber));
     } else {
-        // Select current page
         currentItems.forEach(i => newSet.add(i.partNumber));
     }
     setSelectedParts(newSet);
@@ -124,48 +147,50 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, user
   };
 
   return (
-    <div className="bg-white rounded-lg shadow border border-slate-200 flex flex-col h-full">
-      {/* Table Toolbar */}
-      <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-             <h2 className="font-bold text-slate-800">{title || 'Parts List'}</h2>
-             <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-xs font-medium">{filteredItems.length} items</span>
-        </div>
-        
-        <div className="flex items-center gap-3">
-            {selectedParts.size > 0 && isOwner && (
-                <button 
-                  onClick={handleBulkArchive} 
-                  disabled={isArchiving}
-                  className="text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-2"
-                >
-                    {isArchiving ? <Loader2 className="animate-spin" size={14} /> : null}
-                    Archive {selectedParts.size} Selected
-                </button>
-            )}
-
-            <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                <input 
-                  type="text" 
-                  placeholder="Filter table..." 
-                  className="pl-9 pr-4 py-1.5 border border-slate-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent w-64"
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                />
+    <div className="bg-white rounded-lg shadow-sm border border-slate-200 flex flex-col h-full">
+      {/* Table Toolbar (Conditionally Rendered) */}
+      {!hideToolbar && (
+        <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+                <h2 className="font-bold text-slate-800">{title || 'Parts List'}</h2>
+                <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-xs font-medium">{filteredItems.length} items</span>
             </div>
+            
+            <div className="flex items-center gap-3">
+                {selectedParts.size > 0 && isOwner && (
+                    <button 
+                    onClick={handleBulkArchive} 
+                    disabled={isArchiving}
+                    className="text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-2"
+                    >
+                        {isArchiving ? <Loader2 className="animate-spin" size={14} /> : null}
+                        Archive {selectedParts.size} Selected
+                    </button>
+                )}
 
-            {isOwner && (
-                 <button 
-                    onClick={() => setShowArchived(!showArchived)}
-                    className={`p-2 rounded-md border ${showArchived ? 'bg-orange-50 border-orange-200 text-orange-700' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
-                    title="Toggle Archives"
-                 >
-                    {showArchived ? <ArchiveRestore size={16} /> : <Archive size={16} />}
-                 </button>
-            )}
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                    <input 
+                    type="text" 
+                    placeholder="Filter table..." 
+                    className="pl-9 pr-4 py-1.5 border border-slate-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent w-64"
+                    value={internalSearch}
+                    onChange={e => setInternalSearch(e.target.value)}
+                    />
+                </div>
+
+                {isOwner && (
+                    <button 
+                        onClick={() => setShowArchived(!showArchived)}
+                        className={`p-2 rounded-md border ${showArchived ? 'bg-orange-50 border-orange-200 text-orange-700' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                        title="Toggle Archives"
+                    >
+                        {showArchived ? <ArchiveRestore size={16} /> : <Archive size={16} />}
+                    </button>
+                )}
+            </div>
         </div>
-      </div>
+      )}
 
       {/* Bulk Selection Banner */}
       {enableActions && isOwner && (
@@ -216,14 +241,14 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, user
                          <div className="flex items-center justify-center gap-1">Stock <SortIcon col="quantity"/></div>
                     </th>
                     <th className="px-4 py-3 border-b border-slate-200 font-semibold text-slate-600 text-right cursor-pointer select-none w-32" onClick={() => requestSort('price')}>
-                         <div className="flex items-center justify-end gap-1">Selling Price <SortIcon col="price"/></div>
+                         <div className="flex items-center justify-end gap-1">Price/MRP <SortIcon col="price"/></div>
                     </th>
-                    {enableActions && <th className="px-4 py-3 border-b border-slate-200 w-16"></th>}
+                    {enableActions && <th className="px-4 py-3 border-b border-slate-200 w-16">Action</th>}
                 </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
                 {currentItems.length === 0 ? (
-                    <tr><td colSpan={8} className="p-8 text-center text-slate-500">No parts found.</td></tr>
+                    <tr><td colSpan={8} className="p-8 text-center text-slate-500">No parts found matching filters.</td></tr>
                 ) : (
                     currentItems.map((item, idx) => {
                         const isLow = item.quantity > 0 && item.quantity <= item.minStockThreshold;
@@ -250,13 +275,13 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, user
                                 </td>
                                 <td className="px-4 py-3 text-slate-600 font-medium">{item.name}</td>
                                 <td className="px-4 py-3 text-center">
-                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${item.brand === Brand.HYUNDAI ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'}`}>
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold ${item.brand === Brand.HYUNDAI ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'}`}>
                                         {item.brand.substring(0, 3)}
                                     </span>
                                 </td>
                                 <td className="px-4 py-3 text-slate-500 text-xs">
-                                    {/* Mock Rack Location */}
-                                    {item.brand === 'HYUNDAI' ? 'H-' : 'M-'}{item.partNumber.substring(0,1)}-{Math.floor(Math.random() * 10)}
+                                    {/* Mock Rack Location based on part number hash for demo */}
+                                    {item.brand.substring(0,1)}-{(item.partNumber.charCodeAt(item.partNumber.length-1) % 20) + 1}
                                 </td>
                                 <td className="px-4 py-3 text-center">
                                     <span className={`font-bold ${isZero ? 'text-red-600' : isLow ? 'text-yellow-600' : 'text-slate-700'}`}>
@@ -265,10 +290,10 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, user
                                 </td>
                                 <td className="px-4 py-3 text-right font-medium text-slate-900">₹{item.price.toLocaleString()}</td>
                                 {enableActions && (
-                                    <td className="px-4 py-3 text-right opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button className="text-slate-400 hover:text-primary-600">
-                                            <MoreHorizontal size={16} />
-                                        </button>
+                                    <td className="px-4 py-3 text-center">
+                                         <Link to={`/item/${encodeURIComponent(item.partNumber)}`} className="text-primary-600 hover:text-primary-800 text-xs font-medium hover:underline">
+                                            View
+                                         </Link>
                                     </td>
                                 )}
                             </tr>

@@ -1,23 +1,19 @@
+
 import React, { useEffect, useState } from 'react';
-import { User, Role, StockItem, Brand } from '../types';
-import { fetchInventory, getStats } from '../services/inventoryService';
-import { fetchTransactions } from '../services/transactionService';
-import StatCard from '../components/StatCard';
+import { User, Brand, Role, StockItem } from '../types';
+import { fetchInventory } from '../services/inventoryService';
+import StockTable from '../components/StockTable';
 import { 
-  Package, 
-  AlertTriangle, 
-  AlertCircle, 
-  Banknote, 
-  Sparkles, 
-  ArrowUpRight,
-  TrendingUp,
-  FileText,
-  Plus,
-  ShoppingCart,
-  Download
+  Search, 
+  Plus, 
+  ShoppingCart, 
+  Truck, 
+  PackagePlus,
+  Filter,
+  X
 } from 'lucide-react';
 // @ts-ignore
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import TharLoader from '../components/TharLoader';
 
 interface DashboardProps {
@@ -26,152 +22,149 @@ interface DashboardProps {
 
 const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   const [inventory, setInventory] = useState<StockItem[]>([]);
-  const [recentSales, setRecentSales] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Operational State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [brandFilter, setBrandFilter] = useState<Brand | undefined>(undefined);
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'LOW' | 'OUT'>('ALL');
+  
+  const navigate = useNavigate();
 
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      const [data, transactions] = await Promise.all([
-         fetchInventory(),
-         fetchTransactions() // Fetches recent history
-      ]);
+      const data = await fetchInventory();
       setInventory(data);
-      // Filter for sales only for the recent table
-      setRecentSales(transactions.filter(t => t.type === 'SALE').slice(0, 5));
       setLoading(false);
     };
     loadData();
   }, []);
 
-  const stats = getStats(inventory);
-  const lowStockItems = inventory.filter(i => i.quantity > 0 && i.quantity <= i.minStockThreshold).slice(0, 5);
-
   if (loading) return <TharLoader />;
 
   return (
-    <div className="space-y-6">
-      {/* 1. Header Section */}
-      <div className="flex justify-between items-end">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Overview</h1>
-          <p className="text-slate-500 mt-1">Welcome back, {user.name}. Here's what's happening today.</p>
-        </div>
-        
-        {/* Quick Actions */}
-        <div className="flex gap-3">
-           <Link to="/transactions" className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm">
-              <Download size={16} /> New Purchase
-           </Link>
-           <Link to="/transactions" className="flex items-center gap-2 bg-primary-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors shadow-md shadow-primary-200">
-              <Plus size={16} /> New Invoice
-           </Link>
-        </div>
-      </div>
-
-      {/* 2. KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard 
-          title="Total Stock Value" 
-          value={`₹${(stats.totalValue / 100000).toFixed(2)} Lakh`} 
-          icon={Banknote} 
-          trend="+2.5%"
-          colorClass="bg-white"
-        />
-        <StatCard 
-          title="Low Stock Alerts" 
-          value={stats.lowStockCount} 
-          icon={AlertTriangle} 
-          colorClass={stats.lowStockCount > 0 ? "bg-white border-l-4 border-yellow-400" : "bg-white"}
-        />
-        <StatCard 
-          title="Zero Stock Items" 
-          value={stats.zeroStockCount} 
-          icon={AlertCircle} 
-          colorClass={stats.zeroStockCount > 0 ? "bg-white border-l-4 border-red-500" : "bg-white"}
-        />
-        <StatCard 
-          title="Total Parts" 
-          value={stats.totalItems} 
-          icon={Package} 
-          colorClass="bg-white"
-        />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-         {/* 3. Recent Invoices (Main Panel) */}
-         <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col">
-            <div className="p-5 border-b border-slate-100 flex justify-between items-center">
-               <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                 <FileText size={18} className="text-slate-400" /> Recent Invoices
-               </h3>
-               <Link to="/transactions" className="text-sm text-primary-600 hover:underline">View All</Link>
-            </div>
-            <div className="flex-1 overflow-x-auto">
-               <table className="w-full text-left text-sm">
-                  <thead className="bg-slate-50 text-slate-500">
-                     <tr>
-                        <th className="px-6 py-3 font-medium">Date</th>
-                        <th className="px-6 py-3 font-medium">Customer</th>
-                        <th className="px-6 py-3 font-medium">Part</th>
-                        <th className="px-6 py-3 font-medium text-right">Amount</th>
-                        <th className="px-6 py-3 font-medium text-center">Status</th>
-                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                     {recentSales.length === 0 ? (
-                        <tr><td colSpan={5} className="p-8 text-center text-slate-500">No recent sales.</td></tr>
-                     ) : (
-                        recentSales.map((tx: any) => (
-                           <tr key={tx.id} className="hover:bg-slate-50 transition-colors">
-                              <td className="px-6 py-3 text-slate-500">{new Date(tx.createdAt).toLocaleDateString()}</td>
-                              <td className="px-6 py-3 font-medium text-slate-900">{tx.customerName || 'Walk-in'}</td>
-                              <td className="px-6 py-3 text-slate-600 font-mono text-xs">{tx.partNumber}</td>
-                              <td className="px-6 py-3 text-right font-medium">₹{(tx.price * tx.quantity).toLocaleString()}</td>
-                              <td className="px-6 py-3 text-center">
-                                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                                    Paid
-                                 </span>
-                              </td>
-                           </tr>
-                        ))
-                     )}
-                  </tbody>
-               </table>
-            </div>
+    <div className="flex flex-col h-[calc(100vh-100px)] space-y-6">
+      {/* 1. Header & Operational Tools */}
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
+         
+         {/* Top Row: Title + Quick Actions */}
+         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+             <div>
+                <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                   Operations Workspace
+                </h1>
+                <p className="text-slate-500 text-sm">Find parts, check stock, and manage inventory.</p>
+             </div>
+             
+             <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
+                 <button 
+                   onClick={() => navigate('/transactions')} 
+                   className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors shadow-sm whitespace-nowrap"
+                 >
+                    <Plus size={16} /> New Invoice
+                 </button>
+                 <button 
+                   onClick={() => navigate('/transactions')} // Mode is handled in transactions page state, here just link
+                   className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors shadow-sm whitespace-nowrap"
+                 >
+                    <Truck size={16} /> Purchase
+                 </button>
+                 {user.role === Role.OWNER && (
+                    <button 
+                      onClick={() => navigate('/upload')} 
+                      className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors shadow-sm whitespace-nowrap"
+                    >
+                        <PackagePlus size={16} /> Add Part
+                    </button>
+                 )}
+             </div>
          </div>
 
-         {/* 4. Low Stock Panel (Side Panel) */}
-         <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-full">
-            <div className="p-5 border-b border-slate-100">
-               <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                 <TrendingUp size={18} className="text-yellow-500" /> Stock Alerts
-               </h3>
-            </div>
-            <div className="p-4 space-y-3">
-               {lowStockItems.length === 0 ? (
-                  <p className="text-sm text-slate-500 text-center py-4">Inventory looks healthy!</p>
-               ) : (
-                  lowStockItems.map(item => (
-                     <div key={item.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100 hover:border-yellow-200 transition-colors">
-                        <div>
-                           <div className="font-bold text-sm text-slate-800">{item.partNumber}</div>
-                           <div className="text-xs text-slate-500">{item.name}</div>
-                        </div>
-                        <div className="text-right">
-                           <div className="text-sm font-bold text-red-600">{item.quantity} left</div>
-                           <div className="text-[10px] text-slate-400">Min: {item.minStockThreshold}</div>
-                        </div>
-                     </div>
-                  ))
-               )}
-            </div>
-            <div className="mt-auto p-4 border-t border-slate-100">
-               <button className="w-full py-2 text-sm text-slate-600 hover:text-primary-600 font-medium border border-slate-200 hover:border-primary-200 rounded-lg transition-colors">
-                  View Full Stock Report
-               </button>
-            </div>
+         {/* Search & Filters Row */}
+         <div className="flex flex-col md:flex-row gap-4">
+             {/* Large Search Bar */}
+             <div className="flex-1 relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                <input 
+                  type="text" 
+                  autoFocus
+                  placeholder="Search parts by name, number, brand, or HSN code..."
+                  className="w-full pl-12 pr-4 h-12 bg-slate-50 border border-slate-200 rounded-xl text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-inner"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                {searchQuery && (
+                   <button 
+                     onClick={() => setSearchQuery('')}
+                     className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                   >
+                      <X size={18} />
+                   </button>
+                )}
+             </div>
+
+             {/* Filters */}
+             <div className="flex gap-2 items-center overflow-x-auto">
+                <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1 border border-slate-200">
+                    <button 
+                      onClick={() => setBrandFilter(undefined)}
+                      className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${!brandFilter ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                       All Brands
+                    </button>
+                    <button 
+                      onClick={() => setBrandFilter(Brand.HYUNDAI)}
+                      className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${brandFilter === Brand.HYUNDAI ? 'bg-blue-100 text-blue-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                       Hyundai
+                    </button>
+                    <button 
+                      onClick={() => setBrandFilter(Brand.MAHINDRA)}
+                      className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${brandFilter === Brand.MAHINDRA ? 'bg-red-100 text-red-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                       Mahindra
+                    </button>
+                </div>
+
+                <div className="h-8 w-px bg-slate-300 mx-1 hidden md:block"></div>
+
+                <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1 border border-slate-200">
+                    <button 
+                      onClick={() => setStatusFilter('ALL')}
+                      className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${statusFilter === 'ALL' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                       All Stock
+                    </button>
+                    <button 
+                      onClick={() => setStatusFilter('LOW')}
+                      className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${statusFilter === 'LOW' ? 'bg-yellow-100 text-yellow-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                       Low Stock
+                    </button>
+                    <button 
+                      onClick={() => setStatusFilter('OUT')}
+                      className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${statusFilter === 'OUT' ? 'bg-red-100 text-red-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                       Out of Stock
+                    </button>
+                </div>
+             </div>
          </div>
+      </div>
+
+      {/* 2. Results Table */}
+      <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+         <StockTable 
+            items={inventory} 
+            title="Search Results"
+            userRole={user.role}
+            brandFilter={brandFilter}
+            enableActions={true}
+            externalSearch={searchQuery}
+            hideToolbar={true} // Hide internal search bar since we have the big one
+            stockStatusFilter={statusFilter}
+         />
       </div>
     </div>
   );

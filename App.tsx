@@ -11,6 +11,7 @@ import DailyTransactions from './pages/DailyTransactions';
 import ItemDetail from './pages/ItemDetail';
 import UserManagement from './pages/UserManagement';
 import StockRequests from './pages/StockRequests';
+import Reports from './pages/Reports';
 import Layout from './components/Layout';
 
 const INACTIVITY_LIMIT_MS = 30 * 60 * 1000; // 30 Minutes
@@ -71,11 +72,14 @@ const App: React.FC = () => {
           <Route path="/" element={<Dashboard user={user} />} />
           <Route path="/transactions" element={<DailyTransactions user={user} />} />
           <Route path="/requests" element={<StockRequests user={user} />} />
-          {/* Updated to pass user role */}
           <Route path="/brand/:brandName" element={<BrandDashboardWrapper user={user} />} />
           <Route path="/item/:partNumber" element={<ItemDetail />} />
           
           {/* Protect Admin Routes */}
+          <Route 
+            path="/reports" 
+            element={user.role === Role.OWNER ? <Reports user={user} /> : <Navigate to="/" replace />} 
+          />
           <Route 
             path="/upload" 
             element={user.role === Role.OWNER ? <UploadPage /> : <Navigate to="/" replace />} 
@@ -94,11 +98,6 @@ const App: React.FC = () => {
 
 // Helper wrapper to pass props to BrandDashboard
 const BrandDashboardWrapper = ({ user }: { user: User }) => {
-  // We need to clone the element or just render it with props.
-  // Since BrandDashboard wasn't accepting props before, we need to update BrandDashboard definition first (done in other file).
-  // But wait, the file change above for BrandDashboard.tsx didn't add props to the interface yet.
-  // Let me fix the props passing logic.
-  // Actually, easiest way is to modify BrandDashboard to accept User.
   return <BrandDashboard user={user} />;
 };
 

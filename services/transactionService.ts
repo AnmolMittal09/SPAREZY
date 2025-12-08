@@ -1,4 +1,5 @@
 
+
 import { supabase } from './supabase';
 import { Role, Transaction, TransactionStatus, TransactionType } from '../types';
 
@@ -58,7 +59,6 @@ export const createBulkTransactions = async (
       const uniquePartNumbers = [...new Set(partNumbers)];
 
       // Note: Supabase .in() has a limit, but for daily batches usually fine. 
-      // If batch is huge (>500), might need splitting, but UI limits batch size practically.
       const { data: stocks, error } = await supabase
           .from('inventory')
           .select('part_number, quantity')
@@ -114,7 +114,6 @@ export const createBulkTransactions = async (
   // If auto-approved, update stock immediately
   if (initialStatus === TransactionStatus.APPROVED) {
     // We process these sequentially to ensure stock accuracy
-    // In a robust backend, this would be a Postgres Trigger or Function
     for (const tx of transactions) {
        // Purchase Orders (Future delivery) do not affect current stock count immediately upon creation/approval
        if (tx.type !== TransactionType.PURCHASE_ORDER) {
@@ -197,7 +196,6 @@ const updateStockForTransaction = async (partNumber: string, type: TransactionTy
   if (!supabase) return;
 
   // Fetch current item (CASE INSENSITIVE)
-  // .ilike ensures 'hy-001' finds 'HY-001'
   const { data: items } = await supabase
     .from('inventory')
     .select('quantity, part_number')
@@ -205,8 +203,6 @@ const updateStockForTransaction = async (partNumber: string, type: TransactionTy
     .limit(1);
 
   if (!items || items.length === 0) {
-    // Item doesn't exist. If it's a purchase or return, maybe we should create it?
-    // For now, we skip. The user should add the item in the "Update Stock" page first.
     return;
   }
 
@@ -217,14 +213,12 @@ const updateStockForTransaction = async (partNumber: string, type: TransactionTy
   if (type === TransactionType.SALE) {
     newQty = currentQty - quantity;
   } else if (type === TransactionType.PURCHASE || type === TransactionType.RETURN) {
-    // Purchase adds stock, Return also adds stock back
     newQty = currentQty + quantity;
   }
 
   // Prevent negative stock for sales
   if (newQty < 0 && type === TransactionType.SALE) newQty = 0;
 
-  // Update using the ACTUAL casing found in DB to ensure match
   await supabase
     .from('inventory')
     .update({ quantity: newQty, last_updated: new Date().toISOString() })
@@ -280,7 +274,6 @@ export const fetchAnalytics = async (startDate: Date, endDate: Date): Promise<An
       totalSales += val;
       salesCount += 1;
       
-      // Aggregate Sold Item
       const pnKey = t.part_number.toUpperCase();
       const current = soldItemsMap.get(pnKey) || { qty: 0, rev: 0 };
       soldItemsMap.set(pnKey, { qty: current.qty + t.quantity, rev: current.rev + val });
@@ -298,13 +291,10 @@ export const fetchAnalytics = async (startDate: Date, endDate: Date): Promise<An
   let partNamesMap = new Map<string, string>();
 
   if (distinctPartNumbers.length > 0) {
-    // Note: Supabase .in limited to ~65k params, but we should be fine for daily view
-    // Since we Uppercased keys, we need to hope database has consistent casing or use ilike loop (slow)
-    // For now we assume typical use case consistency or simply fetch whatever matches
     const { data: invData } = await supabase
       .from('inventory')
       .select('part_number, name')
-      .in('part_number', distinctPartNumbers); // This might miss if casing differs, but sufficient for report
+      .in('part_number', distinctPartNumbers); 
     
     if (invData) {
       invData.forEach((i: any) => {
@@ -323,14 +313,14 @@ export const fetchAnalytics = async (startDate: Date, endDate: Date): Promise<An
      });
   });
 
-  // Sort by Qty Sold Descending
-  soldItems.sort((a, b) => b.quantitySold - a.quantitySold);
+  // Sort by Revenue Descending
+  soldItems.sort((a, b) => b.totalRevenue - a.totalRevenue);
 
   return {
     totalSales,
     totalReturns,
     totalPurchases,
-    netRevenue: totalSales - totalReturns, // Revenue minus refunds
+    netRevenue: totalSales - totalReturns,
     salesCount,
     returnCount,
     soldItems
@@ -350,18 +340,15 @@ export const fetchSalesForReturn = async (search?: string): Promise<Transaction[
     .limit(20);
 
   if (search && search.trim().length > 0) {
-    // Supabase .or syntax: column.ilike.value,column2.ilike.value
     query = query.or(`part_number.ilike.%${search}%,customer_name.ilike.%${search}%`);
   }
 
   const { data: sales, error } = await query;
   if (error || !sales) {
-    console.error(error);
     return [];
   }
 
   // 2. Filter out items that have ALREADY been returned.
-  // We check if any transaction of type RETURN has a related_transaction_id matching these sales.
   const saleIds = sales.map(s => s.id);
   if (saleIds.length === 0) return [];
 
@@ -372,8 +359,6 @@ export const fetchSalesForReturn = async (search?: string): Promise<Transaction[
     .in('related_transaction_id', saleIds);
 
   const returnedSaleIds = new Set((returns || []).map(r => r.related_transaction_id));
-
-  // Exclude sales that are in the returned set
   const availableSales = sales.filter(s => !returnedSaleIds.has(s.id));
 
   return availableSales.map(mapDBToTransaction);
