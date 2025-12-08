@@ -20,6 +20,7 @@ const Billing: React.FC<Props> = ({ user }) => {
   const [returnSearch, setReturnSearch] = useState('');
   const [selectedReturns, setSelectedReturns] = useState<Record<string, number>>({}); // Map<TransactionId, ReturnQty>
   const [processingReturns, setProcessingReturns] = useState(false);
+  const [alreadyReturnedMap, setAlreadyReturnedMap] = useState<Map<string, number>>(new Map());
 
   useEffect(() => {
     if (activeTab === 'HISTORY') {
@@ -43,9 +44,30 @@ const Billing: React.FC<Props> = ({ user }) => {
 
   const loadSalesForReturn = async () => {
     setLoading(true);
-    // Fetch only Approved Sales that can be returned
-    const data = await fetchTransactions(TransactionStatus.APPROVED, TransactionType.SALE);
-    setSalesLog(data);
+    
+    // 1. Fetch Approved Sales
+    const salesData = await fetchTransactions(TransactionStatus.APPROVED, TransactionType.SALE);
+    
+    // 2. Fetch Approved Returns to see what's already been refunded
+    const returnsData = await fetchTransactions(TransactionStatus.APPROVED, TransactionType.RETURN);
+
+    // 3. Map SaleID -> TotalQuantityReturned
+    const returnedMap = new Map<string, number>();
+    returnsData.forEach(r => {
+        if (r.relatedTransactionId) {
+            const current = returnedMap.get(r.relatedTransactionId) || 0;
+            returnedMap.set(r.relatedTransactionId, current + r.quantity);
+        }
+    });
+    setAlreadyReturnedMap(returnedMap);
+
+    // 4. Filter out sales that are FULLY returned
+    const availableSales = salesData.filter(sale => {
+        const returnedQty = returnedMap.get(sale.id) || 0;
+        return sale.quantity > returnedQty;
+    });
+
+    setSalesLog(availableSales);
     setLoading(false);
   };
 
@@ -56,7 +78,10 @@ const Billing: React.FC<Props> = ({ user }) => {
     if (newSelection[tx.id]) {
       delete newSelection[tx.id];
     } else {
-      newSelection[tx.id] = tx.quantity; // Default to full return
+      // Default to MAX remaining quantity
+      const prevReturned = alreadyReturnedMap.get(tx.id) || 0;
+      const remaining = tx.quantity - prevReturned;
+      newSelection[tx.id] = remaining > 0 ? remaining : 0;
     }
     setSelectedReturns(newSelection);
   };
@@ -105,7 +130,7 @@ const Billing: React.FC<Props> = ({ user }) => {
     if (res.success) {
        alert("Returns processed successfully.");
        setSelectedReturns({});
-       loadSalesForReturn(); // Refresh list
+       loadSalesForReturn(); // Refresh list to remove fully returned items
     } else {
        alert("Failed to process returns: " + res.message);
     }
@@ -185,6 +210,7 @@ const Billing: React.FC<Props> = ({ user }) => {
                       <div className="flex flex-col items-center justify-center h-64 text-slate-400">
                          <AlertCircle size={48} className="mb-4 opacity-20" />
                          <p>No compatible sales found.</p>
+                         <p className="text-xs text-slate-300 mt-2">Only approved and fully paid sales appear here.</p>
                       </div>
                    ) : (
                       <table className="w-full text-sm text-left">
@@ -194,7 +220,7 @@ const Billing: React.FC<Props> = ({ user }) => {
                                <th className="px-6 py-4">Sale Date</th>
                                <th className="px-6 py-4">Customer</th>
                                <th className="px-6 py-4">Part Details</th>
-                               <th className="px-6 py-4 text-center">Sold Qty</th>
+                               <th className="px-6 py-4 text-center">Sold (Rem)</th>
                                <th className="px-6 py-4 text-center w-32">Return Qty</th>
                                <th className="px-6 py-4 text-right">Refund Amount</th>
                             </tr>
@@ -202,7 +228,9 @@ const Billing: React.FC<Props> = ({ user }) => {
                          <tbody className="divide-y divide-slate-100">
                             {filteredSalesLog.map(tx => {
                                const isSelected = !!selectedReturns[tx.id];
-                               const returnQty = selectedReturns[tx.id] || 0;
+                               const prevReturned = alreadyReturnedMap.get(tx.id) || 0;
+                               const remainingQty = tx.quantity - prevReturned;
+                               const returnQty = selectedReturns[tx.id] || remainingQty;
                                
                                return (
                                   <tr key={tx.id} className={`hover:bg-red-50 transition-colors ${isSelected ? 'bg-red-50/50' : ''}`}>
@@ -224,17 +252,23 @@ const Billing: React.FC<Props> = ({ user }) => {
                                         <div className="font-bold text-slate-900">{tx.partNumber}</div>
                                         <div className="text-xs text-slate-500">Price: ₹{tx.price}</div>
                                      </td>
-                                     <td className="px-6 py-4 text-center font-medium">
-                                        {tx.quantity}
+                                     <td className="px-6 py-4 text-center">
+                                        <span className="font-bold text-slate-800">{tx.quantity}</span>
+                                        {prevReturned > 0 && (
+                                            <div className="text-[10px] text-red-500 font-bold">Ret: {prevReturned}</div>
+                                        )}
+                                        <div className="text-[10px] text-green-600 font-bold bg-green-50 rounded px-1 mt-1">
+                                            Rem: {remainingQty}
+                                        </div>
                                      </td>
                                      <td className="px-6 py-4 text-center">
                                         {isSelected ? (
                                            <input 
                                              type="number" 
                                              min="1" 
-                                             max={tx.quantity}
+                                             max={remainingQty}
                                              value={returnQty}
-                                             onChange={(e) => handleReturnQtyChange(tx.id, tx.quantity, e.target.value)}
+                                             onChange={(e) => handleReturnQtyChange(tx.id, remainingQty, e.target.value)}
                                              className="w-20 px-2 py-1 border border-red-300 rounded text-center font-bold text-red-700 outline-none focus:ring-2 focus:ring-red-500"
                                            />
                                         ) : (
