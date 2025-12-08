@@ -1,4 +1,5 @@
 
+
 import React, { useEffect, useState } from 'react';
 import { Role, TransactionType, User, StockItem } from '../types';
 import { createBulkTransactions } from '../services/transactionService';
@@ -13,7 +14,9 @@ import {
   Trash2,
   Printer,
   Minus,
-  Plus
+  Plus,
+  Send,
+  Lock
 } from 'lucide-react';
 
 interface Props {
@@ -123,11 +126,18 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
       setLoading(true);
       const res = await createBulkTransactions(payload);
       setLoading(false);
+      
       if (res.success) {
-          if (mode === 'SALES' && user.role === Role.OWNER) {
-             generateInvoice(payload, inventory);
+          if (user.role === Role.MANAGER) {
+            alert("Requests successfully submitted to Admin for approval.");
+          } else {
+            // Owner flow
+            if (mode === 'SALES') {
+               generateInvoice(payload, inventory);
+            }
+            alert("Transaction confirmed and stock updated.");
           }
-          alert("Success!");
+
           setCart([]);
           setCustomerName('');
           fetchInventory().then(setInventory);
@@ -232,8 +242,10 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
                    disabled={loading || cart.length === 0}
                    className="w-full py-3 rounded-lg font-bold text-white flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 shadow-md transition-all disabled:opacity-50"
                 >
-                   {loading ? <Loader2 className="animate-spin" size={20} /> : (mode === 'SALES' ? <Printer size={20} /> : <CheckCircle2 size={20} />)}
-                   {mode === 'SALES' ? 'Save & Print' : 'Confirm Purchase'}
+                   {loading ? <Loader2 className="animate-spin" size={20} /> : (
+                      user.role === Role.MANAGER ? <Send size={20} /> : (mode === 'SALES' ? <Printer size={20} /> : <CheckCircle2 size={20} />)
+                   )}
+                   {user.role === Role.MANAGER ? 'Submit for Approval' : (mode === 'SALES' ? 'Save & Print' : 'Confirm Purchase')}
                 </button>
             </div>
        </div>

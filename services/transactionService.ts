@@ -86,11 +86,9 @@ export const createBulkTransactions = async (
   // Assume all transactions in a batch have the same creator role
   const createdByRole = transactions[0].createdByRole;
   
-  // Check if all items are returns (Managers can auto-approve returns)
-  const isReturnBatch = transactions.every(t => t.type === TransactionType.RETURN);
-
-  // Logic: Owners auto-approve everything. Managers auto-approve RETURNS.
-  const initialStatus = (createdByRole === Role.OWNER || (createdByRole === Role.MANAGER && isReturnBatch))
+  // LOGIC UPDATE: Managers ALWAYS need approval for Sales and Purchases.
+  // Owners auto-approve everything.
+  const initialStatus = (createdByRole === Role.OWNER)
     ? TransactionStatus.APPROVED 
     : TransactionStatus.PENDING;
 
@@ -125,7 +123,7 @@ export const createBulkTransactions = async (
   return { success: true };
 };
 
-export const fetchTransactions = async (status?: TransactionStatus): Promise<Transaction[]> => {
+export const fetchTransactions = async (status?: TransactionStatus, type?: TransactionType): Promise<Transaction[]> => {
   if (!supabase) return [];
 
   let query = supabase
@@ -135,9 +133,15 @@ export const fetchTransactions = async (status?: TransactionStatus): Promise<Tra
 
   if (status) {
     query = query.eq('status', status);
-  } else {
-    // If fetching history, don't show pending
-    query = query.neq('status', 'PENDING').limit(50);
+  } else if (!status) {
+    // If not specifically asking for Pending/etc, assume we want history (Approved/Rejected)
+    // Don't show pending in general history list usually, or show all? 
+    // Let's default to showing everything if no status specified, but limit count
+    query = query.limit(50);
+  }
+
+  if (type) {
+    query = query.eq('type', type);
   }
 
   const { data, error } = await query;
@@ -153,7 +157,7 @@ export const fetchTransactions = async (status?: TransactionStatus): Promise<Tra
 export const approveTransaction = async (id: string, partNumber: string, type: TransactionType, quantity: number): Promise<void> => {
   if (!supabase) return;
 
-  // 0. Pre-Approval Validation for Sales
+  // 0. Pre-Approval Validation for Sales (Check Stock AGAIN at moment of approval)
   if (type === TransactionType.SALE) {
       const { data: item } = await supabase
           .from('inventory')
