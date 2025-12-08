@@ -11,9 +11,10 @@ interface StockTableProps {
   title?: string;
   brandFilter?: Brand;
   userRole?: Role; // Added to check permissions
+  enableActions?: boolean; // Control visibility of archive/edit actions
 }
 
-const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, userRole }) => {
+const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, userRole, enableActions = true }) => {
   // rawSearch is what the user types immediately
   const [rawSearch, setRawSearch] = useState('');
   // debouncedSearch is what triggers the expensive filter operation
@@ -35,6 +36,9 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, user
   
   // Selection State (for Bulk Actions)
   const [selectedParts, setSelectedParts] = useState<Set<string>>(new Set());
+
+  // Permission Check
+  const canPerformActions = userRole === Role.OWNER && enableActions;
 
   // Debounce Logic: Wait 300ms after last keystroke to update filter
   useEffect(() => {
@@ -233,7 +237,7 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, user
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden transition-all duration-300">
       {/* SELECTION ACTION BAR (Overlay) */}
-      {selectedParts.size > 0 && userRole === Role.OWNER && (
+      {selectedParts.size > 0 && canPerformActions && (
           <div className="bg-slate-900 text-white p-4 flex items-center justify-between animate-fade-in">
              <div className="flex items-center gap-4">
                 <span className="bg-slate-700 px-3 py-1 rounded-full text-xs font-bold">
@@ -342,7 +346,9 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, user
                 <div className="flex items-center pb-2">
                     <button 
                         onClick={() => setShowArchived(!showArchived)}
-                        className={`text-sm font-medium flex items-center gap-2 px-3 py-2 rounded-lg transition-colors border w-full justify-center ${showArchived ? 'bg-orange-100 text-orange-800 border-orange-300' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'}`}
+                        disabled={!canPerformActions}
+                        className={`text-sm font-medium flex items-center gap-2 px-3 py-2 rounded-lg transition-colors border w-full justify-center ${showArchived ? 'bg-orange-100 text-orange-800 border-orange-300' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'} ${!canPerformActions ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        title={!canPerformActions ? "Archive management is disabled here" : ""}
                     >
                         {showArchived ? <ArchiveRestore size={16} /> : <Archive size={16} />}
                         {showArchived ? 'Viewing Archived Items' : 'Show Archived Items'}
@@ -363,7 +369,7 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, user
       </div>
 
       {/* Global Selection Banner */}
-      {isAllPageSelected && selectedParts.size < filteredAndSortedItems.length && userRole === Role.OWNER && (
+      {isAllPageSelected && selectedParts.size < filteredAndSortedItems.length && canPerformActions && (
           <div className="bg-blue-50 border-b border-blue-200 p-2 text-center text-sm text-blue-800 animate-fade-in">
              <span>All <b>{currentItems.length}</b> items on this page are selected. </span>
              <button 
@@ -379,7 +385,7 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, user
         <table className="w-full text-sm text-left border-collapse">
           <thead className="bg-gray-50 font-semibold border-b border-gray-200 uppercase tracking-wider text-xs">
             <tr>
-              {userRole === Role.OWNER && (
+              {canPerformActions && (
                   <th className="px-6 py-4 w-10">
                      <div className="flex items-center">
                         <input 
@@ -425,7 +431,7 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, user
                     </span>
                  </div>
               </th>
-              {userRole === Role.OWNER && (
+              {canPerformActions && (
                   <th className="px-6 py-4 text-center">Action</th>
               )}
             </tr>
@@ -444,7 +450,7 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, user
                     key={item.id} 
                     className={`hover:bg-gray-50 transition-colors border-l-4 ${isHyundai ? 'border-l-blue-800' : 'border-l-red-600'} ${isArchived ? 'opacity-70 bg-gray-50' : ''} ${isSelected ? 'bg-blue-50/50' : ''}`}
                   >
-                    {userRole === Role.OWNER && (
+                    {canPerformActions && (
                         <td className="px-6 py-4">
                             <input 
                               type="checkbox" 
@@ -486,7 +492,7 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, user
                         </span>
                       )}
                     </td>
-                    {userRole === Role.OWNER && (
+                    {canPerformActions && (
                         <td className="px-6 py-4 text-center">
                             <button
                                 onClick={() => handleArchiveToggle(item.partNumber, isArchived)}
@@ -502,7 +508,7 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, user
               })
             ) : (
               <tr>
-                <td colSpan={userRole === Role.OWNER ? 8 : 7} className="px-6 py-12 text-center text-gray-500">
+                <td colSpan={canPerformActions ? 8 : 7} className="px-6 py-12 text-center text-gray-500">
                   <div className="flex flex-col items-center gap-2">
                     <Search className="text-gray-300" size={32} />
                     <p>No items found {showArchived ? 'in archives' : 'matching criteria'}.</p>

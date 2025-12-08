@@ -231,6 +231,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
          title={selectedBrand ? `${selectedBrand} Inventory` : "Full Inventory"} 
          brandFilter={selectedBrand} 
          userRole={user.role}
+         enableActions={false}
       />
     </div>
   );

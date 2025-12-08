@@ -112,6 +112,7 @@ const BrandDashboard: React.FC<Props> = ({ user }) => {
             title={`${targetBrand} Inventory List`} 
             brandFilter={targetBrand} 
             userRole={user.role}
+            enableActions={true}
          />
       </div>
     </div>
