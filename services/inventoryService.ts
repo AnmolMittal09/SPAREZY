@@ -124,6 +124,17 @@ export const toggleArchiveStatus = async (partNumber: string, isArchived: boolea
   if (error) throw new Error(error.message);
 };
 
+export const bulkArchiveItems = async (partNumbers: string[], isArchived: boolean): Promise<void> => {
+  if (!supabase) return;
+
+  const { error } = await supabase
+    .from('inventory')
+    .update({ is_archived: isArchived })
+    .in('part_number', partNumbers);
+
+  if (error) throw new Error(error.message);
+};
+
 export const saveInventory = async (items: StockItem[]): Promise<void> => {
   if (supabase) {
      return;

@@ -3,8 +3,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 // @ts-ignore
 import { Link } from 'react-router-dom';
 import { StockItem, Brand, Role } from '../types';
-import { toggleArchiveStatus } from '../services/inventoryService';
-import { Search, AlertTriangle, AlertCircle, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, Hourglass, X, Loader2, Filter, ChevronDown, ChevronUp, RefreshCcw, Archive, ArchiveRestore } from 'lucide-react';
+import { toggleArchiveStatus, bulkArchiveItems } from '../services/inventoryService';
+import { Search, AlertTriangle, AlertCircle, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, Hourglass, X, Loader2, Filter, ChevronDown, ChevronUp, RefreshCcw, Archive, ArchiveRestore, CheckSquare, Trash2 } from 'lucide-react';
 
 interface StockTableProps {
   items: StockItem[];
@@ -31,8 +31,10 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, user
   const itemsPerPage = 50;
 
   // Local State update for Archive action to reflect immediately in UI
-  // Note: Parent component 'items' prop won't update until refresh, so we manage local exclusions
   const [localArchivedState, setLocalArchivedState] = useState<Record<string, boolean>>({});
+  
+  // Selection State (for Bulk Actions)
+  const [selectedParts, setSelectedParts] = useState<Set<string>>(new Set());
 
   // Debounce Logic: Wait 300ms after last keystroke to update filter
   useEffect(() => {
@@ -45,9 +47,10 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, user
     return () => clearTimeout(timer);
   }, [rawSearch]);
 
-  // Reset to page 1 when filters change
+  // Reset to page 1 and clear selection when filters change
   useEffect(() => {
     setCurrentPage(1);
+    setSelectedParts(new Set());
   }, [debouncedSearch, filterType, brandFilter, items, sortConfig, showArchived]);
 
   const handleArchiveToggle = async (partNumber: string, currentStatus: boolean) => {
@@ -62,6 +65,28 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, user
     }
   };
 
+  const handleBulkAction = async (archive: boolean) => {
+    if (selectedParts.size === 0) return;
+    if (!window.confirm(`Are you sure you want to ${archive ? 'archive' : 'restore'} ${selectedParts.size} selected items?`)) return;
+
+    try {
+        const partsToUpdate = Array.from(selectedParts);
+        await bulkArchiveItems(partsToUpdate, archive);
+        
+        // Update local state to reflect changes instantly
+        setLocalArchivedState(prev => {
+            const next = { ...prev };
+            partsToUpdate.forEach(pn => next[pn] = archive);
+            return next;
+        });
+
+        // Clear selection
+        setSelectedParts(new Set());
+    } catch (err) {
+        alert("Failed to perform bulk action");
+    }
+  };
+
   const filteredAndSortedItems = useMemo(() => {
     let result = items.filter(item => {
       // Check local override or item prop
@@ -69,9 +94,7 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, user
           ? localArchivedState[item.partNumber] 
           : item.isArchived;
 
-      // Archive Filter: By default, hide archived. If showArchived is true, show ONLY archived? 
-      // Or show mixed? Usually separate views are better.
-      // Let's say: If showArchived is OFF, hide archived. If ON, show ONLY archived (to manage them).
+      // Archive Filter
       if (showArchived) {
          if (!isArchived) return false;
       } else {
@@ -136,6 +159,27 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, user
     currentPage * itemsPerPage
   );
 
+  // Selection Logic
+  const toggleSelect = (partNumber: string) => {
+      const newSet = new Set(selectedParts);
+      if (newSet.has(partNumber)) newSet.delete(partNumber);
+      else newSet.add(partNumber);
+      setSelectedParts(newSet);
+  };
+
+  const toggleSelectAll = () => {
+      const allCurrentIds = currentItems.map(i => i.partNumber);
+      const allSelected = allCurrentIds.every(id => selectedParts.has(id));
+      
+      const newSet = new Set(selectedParts);
+      if (allSelected) {
+          allCurrentIds.forEach(id => newSet.delete(id));
+      } else {
+          allCurrentIds.forEach(id => newSet.add(id));
+      }
+      setSelectedParts(newSet);
+  };
+
   const requestSort = (key: keyof StockItem) => {
     let direction: 'asc' | 'desc' = 'asc';
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
@@ -178,9 +222,34 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, user
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-      {/* HEADER SECTION */}
-      <div className="p-4 border-b border-gray-100 bg-gray-50/50 space-y-4">
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden transition-all duration-300">
+      {/* SELECTION ACTION BAR (Overlay) */}
+      {selectedParts.size > 0 && userRole === Role.OWNER && (
+          <div className="bg-slate-900 text-white p-4 flex items-center justify-between animate-fade-in">
+             <div className="flex items-center gap-4">
+                <span className="bg-slate-700 px-3 py-1 rounded-full text-xs font-bold">{selectedParts.size} Selected</span>
+                <span className="text-sm text-slate-300">Select items to perform bulk actions</span>
+             </div>
+             <div className="flex gap-2">
+                 <button 
+                   onClick={() => setSelectedParts(new Set())}
+                   className="px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-800 text-slate-400 transition-colors"
+                 >
+                    Cancel
+                 </button>
+                 <button 
+                   onClick={() => handleBulkAction(!showArchived)}
+                   className={`px-4 py-2 rounded-lg text-sm font-bold shadow-lg flex items-center gap-2 transition-transform hover:scale-105 ${showArchived ? 'bg-green-600 hover:bg-green-500' : 'bg-red-600 hover:bg-red-500'}`}
+                 >
+                    {showArchived ? <ArchiveRestore size={16} /> : <Archive size={16} />}
+                    {showArchived ? 'Restore Selected' : 'Archive Selected'}
+                 </button>
+             </div>
+          </div>
+      )}
+
+      {/* HEADER SECTION (Hidden if selection mode active mostly to reduce clutter, but here we keep it) */}
+      <div className={`p-4 border-b border-gray-100 bg-gray-50/50 space-y-4 ${selectedParts.size > 0 ? 'opacity-50 pointer-events-none' : ''}`}>
         
         {/* Top Row: Title, Search, Filter Toggle */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -286,6 +355,18 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, user
         <table className="w-full text-sm text-left border-collapse">
           <thead className="bg-gray-50 font-semibold border-b border-gray-200 uppercase tracking-wider text-xs">
             <tr>
+              {userRole === Role.OWNER && (
+                  <th className="px-6 py-4 w-10">
+                     <div className="flex items-center">
+                        <input 
+                           type="checkbox" 
+                           className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                           onChange={toggleSelectAll}
+                           checked={currentItems.length > 0 && currentItems.every(i => selectedParts.has(i.partNumber))}
+                        />
+                     </div>
+                  </th>
+              )}
               <SortHeader label="Part No." columnKey="partNumber" />
               <SortHeader label="Name" columnKey="name" />
               <SortHeader label="Brand" columnKey="brand" />
@@ -332,12 +413,23 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, user
                 const isLow = item.quantity < item.minStockThreshold;
                 const isHyundai = item.brand === Brand.HYUNDAI;
                 const isArchived = localArchivedState[item.partNumber] !== undefined ? localArchivedState[item.partNumber] : item.isArchived;
+                const isSelected = selectedParts.has(item.partNumber);
                 
                 return (
                   <tr 
                     key={item.id} 
-                    className={`hover:bg-gray-50 transition-colors border-l-4 ${isHyundai ? 'border-l-blue-800' : 'border-l-red-600'} ${isArchived ? 'opacity-70 bg-gray-50' : ''}`}
+                    className={`hover:bg-gray-50 transition-colors border-l-4 ${isHyundai ? 'border-l-blue-800' : 'border-l-red-600'} ${isArchived ? 'opacity-70 bg-gray-50' : ''} ${isSelected ? 'bg-blue-50/50' : ''}`}
                   >
+                    {userRole === Role.OWNER && (
+                        <td className="px-6 py-4">
+                            <input 
+                              type="checkbox" 
+                              className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                              checked={isSelected}
+                              onChange={() => toggleSelect(item.partNumber)}
+                            />
+                        </td>
+                    )}
                     <td className="px-6 py-4 font-medium text-gray-900">
                       <Link to={`/item/${encodeURIComponent(item.partNumber)}`} className="text-slate-700 hover:text-blue-600 hover:underline flex flex-col">
                         <span className="font-bold">{item.partNumber}</span>
@@ -386,7 +478,7 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, user
               })
             ) : (
               <tr>
-                <td colSpan={userRole === Role.OWNER ? 7 : 6} className="px-6 py-12 text-center text-gray-500">
+                <td colSpan={userRole === Role.OWNER ? 8 : 7} className="px-6 py-12 text-center text-gray-500">
                   <div className="flex flex-col items-center gap-2">
                     <Search className="text-gray-300" size={32} />
                     <p>No items found {showArchived ? 'in archives' : 'matching criteria'}.</p>
