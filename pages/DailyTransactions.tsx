@@ -94,13 +94,21 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
   const updateQty = (id: string, delta: number) => {
       setCart(prev => prev.map(item => {
           if (item.tempId === id) {
-              const newQty = Math.max(1, item.quantity + delta);
+              let newQty = item.quantity + delta;
+              if (newQty < 1) newQty = 1;
+
               if (mode === 'SALES') {
                   const stockItem = inventory.find(i => i.partNumber === item.partNumber);
-                  if (stockItem && newQty > stockItem.quantity) {
-                      return { ...item, stockError: true, quantity: newQty };
+                  const maxStock = stockItem ? stockItem.quantity : 0;
+                  
+                  if (newQty > maxStock) {
+                      if (delta > 0) {
+                          alert(`Stock Limit Reached: Only ${maxStock} units of ${item.partNumber} available.`);
+                      }
+                      newQty = maxStock;
                   }
-                  return { ...item, stockError: false, quantity: newQty };
+                  
+                  return { ...item, quantity: newQty, stockError: false };
               }
               return { ...item, quantity: newQty };
           }
