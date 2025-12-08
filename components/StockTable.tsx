@@ -167,7 +167,7 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, user
       setSelectedParts(newSet);
   };
 
-  const toggleSelectAll = () => {
+  const toggleSelectAllPage = () => {
       const allCurrentIds = currentItems.map(i => i.partNumber);
       const allSelected = allCurrentIds.every(id => selectedParts.has(id));
       
@@ -179,6 +179,15 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, user
       }
       setSelectedParts(newSet);
   };
+
+  // Selects ALL items in the filtered list (across all pages)
+  const handleSelectAllGlobal = () => {
+      const allIds = filteredAndSortedItems.map(i => i.partNumber);
+      setSelectedParts(new Set(allIds));
+  };
+
+  const isAllPageSelected = currentItems.length > 0 && currentItems.every(i => selectedParts.has(i.partNumber));
+  const isGlobalSelectionActive = selectedParts.size === filteredAndSortedItems.length && filteredAndSortedItems.length > 0;
 
   const requestSort = (key: keyof StockItem) => {
     let direction: 'asc' | 'desc' = 'asc';
@@ -227,8 +236,10 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, user
       {selectedParts.size > 0 && userRole === Role.OWNER && (
           <div className="bg-slate-900 text-white p-4 flex items-center justify-between animate-fade-in">
              <div className="flex items-center gap-4">
-                <span className="bg-slate-700 px-3 py-1 rounded-full text-xs font-bold">{selectedParts.size} Selected</span>
-                <span className="text-sm text-slate-300">Select items to perform bulk actions</span>
+                <span className="bg-slate-700 px-3 py-1 rounded-full text-xs font-bold">
+                    {isGlobalSelectionActive ? `All ${selectedParts.size} Items Selected` : `${selectedParts.size} Selected`}
+                </span>
+                <span className="text-sm text-slate-300 hidden sm:inline">Select items to perform bulk actions</span>
              </div>
              <div className="flex gap-2">
                  <button 
@@ -351,6 +362,19 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, user
         )}
       </div>
 
+      {/* Global Selection Banner */}
+      {isAllPageSelected && selectedParts.size < filteredAndSortedItems.length && userRole === Role.OWNER && (
+          <div className="bg-blue-50 border-b border-blue-200 p-2 text-center text-sm text-blue-800 animate-fade-in">
+             <span>All <b>{currentItems.length}</b> items on this page are selected. </span>
+             <button 
+                 onClick={handleSelectAllGlobal}
+                 className="font-bold underline hover:text-blue-900 ml-1 cursor-pointer focus:outline-none"
+             >
+                 Select all {filteredAndSortedItems.length} items in this list
+             </button>
+          </div>
+      )}
+
       <div className="overflow-x-auto">
         <table className="w-full text-sm text-left border-collapse">
           <thead className="bg-gray-50 font-semibold border-b border-gray-200 uppercase tracking-wider text-xs">
@@ -361,8 +385,8 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, user
                         <input 
                            type="checkbox" 
                            className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                           onChange={toggleSelectAll}
-                           checked={currentItems.length > 0 && currentItems.every(i => selectedParts.has(i.partNumber))}
+                           onChange={toggleSelectAllPage}
+                           checked={isAllPageSelected}
                         />
                      </div>
                   </th>

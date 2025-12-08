@@ -127,12 +127,22 @@ export const toggleArchiveStatus = async (partNumber: string, isArchived: boolea
 export const bulkArchiveItems = async (partNumbers: string[], isArchived: boolean): Promise<void> => {
   if (!supabase) return;
 
-  const { error } = await supabase
-    .from('inventory')
-    .update({ is_archived: isArchived })
-    .in('part_number', partNumbers);
+  // Process in batches to avoid URL/Payload limits with huge selections
+  const BATCH_SIZE = 200;
+  
+  for (let i = 0; i < partNumbers.length; i += BATCH_SIZE) {
+    const batch = partNumbers.slice(i, i + BATCH_SIZE);
+    
+    const { error } = await supabase
+      .from('inventory')
+      .update({ is_archived: isArchived })
+      .in('part_number', batch);
 
-  if (error) throw new Error(error.message);
+    if (error) {
+      console.error(`Error archiving batch ${i}:`, error);
+      throw new Error(error.message);
+    }
+  }
 };
 
 export const saveInventory = async (items: StockItem[]): Promise<void> => {
