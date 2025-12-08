@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 // @ts-ignore
 import { Link } from 'react-router-dom';
 import { StockItem, Brand } from '../types';
-import { Search, Filter, AlertTriangle, AlertCircle, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, Hourglass } from 'lucide-react';
+import { Search, AlertTriangle, AlertCircle, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, Hourglass, X, Loader2, Filter, ChevronDown, ChevronUp, RefreshCcw } from 'lucide-react';
 
 interface StockTableProps {
   items: StockItem[];
@@ -12,40 +12,84 @@ interface StockTableProps {
 }
 
 const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter }) => {
-  const [searchTerm, setSearchTerm] = useState('');
+  // rawSearch is what the user types immediately
+  const [rawSearch, setRawSearch] = useState('');
+  // debouncedSearch is what triggers the expensive filter operation
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+
+  // Filters
   const [filterType, setFilterType] = useState<'ALL' | 'LOW' | 'ZERO' | 'RECENT_ZERO'>('ALL');
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [selectedHSN, setSelectedHSN] = useState<string>('ALL');
+  const [priceRange, setPriceRange] = useState<{ min: string; max: string }>({ min: '', max: '' });
+
+  // Pagination & Sorting
   const [currentPage, setCurrentPage] = useState(1);
   const [sortConfig, setSortConfig] = useState<{ key: keyof StockItem; direction: 'asc' | 'desc' } | null>(null);
   const itemsPerPage = 50;
 
+  // Debounce Logic: Wait 300ms after last keystroke to update filter
+  useEffect(() => {
+    setIsTyping(true);
+    const timer = setTimeout(() => {
+      setDebouncedSearch(rawSearch);
+      setIsTyping(false);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [rawSearch]);
+
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, filterType, brandFilter, items, sortConfig]);
+  }, [debouncedSearch, filterType, brandFilter, items, sortConfig, selectedHSN, priceRange]);
+
+  // Derive unique HSN codes for dropdown
+  const uniqueHSNs = useMemo(() => {
+    const codes = new Set(items.map(i => i.hsnCode).filter(c => c && c !== 'N/A'));
+    return Array.from(codes).sort();
+  }, [items]);
 
   const filteredAndSortedItems = useMemo(() => {
     let result = items.filter(item => {
-      // Brand Filter
+      // 1. Brand Filter
       if (brandFilter && item.brand !== brandFilter) return false;
 
-      // Search Filter
-      const searchLower = searchTerm.toLowerCase();
-      const matchesSearch = 
-        item.partNumber.toLowerCase().includes(searchLower) ||
-        item.name.toLowerCase().includes(searchLower) ||
-        item.hsnCode.toLowerCase().includes(searchLower);
+      // 2. Search Filter (Tokenized Multi-field)
+      if (debouncedSearch) {
+        const searchTerms = debouncedSearch.toLowerCase().split(' ').filter(term => term.length > 0);
+        const matchesAllTerms = searchTerms.every(term => 
+          item.partNumber.toLowerCase().includes(term) ||
+          item.name.toLowerCase().includes(term) ||
+          item.hsnCode.toLowerCase().includes(term)
+        );
+        if (!matchesAllTerms) return false;
+      }
 
-      if (!matchesSearch) return false;
-
-      // Status Filter
-      if (filterType === 'LOW') return item.quantity > 0 && item.quantity < item.minStockThreshold;
-      if (filterType === 'ZERO') return item.quantity === 0;
+      // 3. Status Filter
+      if (filterType === 'LOW') {
+          if (!(item.quantity > 0 && item.quantity < item.minStockThreshold)) return false;
+      }
+      if (filterType === 'ZERO') {
+          if (item.quantity !== 0) return false;
+      }
       if (filterType === 'RECENT_ZERO') {
         if (item.quantity !== 0) return false;
         const lastUpdated = new Date(item.lastUpdated);
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        return lastUpdated >= sevenDaysAgo;
+        if (lastUpdated < sevenDaysAgo) return false;
+      }
+
+      // 4. Advanced Filters
+      if (selectedHSN !== 'ALL' && item.hsnCode !== selectedHSN) return false;
+
+      if (priceRange.min !== '') {
+         if (item.price < parseFloat(priceRange.min)) return false;
+      }
+      if (priceRange.max !== '') {
+         if (item.price > parseFloat(priceRange.max)) return false;
       }
 
       return true;
@@ -68,7 +112,7 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter }) =>
     }
 
     return result;
-  }, [items, searchTerm, filterType, brandFilter, sortConfig]);
+  }, [items, debouncedSearch, filterType, brandFilter, sortConfig, selectedHSN, priceRange]);
 
   // Pagination Logic
   const totalPages = Math.ceil(filteredAndSortedItems.length / itemsPerPage);
@@ -83,6 +127,19 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter }) =>
       direction = 'desc';
     }
     setSortConfig({ key, direction });
+  };
+
+  const clearSearch = () => {
+    setRawSearch('');
+    setDebouncedSearch('');
+  };
+
+  const clearAllFilters = () => {
+    setFilterType('ALL');
+    setRawSearch('');
+    setDebouncedSearch('');
+    setSelectedHSN('ALL');
+    setPriceRange({ min: '', max: '' });
   };
 
   const SortHeader = ({ label, columnKey }: { label: string, columnKey: keyof StockItem }) => {
@@ -108,53 +165,128 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter }) =>
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-      <div className="p-6 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gray-50/50">
-        <div className="flex items-center gap-2">
-           <h2 className="text-lg font-bold text-gray-800">{title || 'Inventory List'}</h2>
-           <span className="text-xs font-medium text-gray-500 bg-white border border-gray-200 px-2 py-1 rounded-full shadow-sm">
-             {filteredAndSortedItems.length} items
-           </span>
-        </div>
+      {/* HEADER SECTION */}
+      <div className="p-4 border-b border-gray-100 bg-gray-50/50 space-y-4">
         
-        <div className="flex flex-col md:flex-row gap-3">
-          <div className="relative group">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors" size={18} />
-            <input
-              type="text"
-              placeholder="Search part no, name, HSN..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full md:w-64 transition-all shadow-sm"
-            />
-          </div>
-          
-          <div className="flex flex-wrap gap-2 bg-white p-1 rounded-lg border border-gray-200 shadow-sm">
+        {/* Top Row: Title, Search, Filter Toggle */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+               <h2 className="text-lg font-bold text-gray-800">{title || 'Inventory List'}</h2>
+               <span className="text-xs font-medium text-gray-500 bg-white border border-gray-200 px-2 py-1 rounded-full shadow-sm">
+                 {filteredAndSortedItems.length} items
+               </span>
+            </div>
+            
+            <div className="flex flex-col md:flex-row gap-3">
+              <div className="relative group">
+                <Search className={`absolute left-3 top-1/2 -translate-y-1/2 transition-colors ${isTyping ? 'text-blue-500' : 'text-gray-400 group-focus-within:text-blue-500'}`} size={18} />
+                <input
+                  type="text"
+                  placeholder="Search part, name, HSN..."
+                  value={rawSearch}
+                  onChange={(e) => setRawSearch(e.target.value)}
+                  className="pl-10 pr-10 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full md:w-64 transition-all shadow-sm"
+                />
+                {rawSearch && (
+                    <button 
+                        onClick={clearSearch}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                        {isTyping ? <Loader2 size={16} className="animate-spin" /> : <X size={16} />}
+                    </button>
+                )}
+              </div>
+
+              <button 
+                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border transition-all ${showAdvancedFilters || selectedHSN !== 'ALL' || priceRange.min || priceRange.max ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-100'}`}
+              >
+                 <Filter size={16} />
+                 Filters
+                 {showAdvancedFilters ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              </button>
+            </div>
+        </div>
+
+        {/* Quick Tabs */}
+        <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setFilterType('ALL')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${filterType === 'ALL' ? 'bg-gray-800 text-white shadow-md' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${filterType === 'ALL' ? 'bg-gray-800 text-white shadow-md' : 'bg-white border border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
             >
-              All
+              All Items
             </button>
             <button
               onClick={() => setFilterType('LOW')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${filterType === 'LOW' ? 'bg-yellow-400 text-yellow-900 shadow-md' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${filterType === 'LOW' ? 'bg-yellow-400 text-yellow-900 shadow-md' : 'bg-white border border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
             >
-              <AlertTriangle size={12} /> Low
+              <AlertTriangle size={12} /> Low Stock
             </button>
             <button
               onClick={() => setFilterType('ZERO')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${filterType === 'ZERO' ? 'bg-red-500 text-white shadow-md' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${filterType === 'ZERO' ? 'bg-red-500 text-white shadow-md' : 'bg-white border border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
             >
-              <AlertCircle size={12} /> Zero
+              <AlertCircle size={12} /> Out of Stock
             </button>
             <button
               onClick={() => setFilterType('RECENT_ZERO')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${filterType === 'RECENT_ZERO' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${filterType === 'RECENT_ZERO' ? 'bg-orange-500 text-white shadow-md' : 'bg-white border border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
             >
               <Hourglass size={12} /> Recent Stockout
             </button>
-          </div>
         </div>
+
+        {/* Advanced Filters Panel */}
+        {showAdvancedFilters && (
+            <div className="pt-4 border-t border-gray-200 animate-slide-in grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                {/* HSN Filter */}
+                <div>
+                   <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">HSN Code</label>
+                   <select 
+                      value={selectedHSN}
+                      onChange={(e) => setSelectedHSN(e.target.value)}
+                      className="w-full text-sm border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                   >
+                      <option value="ALL">All Codes</option>
+                      {uniqueHSNs.map(hsn => (
+                          <option key={hsn} value={hsn}>{hsn}</option>
+                      ))}
+                   </select>
+                </div>
+
+                {/* Price Range */}
+                <div className="md:col-span-2">
+                   <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Price Range (₹)</label>
+                   <div className="flex items-center gap-2">
+                       <input 
+                         type="number" 
+                         placeholder="Min" 
+                         value={priceRange.min}
+                         onChange={(e) => setPriceRange(prev => ({ ...prev, min: e.target.value }))}
+                         className="w-full text-sm border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                       />
+                       <span className="text-gray-400">-</span>
+                       <input 
+                         type="number" 
+                         placeholder="Max" 
+                         value={priceRange.max}
+                         onChange={(e) => setPriceRange(prev => ({ ...prev, max: e.target.value }))}
+                         className="w-full text-sm border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                       />
+                   </div>
+                </div>
+
+                {/* Reset Button */}
+                <div>
+                   <button 
+                     onClick={clearAllFilters}
+                     className="w-full py-2 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                   >
+                      <RefreshCcw size={14} /> Clear All
+                   </button>
+                </div>
+            </div>
+        )}
       </div>
 
       <div className="overflow-x-auto">
@@ -249,7 +381,8 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter }) =>
                 <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
                   <div className="flex flex-col items-center gap-2">
                     <Search className="text-gray-300" size={32} />
-                    <p>No items found matching your filters.</p>
+                    <p>No items found matching criteria.</p>
+                    <button onClick={clearAllFilters} className="text-blue-600 hover:underline text-sm">Clear all filters</button>
                   </div>
                 </td>
               </tr>
