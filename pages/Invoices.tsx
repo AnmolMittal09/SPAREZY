@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
-import { User, Transaction } from '../types';
+import { User, Transaction, ShopSettings } from '../types';
 import { fetchUninvoicedSales, generateTaxInvoiceRecord, fetchInvoices } from '../services/transactionService';
 import { fetchInventory } from '../services/inventoryService';
-import { generateInvoice } from '../services/invoiceService'; // Uses the print logic
+import { getShopSettings } from '../services/masterService';
+import { generateInvoice } from '../services/invoiceService'; 
 import { FileText, Printer, Search, RefreshCw, AlertCircle, CheckCircle2, History, Calculator } from 'lucide-react';
 import TharLoader from '../components/TharLoader';
 
@@ -17,6 +18,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
   // Pending State
   const [sales, setSales] = useState<Transaction[]>([]);
   const [inventory, setInventory] = useState<any[]>([]);
+  const [shopSettings, setShopSettings] = useState<ShopSettings | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState('');
@@ -33,6 +35,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
 
   useEffect(() => {
     fetchInventory().then(setInventory);
+    getShopSettings().then(setShopSettings);
     if (activeTab === 'PENDING') loadPending();
     else loadHistory();
   }, [activeTab]);
@@ -65,7 +68,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
   // --- CALCULATIONS ---
   const selectedItems = sales.filter(s => selectedIds.has(s.id));
   const subTotal = selectedItems.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
-  const taxRate = 0.18; // 18% GST
+  const taxRate = shopSettings ? shopSettings.defaultTaxRate / 100 : 0.18;
   const taxAmount = subTotal * taxRate;
   const grandTotal = subTotal + taxAmount;
 
@@ -90,11 +93,15 @@ const Invoices: React.FC<Props> = ({ user }) => {
       const printItems = selectedItems.map(s => ({
         partNumber: s.partNumber,
         quantity: s.quantity,
-        price: s.price, // Note: In a real app, you might want to print Unit Price + Tax breakdown per line
+        price: s.price, 
         customerName: customerName
       }));
-      // Note: Passing original inventory to helper for name lookup
-      generateInvoice(printItems, inventory);
+      
+      if (shopSettings) {
+        generateInvoice(printItems, inventory, shopSettings);
+      } else {
+        alert("Shop settings not loaded. Printing without shop header.");
+      }
 
       // Reset
       setSelectedIds(new Set());
@@ -297,11 +304,11 @@ const Invoices: React.FC<Props> = ({ user }) => {
                       <div className="space-y-2 mb-4 border-b border-slate-200 pb-4">
                           <div className="flex justify-between items-center text-xs text-slate-500">
                              <span>Subtotal ({selectedIds.size} items)</span>
-                             <span className="font-medium">₹{subTotal.toLocaleString()}</span>
+                             <span className="font-medium">₹{subTotal.toLocaleString(undefined, {maximumFractionDigits:2})}</span>
                           </div>
                           <div className="flex justify-between items-center text-xs text-slate-500">
-                             <span>GST (18%)</span>
-                             <span className="font-medium">₹{taxAmount.toLocaleString()}</span>
+                             <span>GST ({(shopSettings?.defaultTaxRate || 18)}%)</span>
+                             <span className="font-medium">₹{taxAmount.toLocaleString(undefined, {maximumFractionDigits:2})}</span>
                           </div>
                       </div>
 
@@ -310,7 +317,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
                             <Calculator size={14} /> Grand Total
                          </div>
                          <div className="text-2xl font-bold text-indigo-700 leading-none">
-                            ₹{grandTotal.toLocaleString()}
+                            ₹{grandTotal.toLocaleString(undefined, {maximumFractionDigits:2})}
                          </div>
                       </div>
                       

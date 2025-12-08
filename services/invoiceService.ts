@@ -1,5 +1,5 @@
 
-import { StockItem } from "../types";
+import { StockItem, ShopSettings } from "../types";
 
 // Generic interface that fits both Transaction and CartItem
 export interface InvoiceItem {
@@ -9,7 +9,11 @@ export interface InvoiceItem {
   customerName?: string;
 }
 
-export const generateInvoice = (items: InvoiceItem[], inventory: StockItem[]) => {
+export const generateInvoice = (
+  items: InvoiceItem[], 
+  inventory: StockItem[], 
+  shopSettings: ShopSettings
+) => {
   if (items.length === 0) return;
 
   // Grouping / Metadata
@@ -38,6 +42,13 @@ export const generateInvoice = (items: InvoiceItem[], inventory: StockItem[]) =>
     `;
   }).join('');
 
+  // Calculate Tax (using shop default or 18%)
+  const taxRate = (shopSettings.defaultTaxRate || 18) / 100;
+  // Assuming the price stored is inclusive or exclusive based on business logic. 
+  // For this template, we'll treat the total as subtotal + tax breakdown visually.
+  const subTotal = grandTotal / (1 + taxRate);
+  const taxAmount = grandTotal - subTotal;
+
   // Invoice HTML Template
   const html = `
     <!DOCTYPE html>
@@ -47,10 +58,9 @@ export const generateInvoice = (items: InvoiceItem[], inventory: StockItem[]) =>
       <style>
         body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 20px; color: #333; }
         .invoice-box { max-width: 800px; margin: auto; padding: 30px; border: 1px solid #eee; box-shadow: 0 0 10px rgba(0, 0, 0, 0.15); }
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #002c5f; padding-bottom: 20px; }
-        .logo { font-size: 32px; font-weight: 900; color: #002c5f; letter-spacing: -1px; }
-        .logo span { color: #d9232d; }
-        .company-details { text-align: right; font-size: 12px; color: #666; }
+        .header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 20px; border-bottom: 2px solid #002c5f; padding-bottom: 20px; }
+        .logo-text { font-size: 28px; font-weight: 900; color: #002c5f; text-transform: uppercase; line-height: 1; }
+        .company-details { text-align: right; font-size: 12px; color: #666; line-height: 1.5; }
         
         .info-section { display: flex; justify-content: space-between; margin-bottom: 40px; }
         .info-block h3 { margin: 0 0 5px; font-size: 14px; color: #888; text-transform: uppercase; }
@@ -63,8 +73,10 @@ export const generateInvoice = (items: InvoiceItem[], inventory: StockItem[]) =>
         .text-center { text-align: center; }
         
         .total-section { margin-top: 30px; text-align: right; }
-        .total-label { font-size: 14px; color: #666; }
-        .total-amount { font-size: 28px; font-weight: bold; color: #002c5f; }
+        .total-row { display: flex; justify-content: flex-end; gap: 20px; margin-bottom: 5px; }
+        .total-label { font-size: 12px; color: #666; width: 100px; }
+        .total-val { font-size: 14px; font-weight: bold; width: 100px; }
+        .grand-total { font-size: 24px; color: #002c5f; margin-top: 10px; }
         
         .footer { margin-top: 50px; text-align: center; font-size: 12px; color: #aaa; border-top: 1px solid #eee; padding-top: 20px; }
         
@@ -77,12 +89,15 @@ export const generateInvoice = (items: InvoiceItem[], inventory: StockItem[]) =>
     <body>
       <div class="invoice-box">
         <div class="header">
-          <div class="logo">SPARE<span>ZY</span></div>
+          <div class="logo-section">
+             <div class="logo-text">${shopSettings.name || 'SPAREZY'}</div>
+             <div style="font-size: 10px; color: #888; margin-top: 5px;">GENUINE SPARE PARTS</div>
+          </div>
           <div class="company-details">
-            <strong>Mahindra & Hyundai Genuine Parts</strong><br>
-            123 Auto Market, Spare Parts Lane<br>
-            New Delhi, India - 110001<br>
-            Phone: +91 98765 43210
+            <strong>${shopSettings.name || 'My Shop'}</strong><br>
+            ${shopSettings.address || 'Address Not Configured'}<br>
+            Phone: ${shopSettings.phone || 'N/A'}<br>
+            GSTIN: ${shopSettings.gst || 'N/A'}
           </div>
         </div>
 
@@ -106,7 +121,7 @@ export const generateInvoice = (items: InvoiceItem[], inventory: StockItem[]) =>
               <th width="20%">Part No</th>
               <th width="35%">Description</th>
               <th width="10%" class="text-center">Qty</th>
-              <th width="15%" class="text-right">Price</th>
+              <th width="15%" class="text-right">Rate</th>
               <th width="15%" class="text-right">Total</th>
             </tr>
           </thead>
@@ -116,8 +131,18 @@ export const generateInvoice = (items: InvoiceItem[], inventory: StockItem[]) =>
         </table>
 
         <div class="total-section">
-          <div class="total-label">Grand Total</div>
-          <div class="total-amount">₹${grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+          <div class="total-row">
+             <div class="total-label">Subtotal</div>
+             <div class="total-val">₹${subTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+          </div>
+          <div class="total-row">
+             <div class="total-label">Tax (${shopSettings.defaultTaxRate}%)</div>
+             <div class="total-val">₹${taxAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+          </div>
+          <div class="total-row">
+             <div class="total-label" style="font-weight:bold; font-size: 14px;">Grand Total</div>
+             <div class="total-val grand-total">₹${grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+          </div>
         </div>
 
         <div class="footer">

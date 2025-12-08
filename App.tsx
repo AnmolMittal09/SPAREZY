@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 // @ts-ignore
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
@@ -16,6 +17,7 @@ import ImportExport from './pages/ImportExport';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import ItemDetail from './pages/ItemDetail';
+import Invoices from './pages/Invoices';
 
 const INACTIVITY_LIMIT_MS = 30 * 60 * 1000; // 30 Minutes
 
@@ -63,6 +65,10 @@ const App: React.FC = () => {
           
           {/* TRANSACTIONS */}
           <Route path="/billing" element={<Billing user={user} />} />
+          <Route 
+             path="/invoices" 
+             element={user.role === Role.OWNER ? <Invoices user={user} /> : <Navigate to="/" replace />} 
+          />
           <Route path="/purchases" element={<Purchases user={user} />} />
           <Route path="/requisitions" element={<Requisitions user={user} />} />
           <Route 
