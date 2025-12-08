@@ -1,19 +1,22 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { User, Transaction, ShopSettings } from '../types';
-import { fetchUninvoicedSales, generateTaxInvoiceRecord, fetchInvoices } from '../services/transactionService';
+import { User, Transaction, ShopSettings, TransactionStatus, TransactionType } from '../types';
+import { fetchUninvoicedSales, generateTaxInvoiceRecord, fetchInvoices, fetchTransactions } from '../services/transactionService';
 import { fetchInventory } from '../services/inventoryService';
 import { getShopSettings } from '../services/masterService';
 import { numberToWords } from '../services/invoiceService'; 
-import { FileText, Printer, Search, RefreshCw, AlertCircle, CheckCircle2, History, ArrowRight, User as UserIcon, MapPin, Phone, CreditCard, ChevronLeft } from 'lucide-react';
+import { FileText, Printer, Search, RefreshCw, AlertCircle, CheckCircle2, History, ArrowRight, User as UserIcon, MapPin, Phone, CreditCard, ChevronLeft, AlertTriangle } from 'lucide-react';
 import TharLoader from '../components/TharLoader';
 import Logo from '../components/Logo';
+// @ts-ignore
+import { useNavigate } from 'react-router-dom';
 
 interface Props {
   user: User;
 }
 
 const Invoices: React.FC<Props> = ({ user }) => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'PENDING' | 'HISTORY'>('PENDING');
   
   // Workflow State
@@ -27,6 +30,9 @@ const Invoices: React.FC<Props> = ({ user }) => {
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState('');
   const [invoiceHistory, setInvoiceHistory] = useState<any[]>([]);
+  
+  // Diagnostic State
+  const [pendingApprovalCount, setPendingApprovalCount] = useState(0);
 
   // Form State
   const [customerDetails, setCustomerDetails] = useState({
@@ -40,6 +46,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
   useEffect(() => {
     fetchInventory().then(setInventory);
     getShopSettings().then(setShopSettings);
+    checkPendingApprovals();
   }, []);
 
   useEffect(() => {
@@ -47,18 +54,41 @@ const Invoices: React.FC<Props> = ({ user }) => {
     else loadHistory();
   }, [activeTab]);
 
+  const checkPendingApprovals = async () => {
+    try {
+      // Check if there are sales waiting for approval (created by Manager)
+      const pendingSales = await fetchTransactions(TransactionStatus.PENDING, TransactionType.SALE);
+      setPendingApprovalCount(pendingSales.length);
+    } catch (e) {
+      console.error("Error checking approvals:", e);
+    }
+  };
+
   const loadPending = async () => {
     setLoading(true);
-    const data = await fetchUninvoicedSales();
-    setSales(data);
-    setLoading(false);
+    try {
+      const data = await fetchUninvoicedSales();
+      setSales(data);
+    } catch (e) {
+      console.error("Error loading pending sales:", e);
+      setSales([]);
+    } finally {
+      setLoading(false);
+    }
+    checkPendingApprovals(); // Re-check whenever we reload
   };
 
   const loadHistory = async () => {
     setLoading(true);
-    const data = await fetchInvoices();
-    setInvoiceHistory(data);
-    setLoading(false);
+    try {
+      const data = await fetchInvoices();
+      setInvoiceHistory(data);
+    } catch (e) {
+      console.error("Error loading history:", e);
+      setInvoiceHistory([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const toggleSelect = (id: string) => {
@@ -145,7 +175,6 @@ const Invoices: React.FC<Props> = ({ user }) => {
             {customerDetails.phone && <p className="text-sm text-slate-600">Ph: {customerDetails.phone}</p>}
             {customerDetails.gst && <p className="text-sm text-slate-600">GST: {customerDetails.gst}</p>}
          </div>
-         {/* Could add QR Code here in future */}
       </div>
 
       {/* Table */}
@@ -259,6 +288,25 @@ const Invoices: React.FC<Props> = ({ user }) => {
           </div>
        </div>
 
+       {/* PENDING APPROVAL ALERT */}
+       {pendingApprovalCount > 0 && activeTab === 'PENDING' && (
+         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center justify-between shadow-sm animate-fade-in no-print">
+            <div className="flex items-center gap-3">
+               <AlertTriangle className="text-amber-600" size={20} />
+               <div>
+                  <h3 className="text-sm font-bold text-amber-800">Sales Waiting Approval</h3>
+                  <p className="text-xs text-amber-700">{pendingApprovalCount} sales transactions recorded by Managers need your approval before they appear here.</p>
+               </div>
+            </div>
+            <button 
+               onClick={() => navigate('/approvals')}
+               className="bg-white border border-amber-200 text-amber-800 text-xs font-bold px-4 py-2 rounded-lg hover:bg-amber-100 transition-colors"
+            >
+               Go to Approvals
+            </button>
+         </div>
+       )}
+
        <div className="flex-1 overflow-hidden flex flex-col">
           {activeTab === 'PENDING' && (
              <>
@@ -302,7 +350,8 @@ const Invoices: React.FC<Props> = ({ user }) => {
                           {sales.length === 0 ? (
                              <div className="flex flex-col items-center justify-center h-full text-slate-400">
                                 <AlertCircle size={48} className="mb-4 opacity-20" />
-                                <p>No pending sales found.</p>
+                                <p>No approved sales ready for invoicing.</p>
+                                <p className="text-xs mt-2">Check 'Approvals' or 'Billing' to add sales.</p>
                              </div>
                           ) : (
                              <table className="w-full text-sm text-left">

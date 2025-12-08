@@ -22,6 +22,7 @@ const Billing: React.FC<Props> = ({ user }) => {
   const [processingReturns, setProcessingReturns] = useState(false);
   const [alreadyReturnedMap, setAlreadyReturnedMap] = useState<Map<string, number>>(new Map());
 
+  // Force re-fetch when tab changes
   useEffect(() => {
     if (activeTab === 'HISTORY') {
       loadHistory();
