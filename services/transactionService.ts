@@ -87,7 +87,10 @@ export const createBulkTransactions = async (
   return { success: true };
 };
 
-export const fetchTransactions = async (status?: TransactionStatus | TransactionStatus[], type?: TransactionType): Promise<Transaction[]> => {
+export const fetchTransactions = async (
+  status?: TransactionStatus | TransactionStatus[], 
+  type?: TransactionType | TransactionType[]
+): Promise<Transaction[]> => {
   if (!supabase) return [];
 
   let query = supabase.from('transactions').select('*').order('created_at', { ascending: false });
@@ -96,11 +99,14 @@ export const fetchTransactions = async (status?: TransactionStatus | Transaction
     if (Array.isArray(status)) query = query.in('status', status);
     else query = query.eq('status', status);
   } else {
-    // If no status specified, maybe limit? Or fetch all.
+    // If no status specified, fetch limit
     query = query.limit(200);
   }
 
-  if (type) query = query.eq('type', type);
+  if (type) {
+    if (Array.isArray(type)) query = query.in('type', type);
+    else query = query.eq('type', type);
+  }
 
   const { data, error } = await query;
   if (error) {

@@ -1,6 +1,4 @@
 
-
-
 import React, { useEffect, useState } from 'react';
 import { Role, TransactionType, User, StockItem } from '../types';
 import { createBulkTransactions } from '../services/transactionService';
@@ -13,7 +11,8 @@ import {
   Plus,
   Send,
   Save,
-  CheckCircle2
+  CheckCircle2,
+  Undo2
 } from 'lucide-react';
 
 interface Props {
@@ -70,10 +69,13 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
           setSuggestions([]);
           return;
       }
+      
+      // Strict stock check only for SALES
       if (mode === 'SALES' && item.quantity === 0) {
           alert("Item is out of stock!");
           return;
       }
+
       const newItem: CartItem = {
           tempId: Math.random().toString(36),
           partNumber: item.partNumber,
@@ -94,6 +96,8 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
               let newQty = item.quantity + delta;
               if (newQty < 1) newQty = 1;
 
+              // Only check max stock limits for SALES. 
+              // Returns and Purchases ADD to stock, so no upper limit check needed.
               if (mode === 'SALES') {
                   const stockItem = inventory.find(i => i.partNumber === item.partNumber);
                   const maxStock = stockItem ? stockItem.quantity : 0;
@@ -125,7 +129,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
       }
       const payload = cart.map(c => ({
           ...c,
-          customerName: customerName || (mode === 'PURCHASE' ? 'Unknown Supplier' : 'Walk-in'),
+          customerName: customerName || (mode === 'PURCHASE' ? 'Unknown Supplier' : (mode === 'RETURN' ? 'Return Customer' : 'Walk-in')),
           createdByRole: user.role
       }));
       setLoading(true);
@@ -137,7 +141,8 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
             alert("Requests successfully submitted to Admin for approval.");
           } else {
             // Owner flow
-            alert("Transaction confirmed and stock updated.");
+            const action = mode === 'RETURN' ? 'processed' : (mode === 'PURCHASE' ? 'confirmed' : 'recorded');
+            alert(`Transaction ${action} and stock updated.`);
           }
 
           setCart([]);
@@ -149,19 +154,42 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
   };
 
   const totalAmount = cart.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+  
+  // Dynamic UI Text based on Mode
+  const getButtonIcon = () => {
+    if (loading) return <Loader2 className="animate-spin" size={20} />;
+    if (user.role === Role.MANAGER) return <Send size={20} />;
+    if (mode === 'RETURN') return <Undo2 size={20} />;
+    if (mode === 'PURCHASE') return <CheckCircle2 size={20} />;
+    return <Save size={20} />;
+  };
+
+  const getButtonText = () => {
+     if (user.role === Role.MANAGER) return 'Submit for Approval';
+     if (mode === 'RETURN') return 'Process Refund';
+     if (mode === 'PURCHASE') return 'Confirm Purchase';
+     return 'Record Sale';
+  };
+
+  const getThemeColor = () => {
+      if (mode === 'RETURN') return 'bg-red-50 border-red-100 text-red-900';
+      if (mode === 'PURCHASE') return 'bg-blue-50 border-blue-100 text-blue-900';
+      return 'bg-slate-50 border-slate-100 text-slate-800';
+  };
 
   return (
     <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 h-full min-h-0">
        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
-           <div className="p-4 border-b border-slate-100 bg-slate-50">
-               <div className="relative">
+           <div className={`p-4 border-b flex items-center gap-2 ${getThemeColor()}`}>
+               <div className="relative flex-1">
                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                    <input 
                      type="text" 
-                     placeholder="Search item..."
-                     className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 shadow-sm text-lg"
+                     placeholder={mode === 'RETURN' ? "Search item to return..." : "Search item..."}
+                     className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 shadow-sm text-lg bg-white"
                      value={search}
                      onChange={e => handleSearch(e.target.value)}
+                     autoFocus
                    />
                </div>
            </div>
@@ -173,7 +201,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
                         <button 
                           key={item.id}
                           onClick={() => addToCart(item)}
-                          className="text-left p-4 rounded-lg border bg-white border-slate-200 hover:border-primary-300"
+                          className="text-left p-4 rounded-lg border bg-white border-slate-200 hover:border-primary-300 transition-all hover:shadow-md"
                         >
                            <div className="flex justify-between items-start mb-2">
                                <span className="font-bold text-slate-800">{item.partNumber}</span>
@@ -196,12 +224,12 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
        </div>
 
        <div className="lg:col-span-1 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-full overflow-hidden">
-            <div className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
-                <h2 className="font-bold text-slate-800">
-                    {mode === 'SALES' ? 'Sale Items' : 'Purchase List'}
-                    <span className="ml-2 bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full text-xs">{cart.length}</span>
+            <div className={`p-4 border-b flex justify-between items-center ${getThemeColor()}`}>
+                <h2 className="font-bold">
+                    {mode === 'SALES' ? 'Sale Items' : mode === 'RETURN' ? 'Return Items' : 'Purchase List'}
+                    <span className="ml-2 bg-white/50 px-2 py-0.5 rounded-full text-xs">{cart.length}</span>
                 </h2>
-                {cart.length > 0 && <button onClick={() => setCart([])} className="text-xs text-red-600 hover:underline">Clear</button>}
+                {cart.length > 0 && <button onClick={() => setCart([])} className="text-xs font-bold hover:underline opacity-70 hover:opacity-100">Clear</button>}
             </div>
 
             <div className="p-4 border-b border-slate-100">
@@ -215,14 +243,21 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
             </div>
 
             <div className="flex-1 overflow-y-auto p-2 space-y-2">
+                {cart.length === 0 && (
+                   <div className="text-center text-slate-400 py-10 text-sm italic">
+                      Cart is empty.
+                   </div>
+                )}
                 {cart.map(item => (
-                    <div key={item.tempId} className="p-3 rounded-lg border border-slate-100 bg-white flex gap-3">
+                    <div key={item.tempId} className="p-3 rounded-lg border border-slate-100 bg-white flex gap-3 shadow-sm">
                         <div className="flex-1 min-w-0">
                             <div className="font-bold text-sm text-slate-800">{item.partNumber}</div>
                             <div className="text-xs text-slate-500">₹{item.price} x {item.quantity}</div>
                         </div>
                         <div className="flex flex-col items-end gap-1">
-                            <div className="font-bold text-sm text-slate-900">₹{item.price * item.quantity}</div>
+                            <div className={`font-bold text-sm ${mode === 'RETURN' ? 'text-red-600' : 'text-slate-900'}`}>
+                                {mode === 'RETURN' ? '-' : ''}₹{item.price * item.quantity}
+                            </div>
                             <div className="flex items-center gap-1 bg-slate-100 rounded p-0.5">
                                 <button onClick={() => updateQty(item.tempId, -1)} className="p-0.5 hover:bg-white rounded"><Minus size={12}/></button>
                                 <span className="text-xs w-4 text-center">{item.quantity}</span>
@@ -236,18 +271,22 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
 
             <div className="p-4 bg-slate-50 border-t border-slate-200">
                 <div className="flex justify-between items-center mb-4">
-                    <span className="text-slate-500 font-medium">Total</span>
-                    <span className="text-xl font-bold text-slate-900">₹{totalAmount.toLocaleString()}</span>
+                    <span className="text-slate-500 font-medium">
+                        {mode === 'RETURN' ? 'Refund Total' : 'Total'}
+                    </span>
+                    <span className={`text-xl font-bold ${mode === 'RETURN' ? 'text-red-600' : 'text-slate-900'}`}>
+                        {mode === 'RETURN' ? '-' : ''}₹{totalAmount.toLocaleString()}
+                    </span>
                 </div>
                 <button 
                    onClick={handleSubmit}
                    disabled={loading || cart.length === 0}
-                   className="w-full py-3 rounded-lg font-bold text-white flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 shadow-md transition-all disabled:opacity-50"
+                   className={`w-full py-3 rounded-lg font-bold text-white flex items-center justify-center gap-2 shadow-md transition-all disabled:opacity-50 ${
+                      mode === 'RETURN' ? 'bg-red-600 hover:bg-red-700' : 'bg-slate-900 hover:bg-slate-800'
+                   }`}
                 >
-                   {loading ? <Loader2 className="animate-spin" size={20} /> : (
-                      user.role === Role.MANAGER ? <Send size={20} /> : (mode === 'SALES' ? <Save size={20} /> : <CheckCircle2 size={20} />)
-                   )}
-                   {user.role === Role.MANAGER ? 'Submit for Approval' : (mode === 'SALES' ? 'Record Sale' : 'Confirm Purchase')}
+                   {getButtonIcon()}
+                   {getButtonText()}
                 </button>
             </div>
        </div>

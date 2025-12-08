@@ -1,9 +1,8 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { User, Transaction, TransactionStatus, TransactionType } from '../types';
 import DailyTransactions from './DailyTransactions'; 
-import { History, PlusCircle, Receipt, User as UserIcon } from 'lucide-react';
+import { History, PlusCircle, Receipt, User as UserIcon, Undo2 } from 'lucide-react';
 import { fetchTransactions } from '../services/transactionService';
 import TharLoader from '../components/TharLoader';
 
@@ -12,7 +11,7 @@ interface Props {
 }
 
 const Billing: React.FC<Props> = ({ user }) => {
-  const [activeTab, setActiveTab] = useState<'NEW' | 'HISTORY'>('NEW');
+  const [activeTab, setActiveTab] = useState<'NEW' | 'RETURN' | 'HISTORY'>('NEW');
   const [history, setHistory] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -24,8 +23,11 @@ const Billing: React.FC<Props> = ({ user }) => {
 
   const loadHistory = async () => {
     setLoading(true);
-    // Fetch Approved Sales
-    const data = await fetchTransactions(TransactionStatus.APPROVED, TransactionType.SALE);
+    // Fetch Approved Sales AND Returns
+    const data = await fetchTransactions(
+      TransactionStatus.APPROVED, 
+      [TransactionType.SALE, TransactionType.RETURN]
+    );
     setHistory(data);
     setLoading(false);
   };
@@ -35,9 +37,9 @@ const Billing: React.FC<Props> = ({ user }) => {
        <div className="flex justify-between items-center">
           <div>
              <h1 className="text-2xl font-bold text-slate-900">Billing (Sales)</h1>
-             <p className="text-slate-500">Record cash sales, estimates, and daily transactions.</p>
+             <p className="text-slate-500">Record cash sales, estimates, and customer returns.</p>
           </div>
-          <div className="flex bg-white p-1 rounded-lg border border-slate-200">
+          <div className="flex bg-white p-1 rounded-lg border border-slate-200 shadow-sm">
              <button 
                onClick={() => setActiveTab('NEW')}
                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'NEW' ? 'bg-slate-900 text-white shadow' : 'text-slate-600 hover:bg-slate-50'}`}
@@ -45,10 +47,16 @@ const Billing: React.FC<Props> = ({ user }) => {
                <PlusCircle size={16} /> New Sale
              </button>
              <button 
+               onClick={() => setActiveTab('RETURN')}
+               className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'RETURN' ? 'bg-red-600 text-white shadow' : 'text-slate-600 hover:bg-red-50 hover:text-red-700'}`}
+             >
+               <Undo2 size={16} /> Returns
+             </button>
+             <button 
                onClick={() => setActiveTab('HISTORY')}
                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'HISTORY' ? 'bg-slate-900 text-white shadow' : 'text-slate-600 hover:bg-slate-50'}`}
              >
-               <History size={16} /> Sales Log
+               <History size={16} /> History
              </button>
           </div>
        </div>
@@ -57,22 +65,26 @@ const Billing: React.FC<Props> = ({ user }) => {
           {activeTab === 'NEW' && (
              <DailyTransactions user={user} forcedMode="SALES" />
           )}
+          {activeTab === 'RETURN' && (
+             <DailyTransactions user={user} forcedMode="RETURN" />
+          )}
           {activeTab === 'HISTORY' && (
              <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-full overflow-hidden">
                 <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center gap-2 text-slate-600 font-medium">
-                   <Receipt size={18} /> Daily Sales Log
+                   <Receipt size={18} /> Sales & Returns Log
                 </div>
                 
                 <div className="flex-1 overflow-auto">
                   {loading ? (
                     <div className="flex justify-center p-12"><TharLoader /></div>
                   ) : history.length === 0 ? (
-                    <div className="p-12 text-center text-slate-400">No sales history found.</div>
+                    <div className="p-12 text-center text-slate-400">No history found.</div>
                   ) : (
                     <table className="w-full text-sm text-left">
                        <thead className="bg-slate-50 text-slate-600 font-medium sticky top-0 border-b border-slate-200">
                           <tr>
                              <th className="px-6 py-4">Date</th>
+                             <th className="px-6 py-4">Type</th>
                              <th className="px-6 py-4">Part No</th>
                              <th className="px-6 py-4">Customer</th>
                              <th className="px-6 py-4 text-center">Qty</th>
@@ -81,28 +93,36 @@ const Billing: React.FC<Props> = ({ user }) => {
                           </tr>
                        </thead>
                        <tbody className="divide-y divide-slate-100">
-                          {history.map(tx => (
-                             <tr key={tx.id} className="hover:bg-slate-50 transition-colors">
-                                <td className="px-6 py-4 text-slate-500">
-                                   {new Date(tx.createdAt).toLocaleDateString()}
-                                   <div className="text-xs text-slate-400">{new Date(tx.createdAt).toLocaleTimeString()}</div>
-                                </td>
-                                <td className="px-6 py-4 font-bold text-slate-900">{tx.partNumber}</td>
-                                <td className="px-6 py-4 text-slate-600">
-                                   <div className="flex items-center gap-2">
-                                      <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs text-slate-500">
-                                        <UserIcon size={12}/>
-                                      </div>
-                                      {tx.customerName || 'Walk-in'}
-                                   </div>
-                                </td>
-                                <td className="px-6 py-4 text-center font-bold">{tx.quantity}</td>
-                                <td className="px-6 py-4 text-right">₹{tx.price.toLocaleString()}</td>
-                                <td className="px-6 py-4 text-right font-bold text-slate-900">
-                                   ₹{(tx.price * tx.quantity).toLocaleString()}
-                                </td>
-                             </tr>
-                          ))}
+                          {history.map(tx => {
+                             const isReturn = tx.type === TransactionType.RETURN;
+                             return (
+                               <tr key={tx.id} className={`hover:bg-slate-50 transition-colors ${isReturn ? 'bg-red-50/30' : ''}`}>
+                                  <td className="px-6 py-4 text-slate-500">
+                                     {new Date(tx.createdAt).toLocaleDateString()}
+                                     <div className="text-xs text-slate-400">{new Date(tx.createdAt).toLocaleTimeString()}</div>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                     <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${isReturn ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                                        {tx.type}
+                                     </span>
+                                  </td>
+                                  <td className="px-6 py-4 font-bold text-slate-900">{tx.partNumber}</td>
+                                  <td className="px-6 py-4 text-slate-600">
+                                     <div className="flex items-center gap-2">
+                                        <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs text-slate-500">
+                                          <UserIcon size={12}/>
+                                        </div>
+                                        {tx.customerName || 'Walk-in'}
+                                     </div>
+                                  </td>
+                                  <td className="px-6 py-4 text-center font-bold">{tx.quantity}</td>
+                                  <td className="px-6 py-4 text-right">₹{tx.price.toLocaleString()}</td>
+                                  <td className={`px-6 py-4 text-right font-bold ${isReturn ? 'text-red-600' : 'text-slate-900'}`}>
+                                     {isReturn ? '-' : ''}₹{(tx.price * tx.quantity).toLocaleString()}
+                                  </td>
+                               </tr>
+                             );
+                          })}
                        </tbody>
                     </table>
                   )}
