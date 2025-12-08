@@ -1,74 +1,159 @@
 
+import { supabase } from './supabase';
 import { Customer, ShopSettings, Supplier } from '../types';
 
-// Mock Data Store
-let customers: Customer[] = [
-  { id: '1', name: 'Walk-in Customer', phone: '', type: 'RETAIL' },
-  { id: '2', name: 'City Garage', phone: '9876543210', type: 'GARAGE', gst: '29ABCDE1234F1Z5' }
-];
-
-let suppliers: Supplier[] = [
-  { id: '1', name: 'Metro Spares Ltd', contactPerson: 'Rahul', phone: '9988776655', gst: '29XXXYY1234' },
-  { id: '2', name: 'Global Auto Parts', contactPerson: 'Simran', phone: '8877665544' }
-];
-
-let shopSettings: ShopSettings = {
-  name: 'Sparezy Auto Parts',
-  address: '123, Auto Market, Main Road, New Delhi',
-  phone: '+91 98765 43210',
-  gst: '07AAACS1234A1Z1',
-  defaultTaxRate: 18
-};
-
-const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
-
 // --- CUSTOMERS ---
+
 export const getCustomers = async (): Promise<Customer[]> => {
-  await delay(200);
-  return [...customers];
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('customers')
+    .select('*')
+    .order('name', { ascending: true });
+  
+  if (error) {
+    console.error('Error fetching customers:', error);
+    return [];
+  }
+  return data as Customer[];
 };
 
-export const saveCustomer = async (customer: Customer): Promise<void> => {
-  await delay(200);
+export const saveCustomer = async (customer: Customer): Promise<{ success: boolean; message?: string }> => {
+  if (!supabase) return { success: false, message: "Database not connected" };
+
+  const payload = {
+    name: customer.name,
+    phone: customer.phone,
+    type: customer.type,
+    gst: customer.gst,
+    address: customer.address
+  };
+
+  let error;
   if (customer.id) {
-    customers = customers.map(c => c.id === customer.id ? customer : c);
+    // Update
+    ({ error } = await supabase.from('customers').update(payload).eq('id', customer.id));
   } else {
-    customers.push({ ...customer, id: Math.random().toString(36).substr(2, 9) });
+    // Insert
+    ({ error } = await supabase.from('customers').insert(payload));
   }
+
+  if (error) return { success: false, message: error.message };
+  return { success: true };
 };
 
 export const deleteCustomer = async (id: string): Promise<void> => {
-  await delay(200);
-  customers = customers.filter(c => c.id !== id);
+  if (!supabase) return;
+  await supabase.from('customers').delete().eq('id', id);
 };
 
 // --- SUPPLIERS ---
+
 export const getSuppliers = async (): Promise<Supplier[]> => {
-  await delay(200);
-  return [...suppliers];
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('suppliers')
+    .select('*')
+    .order('name', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching suppliers:', error);
+    return [];
+  }
+  
+  // Map snake_case DB to camelCase if necessary, but assuming simple mapping
+  return data.map((d: any) => ({
+    id: d.id,
+    name: d.name,
+    contactPerson: d.contact_person,
+    phone: d.phone,
+    gst: d.gst,
+    terms: d.terms
+  }));
 };
 
-export const saveSupplier = async (supplier: Supplier): Promise<void> => {
-  await delay(200);
+export const saveSupplier = async (supplier: Supplier): Promise<{ success: boolean; message?: string }> => {
+  if (!supabase) return { success: false, message: "Database not connected" };
+
+  const payload = {
+    name: supplier.name,
+    contact_person: supplier.contactPerson,
+    phone: supplier.phone,
+    gst: supplier.gst,
+    terms: supplier.terms
+  };
+
+  let error;
   if (supplier.id) {
-    suppliers = suppliers.map(s => s.id === supplier.id ? supplier : s);
+    ({ error } = await supabase.from('suppliers').update(payload).eq('id', supplier.id));
   } else {
-    suppliers.push({ ...supplier, id: Math.random().toString(36).substr(2, 9) });
+    ({ error } = await supabase.from('suppliers').insert(payload));
   }
+
+  if (error) return { success: false, message: error.message };
+  return { success: true };
 };
 
 export const deleteSupplier = async (id: string): Promise<void> => {
-  await delay(200);
-  suppliers = suppliers.filter(s => s.id !== id);
+  if (!supabase) return;
+  await supabase.from('suppliers').delete().eq('id', id);
 };
 
 // --- SHOP SETTINGS ---
+
 export const getShopSettings = async (): Promise<ShopSettings> => {
-  await delay(100);
-  return { ...shopSettings };
+  if (!supabase) return {
+    name: 'Sparezy Auto Parts',
+    address: 'Demo Address',
+    phone: '9876543210',
+    gst: '',
+    defaultTaxRate: 18
+  };
+
+  const { data, error } = await supabase.from('shop_settings').select('*').single();
+  
+  if (error || !data) {
+    // Return defaults if no settings found
+    return {
+      name: 'Sparezy Auto Parts',
+      address: '',
+      phone: '',
+      gst: '',
+      defaultTaxRate: 18
+    };
+  }
+
+  return {
+    name: data.name,
+    address: data.address,
+    phone: data.phone,
+    gst: data.gst,
+    defaultTaxRate: data.default_tax_rate
+  };
 };
 
-export const saveShopSettings = async (settings: ShopSettings): Promise<void> => {
-  await delay(200);
-  shopSettings = settings;
+export const saveShopSettings = async (settings: ShopSettings): Promise<{ success: boolean; message?: string }> => {
+  if (!supabase) return { success: false, message: "Database not connected" };
+
+  // Check if row exists, if not insert, else update
+  const { data: existing } = await supabase.from('shop_settings').select('id').limit(1);
+
+  const payload = {
+    name: settings.name,
+    address: settings.address,
+    phone: settings.phone,
+    gst: settings.gst,
+    default_tax_rate: settings.defaultTaxRate,
+    updated_at: new Date().toISOString()
+  };
+
+  let error;
+  if (existing && existing.length > 0) {
+    ({ error } = await supabase.from('shop_settings').update(payload).eq('id', existing[0].id));
+  } else {
+    ({ error } = await supabase.from('shop_settings').insert(payload));
+  }
+
+  if (error) return { success: false, message: error.message };
+  return { success: true };
 };
