@@ -28,6 +28,9 @@ export interface StockItem {
   price: number;
   lastUpdated: string;
   isArchived: boolean;
+  rackLocation?: string;
+  vehicleModels?: string[];
+  category?: string;
 }
 
 export interface StockStats {
@@ -40,8 +43,9 @@ export interface StockStats {
 export enum TransactionType {
   SALE = 'SALE',
   PURCHASE = 'PURCHASE',
-  RETURN = 'RETURN', // Customer returned item
+  RETURN = 'RETURN', 
   PURCHASE_ORDER = 'PURCHASE_ORDER',
+  ADJUSTMENT = 'ADJUSTMENT'
 }
 
 export enum TransactionStatus {
@@ -56,11 +60,11 @@ export interface Transaction {
   type: TransactionType;
   quantity: number;
   price: number;
-  customerName: string; // Customer or Supplier Name
+  customerName: string; 
   status: TransactionStatus;
   createdByRole: Role;
   createdAt: string;
-  relatedTransactionId?: string; // ID of the original transaction (e.g., the Sale being returned)
+  relatedTransactionId?: string;
 }
 
 export interface UploadHistoryEntry {
@@ -69,7 +73,7 @@ export interface UploadHistoryEntry {
   uploadMode: string;
   itemCount: number;
   status: 'SUCCESS' | 'REVERTED';
-  snapshotData: any; // JSON structure containing previous states
+  snapshotData: any;
   createdAt: string;
 }
 
@@ -85,6 +89,7 @@ export enum RequestStatus {
   PENDING = 'PENDING',
   ORDERED = 'ORDERED',
   REJECTED = 'REJECTED',
+  COMPLETED = 'COMPLETED'
 }
 
 export interface StockRequest {
@@ -94,4 +99,43 @@ export interface StockRequest {
   requesterName: string;
   status: RequestStatus;
   createdAt: string;
+  notes?: string;
+}
+
+// --- NEW TYPES FOR UPGRADE ---
+
+export interface Customer {
+  id: string;
+  name: string;
+  phone: string;
+  type: 'RETAIL' | 'GARAGE';
+  gst?: string;
+  address?: string;
+}
+
+export interface Supplier {
+  id: string;
+  name: string;
+  contactPerson: string;
+  phone: string;
+  gst?: string;
+  terms?: string;
+}
+
+export interface ShopSettings {
+  name: string;
+  address: string;
+  phone: string;
+  gst: string;
+  defaultTaxRate: number;
+}
+
+export interface Invoice {
+  id: string;
+  invoiceNumber: string;
+  date: string;
+  customerName: string;
+  totalAmount: number;
+  paymentMode: 'CASH' | 'UPI' | 'CARD' | 'CREDIT';
+  itemsCount: number;
 }

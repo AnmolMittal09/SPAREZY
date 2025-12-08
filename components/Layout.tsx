@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+
+import React, { useState, useRef, useEffect } from 'react';
 // @ts-ignore
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { User, Role, StockItem } from '../types';
-import Logo from './Logo';
 import { fetchInventory } from '../services/inventoryService';
 import { 
   LayoutDashboard, 
@@ -26,7 +26,9 @@ import {
   ChevronDown,
   Building2,
   Truck,
-  Contact
+  Contact,
+  FileBarChart,
+  History
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -46,8 +48,6 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
   const [inventory, setInventory] = useState<StockItem[]>([]);
   const [searchResults, setSearchResults] = useState<StockItem[]>([]);
   const searchRef = useRef<HTMLDivElement>(null);
-
-  // User Dropdown State
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   useEffect(() => {
@@ -80,12 +80,12 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
   };
 
   const navigateToItem = (partNumber: string) => {
-    navigate(`/item/${encodeURIComponent(partNumber)}`);
+    navigate(`/parts?search=${encodeURIComponent(partNumber)}`);
     setShowResults(false);
     setSearchQuery('');
   };
 
-  // --- NAVIGATION CONFIGURATION ---
+  // --- NAVIGATION CONFIGURATION (STRICTLY FROM PROMPT) ---
   const navGroups = [
     {
       title: 'Main',
@@ -99,31 +99,27 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
       items: [
         { label: 'Billing / Invoices', path: '/billing', icon: Receipt },
         { label: 'Purchases', path: '/purchases', icon: ShoppingBag },
-        { label: 'Requisitions', path: '/requests', icon: ClipboardList },
+        { label: 'Requisitions', path: '/requisitions', icon: ClipboardList },
       ]
     },
     {
       title: 'Inventory Mgmt',
       items: [
-        { label: 'Stock Movements', path: '/stock-movements', icon: ArrowRightLeft },
+        { label: 'Stock Movements', path: '/movements', icon: ArrowRightLeft },
         { label: 'Low Stock Items', path: '/low-stock', icon: AlertTriangle },
-        { label: 'Import / Export', path: '/upload', icon: FileUp, requiredRole: Role.OWNER },
+        { label: 'Import / Export', path: '/import-export', icon: FileUp, requiredRole: Role.OWNER },
       ]
     },
     {
       title: 'Reports',
       items: [
-        { label: 'Analytics Dashboard', path: '/reports', icon: BarChart3, requiredRole: Role.OWNER },
-        { label: 'Sales Reports', path: '/reports/sales', icon: TrendingUp, requiredRole: Role.OWNER },
-        { label: 'Profit Summary', path: '/reports/profit', icon: PieChart, requiredRole: Role.OWNER },
+        { label: 'Analytics & Reports', path: '/reports', icon: BarChart3, requiredRole: Role.OWNER },
       ]
     },
     {
       title: 'Admin / Settings',
       items: [
-        { label: 'Team Access', path: '/users', icon: Users, requiredRole: Role.OWNER },
-        { label: 'Shop Settings', path: '/settings/shop', icon: Building2, requiredRole: Role.OWNER },
-        { label: 'Suppliers', path: '/settings/suppliers', icon: Truck, requiredRole: Role.OWNER },
+        { label: 'Settings & Admin', path: '/settings', icon: Settings, requiredRole: Role.OWNER },
       ]
     }
   ];
@@ -132,8 +128,6 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
     <div className="h-screen bg-slate-50 flex overflow-hidden font-sans">
       
       {/* --- 1. LEFT SIDEBAR --- */}
-      
-      {/* Mobile Overlay */}
       {isSidebarOpen && (
         <div 
           className="fixed inset-0 bg-slate-900/50 z-40 lg:hidden backdrop-blur-sm"
@@ -146,7 +140,6 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
-        {/* Brand Header */}
         <div className="h-16 flex items-center px-6 border-b border-slate-100 bg-white z-20">
            <Link to="/" className="flex items-center gap-2">
               <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white font-black text-sm shadow-sm">
@@ -156,11 +149,9 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
            </Link>
         </div>
 
-        {/* Navigation Content */}
         <div className="flex-1 overflow-y-auto py-4 space-y-6 scrollbar-thin scrollbar-thumb-slate-200">
            {navGroups.map((group, idx) => (
              <div key={idx} className="group-section">
-                {/* Sticky Header for Groups */}
                 <div className="sticky top-0 bg-white/95 backdrop-blur-sm px-6 py-2 z-10">
                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
                      {group.title}
@@ -171,7 +162,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
                    {group.items.map((item, itemIdx) => {
                       if (item.requiredRole && user.role !== item.requiredRole) return null;
                       
-                      const isActive = location.pathname === item.path;
+                      const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
                       
                       return (
                         <Link
@@ -190,11 +181,6 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
                             className={`transition-colors ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-600'}`} 
                           />
                           <span>{item.label}</span>
-                          
-                          {/* Active Indicator (Optional extra detail) */}
-                          {isActive && (
-                            <span className="absolute right-2 w-1.5 h-1.5 rounded-full bg-blue-400"></span>
-                          )}
                         </Link>
                       );
                    })}
@@ -203,7 +189,6 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
            ))}
         </div>
 
-        {/* User Footer */}
         <div className="p-4 border-t border-slate-200 bg-white z-20">
            <div className="relative">
              <button 
@@ -220,16 +205,9 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
                 <ChevronDown size={14} className="text-slate-400" />
              </button>
 
-             {/* User Popup Menu */}
              {showUserMenu && (
                <div className="absolute bottom-full left-0 w-full mb-2 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden animate-fade-in z-50">
-                  <div className="p-3 border-b border-slate-50 bg-slate-50/50">
-                     <p className="text-xs text-slate-500">Signed in as <br/><span className="font-bold text-slate-900">@{user.username}</span></p>
-                  </div>
                   <div className="p-1">
-                     <button onClick={() => navigate('/settings/profile')} className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg flex items-center gap-2">
-                        <Settings size={14} /> Profile Settings
-                     </button>
                      <button onClick={onLogout} className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg flex items-center gap-2">
                         <LogOut size={14} /> Sign Out
                      </button>
@@ -240,11 +218,8 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
         </div>
       </aside>
 
-
-      {/* --- RIGHT SECTION (Header + Content) --- */}
+      {/* --- RIGHT SECTION --- */}
       <div className="flex-1 flex flex-col min-w-0 h-full">
-        
-        {/* --- 2. TOP HEADER --- */}
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 lg:px-8 shadow-sm z-30 sticky top-0">
            <div className="flex items-center gap-4 lg:hidden">
               <button onClick={() => setIsSidebarOpen(true)} className="text-slate-500 hover:bg-slate-100 p-2 rounded-lg">
@@ -253,7 +228,6 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
               <span className="font-bold text-lg text-slate-900">Sparezy</span>
            </div>
 
-           {/* Global Search Bar */}
            <div className="hidden lg:flex flex-1 max-w-2xl relative" ref={searchRef}>
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                  <Search className="h-4 w-4 text-slate-400" />
@@ -261,69 +235,42 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
               <input 
                  type="text" 
                  className="block w-full pl-10 pr-3 py-2.5 border border-slate-200 rounded-lg leading-5 bg-slate-50 text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-slate-300 focus:ring-4 focus:ring-slate-100 sm:text-sm transition-all"
-                 placeholder="Search global inventory (Name, Part No, HSN)..."
+                 placeholder="Search global inventory..."
                  value={searchQuery}
                  onChange={handleSearch}
               />
-              <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
-                 <kbd className="hidden xl:inline-block border border-slate-200 rounded px-2 text-[10px] font-medium text-slate-400 bg-white">⌘K</kbd>
-              </div>
-
-              {/* Search Results Dropdown */}
               {showResults && (
                 <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-lg shadow-xl border border-slate-200 max-h-96 overflow-y-auto z-50 animate-fade-in">
                    {searchResults.length === 0 ? (
-                      <div className="p-8 text-sm text-slate-500 text-center flex flex-col items-center gap-2">
-                        <Search className="text-slate-300" size={24} />
-                        No parts found matching "{searchQuery}"
-                      </div>
+                      <div className="p-8 text-sm text-slate-500 text-center">No parts found matching "{searchQuery}"</div>
                    ) : (
-                      <>
-                        <div className="px-3 py-2 text-xs font-semibold text-slate-400 uppercase bg-slate-50 border-b border-slate-100 sticky top-0">
-                           Best Matches
+                      searchResults.map(item => (
+                        <div 
+                           key={item.id}
+                           onClick={() => navigateToItem(item.partNumber)}
+                           className="px-4 py-3 hover:bg-slate-50 cursor-pointer flex justify-between items-center border-b border-slate-50 last:border-0"
+                        >
+                           <div>
+                              <div className="text-sm font-semibold text-slate-900">{item.partNumber}</div>
+                              <div className="text-xs text-slate-500">{item.name}</div>
+                           </div>
+                           <div className="text-right">
+                              <div className="text-sm font-bold text-slate-800">₹{item.price}</div>
+                           </div>
                         </div>
-                        {searchResults.map(item => (
-                          <div 
-                             key={item.id}
-                             onClick={() => navigateToItem(item.partNumber)}
-                             className="px-4 py-3 hover:bg-slate-50 cursor-pointer flex justify-between items-center border-b border-slate-50 last:border-0 group"
-                          >
-                             <div>
-                                <div className="text-sm font-semibold text-slate-900 flex items-center gap-2 group-hover:text-blue-600 transition-colors">
-                                  {item.partNumber}
-                                  <span className={`text-[10px] px-1.5 rounded ${item.brand === 'HYUNDAI' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
-                                    {item.brand.substring(0, 1)}
-                                  </span>
-                                </div>
-                                <div className="text-xs text-slate-500">{item.name}</div>
-                             </div>
-                             <div className="text-right">
-                                <div className="text-sm font-bold text-slate-800">₹{item.price}</div>
-                                <div className={`text-[10px] font-medium ${item.quantity === 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                   {item.quantity} in stock
-                                </div>
-                             </div>
-                          </div>
-                        ))}
-                      </>
+                      ))
                    )}
                 </div>
               )}
            </div>
 
-           {/* Header Actions */}
            <div className="flex items-center gap-3 ml-4">
               <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full relative">
                  <Bell size={20} />
-                 <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
-              </button>
-              <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full">
-                 <HelpCircle size={20} />
               </button>
            </div>
         </header>
 
-        {/* --- 3. MAIN CONTENT --- */}
         <main className="flex-1 overflow-y-auto bg-slate-50 p-4 lg:p-8">
            <div className="max-w-[1600px] mx-auto space-y-6">
               {children}
