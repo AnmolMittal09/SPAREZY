@@ -124,33 +124,47 @@ export const toggleArchiveStatus = async (partNumber: string, isArchived: boolea
   if (error) throw new Error(error.message);
 };
 
-export const bulkArchiveItems = async (partNumbers: string[], isArchived: boolean): Promise<void> => {
-  if (!supabase) return;
-
-  // Process in batches to avoid URL/Payload limits with huge selections
-  const BATCH_SIZE = 200;
-  
-  for (let i = 0; i < partNumbers.length; i += BATCH_SIZE) {
-    const batch = partNumbers.slice(i, i + BATCH_SIZE);
-    
-    const { error } = await supabase
-      .from('inventory')
-      .update({ is_archived: isArchived })
-      .in('part_number', batch);
-
-    if (error) {
-      console.error(`Error archiving batch ${i}:`, error);
-      throw new Error(error.message);
-    }
-  }
-};
-
 export const saveInventory = async (items: StockItem[]): Promise<void> => {
   if (supabase) {
      return;
   }
   await delay(300);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+};
+
+export const bulkArchiveItems = async (partNumbers: string[], isArchived: boolean): Promise<void> => {
+  // SUPABASE IMPLEMENTATION
+  if (supabase) {
+    // Process in batches to avoid URL/Payload limits with huge selections
+    const BATCH_SIZE = 200;
+    
+    for (let i = 0; i < partNumbers.length; i += BATCH_SIZE) {
+      const batch = partNumbers.slice(i, i + BATCH_SIZE);
+      
+      const { error } = await supabase
+        .from('inventory')
+        .update({ is_archived: isArchived })
+        .in('part_number', batch);
+
+      if (error) {
+        console.error(`Error archiving batch ${i}:`, error);
+        throw new Error(error.message);
+      }
+    }
+    return;
+  }
+
+  // LOCAL STORAGE FALLBACK
+  await delay(500);
+  const items = getFromLS();
+  const idsToUpdate = new Set(partNumbers);
+  const updatedItems = items.map(item => {
+    if (idsToUpdate.has(item.partNumber)) {
+      return { ...item, isArchived };
+    }
+    return item;
+  });
+  await saveInventory(updatedItems);
 };
 
 export const getStats = (items: StockItem[]): StockStats => {

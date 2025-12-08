@@ -1,9 +1,10 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 // @ts-ignore
 import { Link } from 'react-router-dom';
 import { StockItem, Brand, Role } from '../types';
 import { toggleArchiveStatus, bulkArchiveItems } from '../services/inventoryService';
-import { Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, Archive, ArchiveRestore, MoreHorizontal, Filter } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, Archive, ArchiveRestore, MoreHorizontal, Filter, Loader2 } from 'lucide-react';
 
 interface StockTableProps {
   items: StockItem[];
@@ -22,6 +23,7 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, user
   
   // Selection
   const [selectedParts, setSelectedParts] = useState<Set<string>>(new Set());
+  const [isArchiving, setIsArchiving] = useState(false);
 
   // Permission
   const isOwner = userRole === Role.OWNER;
@@ -38,24 +40,18 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, user
       setSelectedParts(newSet);
   };
 
-  const toggleSelectAll = () => {
-      const ids = currentItems.map(i => i.partNumber);
-      if (ids.every(id => selectedParts.has(id))) {
-          const newSet = new Set(selectedParts);
-          ids.forEach(id => newSet.delete(id));
-          setSelectedParts(newSet);
-      } else {
-          const newSet = new Set(selectedParts);
-          ids.forEach(id => newSet.add(id));
-          setSelectedParts(newSet);
-      }
-  };
-
   const handleBulkArchive = async () => {
       if (!confirm(`Archive ${selectedParts.size} items?`)) return;
-      await bulkArchiveItems(Array.from(selectedParts), true);
-      setSelectedParts(new Set());
-      window.location.reload(); // Simple reload to refresh data for now
+      setIsArchiving(true);
+      try {
+        await bulkArchiveItems(Array.from(selectedParts), true);
+        setSelectedParts(new Set());
+        window.location.reload(); // Simple reload to refresh data
+      } catch (e) {
+        alert("Failed to archive items. Please try again.");
+      } finally {
+        setIsArchiving(false);
+      }
   };
 
   // Filter & Sort
@@ -91,6 +87,31 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, user
   const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
   const currentItems = filteredItems.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
+  // Selection Logic
+  const isAllPageSelected = currentItems.length > 0 && currentItems.every(i => selectedParts.has(i.partNumber));
+  const areAllSelected = filteredItems.length > 0 && selectedParts.size === filteredItems.length;
+
+  const toggleSelectAllPage = () => {
+    const newSet = new Set(selectedParts);
+    if (isAllPageSelected) {
+        // Deselect current page
+        currentItems.forEach(i => newSet.delete(i.partNumber));
+    } else {
+        // Select current page
+        currentItems.forEach(i => newSet.add(i.partNumber));
+    }
+    setSelectedParts(newSet);
+  };
+
+  const selectAllGlobal = () => {
+    const allIds = filteredItems.map(i => i.partNumber);
+    setSelectedParts(new Set(allIds));
+  };
+
+  const clearSelection = () => {
+    setSelectedParts(new Set());
+  };
+
   const requestSort = (key: keyof StockItem) => {
     let direction: 'asc' | 'desc' = 'asc';
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
@@ -113,7 +134,12 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, user
         
         <div className="flex items-center gap-3">
             {selectedParts.size > 0 && isOwner && (
-                <button onClick={handleBulkArchive} className="text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-md text-sm font-medium transition-colors">
+                <button 
+                  onClick={handleBulkArchive} 
+                  disabled={isArchiving}
+                  className="text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-2"
+                >
+                    {isArchiving ? <Loader2 className="animate-spin" size={14} /> : null}
                     Archive {selectedParts.size} Selected
                 </button>
             )}
@@ -141,6 +167,28 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, user
         </div>
       </div>
 
+      {/* Bulk Selection Banner */}
+      {enableActions && isOwner && (
+        <>
+          {isAllPageSelected && !areAllSelected && (
+            <div className="bg-blue-50 border-b border-blue-100 p-2 text-center text-sm text-blue-800 animate-fade-in">
+               All <b>{currentItems.length}</b> items on this page are selected. 
+               <button onClick={selectAllGlobal} className="ml-2 font-bold underline hover:text-blue-900">
+                 Select all {filteredItems.length} items in this list
+               </button>
+            </div>
+          )}
+          {areAllSelected && (
+            <div className="bg-blue-50 border-b border-blue-100 p-2 text-center text-sm text-blue-800 animate-fade-in">
+               All <b>{filteredItems.length}</b> items are selected.
+               <button onClick={clearSelection} className="ml-2 font-bold underline hover:text-blue-900">
+                 Clear selection
+               </button>
+            </div>
+          )}
+        </>
+      )}
+
       {/* Table Container */}
       <div className="flex-1 overflow-auto">
         <table className="w-full text-left text-sm border-collapse">
@@ -148,7 +196,12 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, user
                 <tr>
                     {enableActions && isOwner && (
                         <th className="px-4 py-3 border-b border-slate-200 w-10">
-                            <input type="checkbox" onChange={toggleSelectAll} className="rounded border-slate-300 text-primary-600 focus:ring-primary-500" />
+                            <input 
+                              type="checkbox" 
+                              checked={isAllPageSelected}
+                              onChange={toggleSelectAllPage} 
+                              className="rounded border-slate-300 text-primary-600 focus:ring-primary-500" 
+                            />
                         </th>
                     )}
                     <th className="px-4 py-3 border-b border-slate-200 font-semibold text-slate-600 cursor-pointer select-none group" onClick={() => requestSort('partNumber')}>
