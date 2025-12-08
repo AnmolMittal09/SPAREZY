@@ -1,3 +1,4 @@
+
 import { createClient } from '@supabase/supabase-js';
 
 // Access environment variables safely for both Vite and Browser Preview
@@ -46,7 +47,23 @@ export const supabase = (supabaseUrl && supabaseKey)
  *   status text default 'PENDING',
  *   created_by_role text,
  *   created_at timestamptz default now(),
- *   related_transaction_id uuid
+ *   related_transaction_id uuid,
+ *   invoice_id uuid -- NEW: Link to invoices table
+ * );
+ * 
+ * create table invoices (
+ *   id uuid default gen_random_uuid() primary key,
+ *   invoice_number text unique not null,
+ *   date timestamptz default now(),
+ *   customer_name text,
+ *   customer_phone text,
+ *   customer_address text,
+ *   customer_gst text,
+ *   total_amount numeric,
+ *   tax_amount numeric,
+ *   payment_mode text,
+ *   items_count int,
+ *   generated_by text
  * );
  * 
  * create table upload_history (

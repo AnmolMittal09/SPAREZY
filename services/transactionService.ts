@@ -1,23 +1,13 @@
 
 
+
 import { supabase } from './supabase';
-import { Role, Transaction, TransactionStatus, TransactionType } from '../types';
+import { Invoice, Role, Transaction, TransactionStatus, TransactionType } from '../types';
 
 /**
  * SQL SCHEMA FOR TRANSACTIONS:
- * 
- * create table transactions (
- *   id uuid default gen_random_uuid() primary key,
- *   part_number text not null,
- *   type text not null, -- 'SALE' or 'PURCHASE'
- *   quantity int not null,
- *   price numeric,
- *   customer_name text,
- *   status text default 'PENDING',
- *   created_by_role text,
- *   created_at timestamptz default now(),
- *   related_transaction_id uuid
- * );
+ * ... (existing schema) ...
+ * invoice_id uuid
  */
 
 const mapDBToTransaction = (item: any): Transaction => ({
@@ -30,7 +20,8 @@ const mapDBToTransaction = (item: any): Transaction => ({
   status: item.status as TransactionStatus,
   createdByRole: item.created_by_role as Role,
   createdAt: item.created_at,
-  relatedTransactionId: item.related_transaction_id
+  relatedTransactionId: item.related_transaction_id,
+  invoiceId: item.invoice_id
 });
 
 export const createTransaction = async (
@@ -334,39 +325,107 @@ export const fetchAnalytics = async (startDate: Date, endDate: Date): Promise<An
   };
 };
 
-export const fetchSalesForReturn = async (search?: string): Promise<Transaction[]> => {
+// --- INVOICE RELATED FUNCTIONS ---
+
+export const fetchUninvoicedSales = async (): Promise<Transaction[]> => {
   if (!supabase) return [];
 
-  // 1. Fetch Approved Sales
-  let query = supabase
+  // Fetch Approved Sales that do NOT have an invoice_id
+  const { data, error } = await supabase
     .from('transactions')
     .select('*')
     .eq('type', 'SALE')
     .eq('status', 'APPROVED')
-    .order('created_at', { ascending: false })
-    .limit(20);
+    .is('invoice_id', null)
+    .order('created_at', { ascending: false });
 
-  if (search && search.trim().length > 0) {
-    query = query.or(`part_number.ilike.%${search}%,customer_name.ilike.%${search}%`);
+  if (error || !data) return [];
+  return data.map(mapDBToTransaction);
+};
+
+export const fetchInvoices = async (): Promise<Invoice[]> => {
+  if (!supabase) return [];
+  
+  const { data, error } = await supabase
+    .from('invoices')
+    .select('*')
+    .order('date', { ascending: false });
+
+  if (error || !data) return [];
+  
+  return data.map((i: any) => ({
+     id: i.id,
+     invoiceNumber: i.invoice_number,
+     date: i.date,
+     customerName: i.customer_name,
+     customerPhone: i.customer_phone,
+     customerAddress: i.customer_address,
+     customerGst: i.customer_gst,
+     totalAmount: i.total_amount,
+     taxAmount: i.tax_amount,
+     paymentMode: i.payment_mode,
+     itemsCount: i.items_count,
+     generatedBy: i.generated_by
+  }));
+};
+
+export const generateTaxInvoiceRecord = async (
+  transactionIds: string[], 
+  customerDetails: { name: string, phone: string, address: string, gst: string, paymentMode: string },
+  totals: { amount: number, tax: number },
+  userRole: string
+): Promise<{ success: boolean, invoice?: Invoice, message?: string }> => {
+  if (!supabase) return { success: false, message: "Backend not connected" };
+
+  try {
+    const invoiceNumber = `INV-${Date.now().toString().slice(-8)}`;
+    
+    // 1. Create Invoice Record
+    const { data: invoiceData, error: invError } = await supabase
+      .from('invoices')
+      .insert({
+        invoice_number: invoiceNumber,
+        customer_name: customerDetails.name,
+        customer_phone: customerDetails.phone,
+        customer_address: customerDetails.address,
+        customer_gst: customerDetails.gst,
+        total_amount: totals.amount,
+        tax_amount: totals.tax,
+        payment_mode: customerDetails.paymentMode,
+        items_count: transactionIds.length,
+        generated_by: userRole
+      })
+      .select()
+      .single();
+
+    if (invError || !invoiceData) throw new Error(invError?.message || "Failed to create invoice");
+
+    // 2. Link transactions to this invoice
+    const { error: txError } = await supabase
+      .from('transactions')
+      .update({ invoice_id: invoiceData.id })
+      .in('id', transactionIds);
+
+    if (txError) throw new Error("Failed to link items to invoice");
+
+    const newInvoice: Invoice = {
+      id: invoiceData.id,
+      invoiceNumber: invoiceData.invoice_number,
+      date: invoiceData.date,
+      customerName: invoiceData.customer_name,
+      customerPhone: invoiceData.customer_phone,
+      customerAddress: invoiceData.customer_address,
+      customerGst: invoiceData.customer_gst,
+      totalAmount: invoiceData.total_amount,
+      taxAmount: invoiceData.tax_amount,
+      paymentMode: invoiceData.payment_mode,
+      itemsCount: invoiceData.items_count,
+      generatedBy: invoiceData.generated_by
+    };
+
+    return { success: true, invoice: newInvoice };
+
+  } catch (err: any) {
+    return { success: false, message: err.message };
   }
-
-  const { data: sales, error } = await query;
-  if (error || !sales) {
-    return [];
-  }
-
-  // 2. Filter out items that have ALREADY been returned.
-  const saleIds = sales.map(s => s.id);
-  if (saleIds.length === 0) return [];
-
-  const { data: returns } = await supabase
-    .from('transactions')
-    .select('related_transaction_id')
-    .eq('type', 'RETURN')
-    .in('related_transaction_id', saleIds);
-
-  const returnedSaleIds = new Set((returns || []).map(r => r.related_transaction_id));
-  const availableSales = sales.filter(s => !returnedSaleIds.has(s.id));
-
-  return availableSales.map(mapDBToTransaction);
 };

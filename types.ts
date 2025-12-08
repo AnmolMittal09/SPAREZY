@@ -1,4 +1,5 @@
 
+
 export enum Role {
   OWNER = 'OWNER',
   MANAGER = 'MANAGER',
@@ -65,6 +66,7 @@ export interface Transaction {
   createdByRole: Role;
   createdAt: string;
   relatedTransactionId?: string;
+  invoiceId?: string; // New: Links transaction to a formal tax invoice
 }
 
 export interface UploadHistoryEntry {
@@ -132,10 +134,15 @@ export interface ShopSettings {
 
 export interface Invoice {
   id: string;
-  invoiceNumber: string;
+  invoiceNumber: string; // e.g., INV-2023-001
   date: string;
   customerName: string;
+  customerPhone?: string;
+  customerAddress?: string;
+  customerGst?: string;
   totalAmount: number;
+  taxAmount: number;
   paymentMode: 'CASH' | 'UPI' | 'CARD' | 'CREDIT';
   itemsCount: number;
+  generatedBy: string;
 }

@@ -1,22 +1,19 @@
 
 
+
 import React, { useEffect, useState } from 'react';
 import { Role, TransactionType, User, StockItem } from '../types';
 import { createBulkTransactions } from '../services/transactionService';
 import { fetchInventory } from '../services/inventoryService';
-import { generateInvoice } from '../services/invoiceService';
 import { 
-  ShoppingCart, 
-  Truck, 
-  CheckCircle2, 
   Search,
   Loader2,
   Trash2,
-  Printer,
   Minus,
   Plus,
   Send,
-  Lock
+  Save,
+  CheckCircle2
 } from 'lucide-react';
 
 interface Props {
@@ -140,9 +137,6 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
             alert("Requests successfully submitted to Admin for approval.");
           } else {
             // Owner flow
-            if (mode === 'SALES') {
-               generateInvoice(payload, inventory);
-            }
             alert("Transaction confirmed and stock updated.");
           }
 
@@ -204,7 +198,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
        <div className="lg:col-span-1 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-full overflow-hidden">
             <div className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
                 <h2 className="font-bold text-slate-800">
-                    {mode === 'SALES' ? 'Invoice Items' : 'Purchase List'}
+                    {mode === 'SALES' ? 'Sale Items' : 'Purchase List'}
                     <span className="ml-2 bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full text-xs">{cart.length}</span>
                 </h2>
                 {cart.length > 0 && <button onClick={() => setCart([])} className="text-xs text-red-600 hover:underline">Clear</button>}
@@ -214,7 +208,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
                 <input 
                    type="text" 
                    className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm outline-none focus:ring-1 focus:ring-primary-500"
-                   placeholder={mode === 'PURCHASE' ? "Supplier Name" : "Customer Name"}
+                   placeholder={mode === 'PURCHASE' ? "Supplier Name" : "Customer Name (Optional)"}
                    value={customerName}
                    onChange={e => setCustomerName(e.target.value)}
                 />
@@ -251,9 +245,9 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
                    className="w-full py-3 rounded-lg font-bold text-white flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 shadow-md transition-all disabled:opacity-50"
                 >
                    {loading ? <Loader2 className="animate-spin" size={20} /> : (
-                      user.role === Role.MANAGER ? <Send size={20} /> : (mode === 'SALES' ? <Printer size={20} /> : <CheckCircle2 size={20} />)
+                      user.role === Role.MANAGER ? <Send size={20} /> : (mode === 'SALES' ? <Save size={20} /> : <CheckCircle2 size={20} />)
                    )}
-                   {user.role === Role.MANAGER ? 'Submit for Approval' : (mode === 'SALES' ? 'Save & Print' : 'Confirm Purchase')}
+                   {user.role === Role.MANAGER ? 'Submit for Approval' : (mode === 'SALES' ? 'Record Sale' : 'Confirm Purchase')}
                 </button>
             </div>
        </div>

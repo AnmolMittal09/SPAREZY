@@ -34,21 +34,21 @@ const Billing: React.FC<Props> = ({ user }) => {
     <div className="space-y-4 h-full flex flex-col">
        <div className="flex justify-between items-center">
           <div>
-             <h1 className="text-2xl font-bold text-slate-900">Billing & Invoices</h1>
-             <p className="text-slate-500">Create invoices for retail or garage customers.</p>
+             <h1 className="text-2xl font-bold text-slate-900">Billing (Sales)</h1>
+             <p className="text-slate-500">Record cash sales, estimates, and daily transactions.</p>
           </div>
           <div className="flex bg-white p-1 rounded-lg border border-slate-200">
              <button 
                onClick={() => setActiveTab('NEW')}
                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'NEW' ? 'bg-slate-900 text-white shadow' : 'text-slate-600 hover:bg-slate-50'}`}
              >
-               <PlusCircle size={16} /> New Invoice
+               <PlusCircle size={16} /> New Sale
              </button>
              <button 
                onClick={() => setActiveTab('HISTORY')}
                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'HISTORY' ? 'bg-slate-900 text-white shadow' : 'text-slate-600 hover:bg-slate-50'}`}
              >
-               <History size={16} /> History
+               <History size={16} /> Sales Log
              </button>
           </div>
        </div>
@@ -60,7 +60,7 @@ const Billing: React.FC<Props> = ({ user }) => {
           {activeTab === 'HISTORY' && (
              <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-full overflow-hidden">
                 <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center gap-2 text-slate-600 font-medium">
-                   <Receipt size={18} /> Recent Sales Log
+                   <Receipt size={18} /> Daily Sales Log
                 </div>
                 
                 <div className="flex-1 overflow-auto">

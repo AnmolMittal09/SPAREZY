@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef, useEffect } from 'react';
 // @ts-ignore
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -20,7 +21,8 @@ import {
   Search,
   Bell,
   ChevronDown,
-  CheckSquare
+  CheckSquare,
+  FileText
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -89,7 +91,8 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
     {
       title: 'Transactions',
       items: [
-        { label: 'Billing / Invoices', path: '/billing', icon: Receipt },
+        { label: 'Billing (Sales)', path: '/billing', icon: Receipt },
+        { label: 'Tax Invoices', path: '/invoices', icon: FileText },
         { label: 'Purchases', path: '/purchases', icon: ShoppingBag },
         { label: 'Requisitions', path: '/requisitions', icon: ClipboardList },
         { label: 'Approvals', path: '/approvals', icon: CheckSquare, requiredRole: Role.OWNER },
