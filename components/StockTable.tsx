@@ -37,8 +37,11 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, user
   // Selection State (for Bulk Actions)
   const [selectedParts, setSelectedParts] = useState<Set<string>>(new Set());
 
-  // Permission Check
+  // Permission Checks
+  // Can Perform Actions: Controls checkboxes, bulk actions, and individual row action buttons
   const canPerformActions = userRole === Role.OWNER && enableActions;
+  // Can View Archive: Controls the filter button to see archived items (allowed for Owners even on Overview)
+  const canViewArchive = userRole === Role.OWNER;
 
   // Debounce Logic: Wait 300ms after last keystroke to update filter
   useEffect(() => {
@@ -346,9 +349,9 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, user
                 <div className="flex items-center pb-2">
                     <button 
                         onClick={() => setShowArchived(!showArchived)}
-                        disabled={!canPerformActions}
-                        className={`text-sm font-medium flex items-center gap-2 px-3 py-2 rounded-lg transition-colors border w-full justify-center ${showArchived ? 'bg-orange-100 text-orange-800 border-orange-300' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'} ${!canPerformActions ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        title={!canPerformActions ? "Archive management is disabled here" : ""}
+                        disabled={!canViewArchive}
+                        className={`text-sm font-medium flex items-center gap-2 px-3 py-2 rounded-lg transition-colors border w-full justify-center ${showArchived ? 'bg-orange-100 text-orange-800 border-orange-300' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'} ${!canViewArchive ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        title={!canViewArchive ? "Only Owners can view archived items" : ""}
                     >
                         {showArchived ? <ArchiveRestore size={16} /> : <Archive size={16} />}
                         {showArchived ? 'Viewing Archived Items' : 'Show Archived Items'}

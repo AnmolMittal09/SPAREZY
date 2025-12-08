@@ -13,8 +13,6 @@ import {
   Banknote, 
   Sparkles, 
   Loader2,
-  Eye,
-  EyeOff,
   Filter,
   X
 } from 'lucide-react';
@@ -30,7 +28,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   const [loadingAi, setLoadingAi] = useState(false);
 
   // Filters
-  const [hideOutOfStock, setHideOutOfStock] = useState(false);
   const [selectedBrand, setSelectedBrand] = useState<Brand | undefined>(undefined);
   
   // Privacy State
@@ -60,12 +57,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
     else setSelectedBrand(brand);
   };
 
-  // Filter items passed to table
-  const displayedInventory = inventory.filter(item => {
-    if (hideOutOfStock && item.quantity === 0) return false;
-    return true;
-  });
-
   if (loading) {
     return <TharLoader />;
   }
@@ -81,18 +72,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
         </div>
         
         <div className="flex flex-wrap gap-2">
-           <button
-             onClick={() => setHideOutOfStock(!hideOutOfStock)}
-             className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all ${
-                hideOutOfStock 
-                ? 'bg-gray-800 text-white border-gray-800' 
-                : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
-             }`}
-           >
-             {hideOutOfStock ? <EyeOff size={18} /> : <Eye size={18} />}
-             {hideOutOfStock ? 'Hidden Out of Stock' : 'Hide Out of Stock'}
-           </button>
-
            {user.role === Role.OWNER && (
             <button 
                 onClick={handleGenerateInsights}
@@ -205,29 +184,21 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
       </div>
 
       {/* Filter Status Bar if active */}
-      {(selectedBrand || hideOutOfStock) && (
+      {selectedBrand && (
           <div className="flex items-center gap-2 text-sm text-gray-500 bg-gray-50 p-2 rounded-lg border border-gray-100">
              <Filter size={14} />
              <span>Active Filters:</span>
-             {selectedBrand && (
-                 <span className="bg-white border border-gray-200 px-2 py-0.5 rounded text-gray-800 font-medium flex items-center gap-1">
-                    {selectedBrand} 
-                    <button onClick={() => setSelectedBrand(undefined)} className="hover:text-red-500"><X size={12}/></button>
-                 </span>
-             )}
-             {hideOutOfStock && (
-                 <span className="bg-white border border-gray-200 px-2 py-0.5 rounded text-gray-800 font-medium flex items-center gap-1">
-                    No Zero Stock
-                    <button onClick={() => setHideOutOfStock(false)} className="hover:text-red-500"><X size={12}/></button>
-                 </span>
-             )}
-             <button onClick={() => {setSelectedBrand(undefined); setHideOutOfStock(false)}} className="text-blue-600 hover:underline ml-auto">Clear All</button>
+             <span className="bg-white border border-gray-200 px-2 py-0.5 rounded text-gray-800 font-medium flex items-center gap-1">
+                {selectedBrand} 
+                <button onClick={() => setSelectedBrand(undefined)} className="hover:text-red-500"><X size={12}/></button>
+             </span>
+             <button onClick={() => setSelectedBrand(undefined)} className="text-blue-600 hover:underline ml-auto">Clear All</button>
           </div>
       )}
 
       {/* Main List */}
       <StockTable 
-         items={displayedInventory} 
+         items={inventory} 
          title={selectedBrand ? `${selectedBrand} Inventory` : "Full Inventory"} 
          brandFilter={selectedBrand} 
          userRole={user.role}
