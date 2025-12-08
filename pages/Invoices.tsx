@@ -1,11 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
-import { User, Transaction, ShopSettings, TransactionStatus, TransactionType } from '../types';
-import { fetchUninvoicedSales, generateTaxInvoiceRecord, fetchInvoices, fetchTransactions } from '../services/transactionService';
+import { User, Transaction, ShopSettings } from '../types';
+import { fetchUninvoicedSales, generateTaxInvoiceRecord, fetchInvoices } from '../services/transactionService';
 import { fetchInventory } from '../services/inventoryService';
 import { getShopSettings } from '../services/masterService';
 import { generateInvoice } from '../services/invoiceService'; 
-import { FileText, Printer, Search, RefreshCw, AlertCircle, CheckCircle2, History, Calculator, Clock } from 'lucide-react';
+import { FileText, Printer, Search, RefreshCw, AlertCircle, CheckCircle2, History, Calculator } from 'lucide-react';
 import TharLoader from '../components/TharLoader';
 
 interface Props {
@@ -17,7 +17,6 @@ const Invoices: React.FC<Props> = ({ user }) => {
   
   // Pending State
   const [sales, setSales] = useState<Transaction[]>([]);
-  const [pendingCount, setPendingCount] = useState(0); // For manager approvals
   const [inventory, setInventory] = useState<any[]>([]);
   const [shopSettings, setShopSettings] = useState<ShopSettings | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -44,14 +43,8 @@ const Invoices: React.FC<Props> = ({ user }) => {
   const loadPending = async () => {
     setLoading(true);
     try {
-      // 1. Fetch sales ready for invoice (APPROVED & NO INVOICE)
       const data = await fetchUninvoicedSales();
       setSales(data);
-
-      // 2. Check if there are any PENDING sales waiting for approval (helps debug why list is empty)
-      const pendingTx = await fetchTransactions(TransactionStatus.PENDING, TransactionType.SALE);
-      setPendingCount(pendingTx.length);
-
     } catch (error) {
       console.error("Failed to load sales", error);
     }
@@ -123,7 +116,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
   };
 
   const handleReprint = (invoice: any) => {
-     alert(`Reprinting functionality requires fetching linked lines... (Implementation pending)`);
+     alert(`Reprinting Invoice ${invoice.invoiceNumber}... (Implementation requires fetching linked lines)`);
   };
 
   const filteredSales = sales.filter(s => 
@@ -190,16 +183,11 @@ const Invoices: React.FC<Props> = ({ user }) => {
                          sales.length === 0 ? (
                             <div className="flex flex-col items-center justify-center h-64 text-slate-400 px-4 text-center">
                                 <AlertCircle size={48} className="mb-4 opacity-20" />
-                                <h3 className="text-lg font-semibold text-slate-600">No Sales Ready for Invoicing</h3>
-                                <p className="text-sm max-w-xs mt-2 text-slate-500">
-                                    Sales must be <b>Approved</b> to appear here.
+                                <h3 className="text-lg font-semibold text-slate-600">No Pending Sales Found</h3>
+                                <p className="text-sm max-w-xs mt-2">
+                                    Sales must be <b>Approved</b> and <b>Uninvoiced</b> to appear here. 
+                                    Check the <span className="font-bold text-slate-600">Approvals</span> page if you are waiting for manager requests.
                                 </p>
-                                {pendingCount > 0 && (
-                                   <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800 flex items-center gap-2">
-                                      <Clock size={16} />
-                                      <span>There are <b>{pendingCount}</b> sales pending approval.</span>
-                                   </div>
-                                )}
                             </div>
                          ) : (
                              <table className="w-full text-sm text-left border-collapse">

@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { ShopSettings, User } from '../types';
 import UserManagement from './UserManagement';
-import CustomerManagement from './CustomerManagement';
 import { getShopSettings, saveShopSettings } from '../services/masterService';
 import { Users, Building2, Truck, Contact, Layers, Save, Loader2 } from 'lucide-react';
 import TharLoader from '../components/TharLoader';
@@ -59,8 +58,8 @@ const Settings: React.FC<Props> = ({ user }) => {
           {[
             { id: 'TEAM', label: 'Team Access', icon: Users },
             { id: 'SHOP', label: 'Shop Settings', icon: Building2 },
-            { id: 'CUSTOMERS', label: 'Customers', icon: Contact },
             { id: 'BRANDS', label: 'Brands & Models', icon: Layers },
+            { id: 'CUSTOMERS', label: 'Customers', icon: Contact },
             { id: 'SUPPLIERS', label: 'Suppliers', icon: Truck },
           ].map(tab => (
              <button
@@ -80,8 +79,6 @@ const Settings: React.FC<Props> = ({ user }) => {
        <div className="min-h-[500px]">
           {activeTab === 'TEAM' && <UserManagement />}
           
-          {activeTab === 'CUSTOMERS' && <CustomerManagement />}
-
           {activeTab === 'SHOP' && (
              <div className="max-w-3xl mx-auto">
                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -165,7 +162,7 @@ const Settings: React.FC<Props> = ({ user }) => {
              </div>
           )}
 
-          {activeTab !== 'TEAM' && activeTab !== 'SHOP' && activeTab !== 'CUSTOMERS' && (
+          {activeTab !== 'TEAM' && activeTab !== 'SHOP' && (
              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center text-slate-400">
                 <p className="text-lg font-medium text-slate-600 mb-2">Master Data Module</p>
                 <p>The {activeTab.toLowerCase().replace('_', ' ')} management interface is implemented in the mock service layer.</p>
