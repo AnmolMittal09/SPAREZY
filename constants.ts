@@ -11,6 +11,7 @@ export const INITIAL_STOCK_DATA: StockItem[] = [
     minStockThreshold: 10,
     price: 450,
     lastUpdated: new Date().toISOString(),
+    isArchived: false,
   },
   {
     id: '2',
@@ -22,6 +23,7 @@ export const INITIAL_STOCK_DATA: StockItem[] = [
     minStockThreshold: 8,
     price: 1200,
     lastUpdated: new Date().toISOString(),
+    isArchived: false,
   },
   {
     id: '3',
@@ -33,6 +35,7 @@ export const INITIAL_STOCK_DATA: StockItem[] = [
     minStockThreshold: 15,
     price: 380,
     lastUpdated: new Date().toISOString(),
+    isArchived: false,
   },
   {
     id: '4',
@@ -44,6 +47,7 @@ export const INITIAL_STOCK_DATA: StockItem[] = [
     minStockThreshold: 5,
     price: 4500,
     lastUpdated: new Date().toISOString(),
+    isArchived: false,
   },
   {
     id: '5',
@@ -55,6 +59,7 @@ export const INITIAL_STOCK_DATA: StockItem[] = [
     minStockThreshold: 5,
     price: 6500,
     lastUpdated: new Date().toISOString(),
+    isArchived: false,
   },
 ];
 

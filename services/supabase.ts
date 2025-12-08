@@ -24,7 +24,8 @@ export const supabase = (supabaseUrl && supabaseKey)
  *   quantity int default 0,
  *   min_stock_threshold int default 5,
  *   price numeric default 0,
- *   last_updated timestamptz default now()
+ *   last_updated timestamptz default now(),
+ *   is_archived boolean default false
  * );
  * 
  * create table price_history (
@@ -38,7 +39,7 @@ export const supabase = (supabaseUrl && supabaseKey)
  * create table transactions (
  *   id uuid default gen_random_uuid() primary key,
  *   part_number text not null,
- *   type text not null,
+ *   type text not null, -- 'SALE' or 'PURCHASE'
  *   quantity int not null,
  *   price numeric,
  *   customer_name text,

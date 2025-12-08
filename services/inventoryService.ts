@@ -16,6 +16,7 @@ interface DBItem {
   min_stock_threshold: number;
   price: number;
   last_updated: string;
+  is_archived: boolean;
 }
 
 // --- Mappers ---
@@ -29,6 +30,7 @@ const toAppItem = (dbItem: DBItem): StockItem => ({
   minStockThreshold: dbItem.min_stock_threshold,
   price: dbItem.price,
   lastUpdated: dbItem.last_updated,
+  isArchived: dbItem.is_archived || false,
 });
 
 const toDBItem = (item: Partial<StockItem>): Partial<DBItem> => {
@@ -41,6 +43,7 @@ const toDBItem = (item: Partial<StockItem>): Partial<DBItem> => {
   if (item.minStockThreshold !== undefined) dbItem.min_stock_threshold = item.minStockThreshold;
   if (item.price !== undefined) dbItem.price = item.price;
   if (item.lastUpdated) dbItem.last_updated = item.lastUpdated;
+  if (item.isArchived !== undefined) dbItem.is_archived = item.isArchived;
   return dbItem;
 };
 
@@ -110,6 +113,17 @@ export const fetchItemDetails = async (partNumber: string): Promise<StockItem | 
   return items.find(i => i.partNumber.toLowerCase() === partNumber.toLowerCase()) || null;
 };
 
+export const toggleArchiveStatus = async (partNumber: string, isArchived: boolean): Promise<void> => {
+  if (!supabase) return;
+  
+  const { error } = await supabase
+    .from('inventory')
+    .update({ is_archived: isArchived })
+    .ilike('part_number', partNumber); // Case insensitive match
+
+  if (error) throw new Error(error.message);
+};
+
 export const saveInventory = async (items: StockItem[]): Promise<void> => {
   if (supabase) {
      return;
@@ -119,11 +133,13 @@ export const saveInventory = async (items: StockItem[]): Promise<void> => {
 };
 
 export const getStats = (items: StockItem[]): StockStats => {
+  // Only count non-archived items for stats
+  const activeItems = items.filter(i => !i.isArchived);
   return {
-    totalItems: items.reduce((acc, item) => acc + item.quantity, 0),
-    totalValue: items.reduce((acc, item) => acc + (item.quantity * (item.price || 0)), 0),
-    lowStockCount: items.filter(i => i.quantity > 0 && i.quantity < i.minStockThreshold).length,
-    zeroStockCount: items.filter(i => i.quantity === 0).length,
+    totalItems: activeItems.reduce((acc, item) => acc + item.quantity, 0),
+    totalValue: activeItems.reduce((acc, item) => acc + (item.quantity * (item.price || 0)), 0),
+    lowStockCount: activeItems.filter(i => i.quantity > 0 && i.quantity < i.minStockThreshold).length,
+    zeroStockCount: activeItems.filter(i => i.quantity === 0).length,
   };
 };
 
@@ -246,22 +262,25 @@ export const updateOrAddItems = async (
 
         if (itemChanged) result.updated++;
 
+        // Logic: If new stock is added (quantity > 0), ensure item is not archived
+        const finalQuantity = newItem.quantity !== undefined ? newItem.quantity : existingItem.quantity;
+        const shouldUnarchive = existingItem.isArchived && finalQuantity > 0;
+
         upsertPayload.push({
           part_number: newItem.partNumber, 
           name: newItem.name !== undefined ? newItem.name : existingItem.name,
           brand: newItem.brand !== undefined ? newItem.brand : existingItem.brand,
           hsn_code: newItem.hsnCode !== undefined ? newItem.hsnCode : existingItem.hsnCode,
-          quantity: newItem.quantity !== undefined ? newItem.quantity : existingItem.quantity,
+          quantity: finalQuantity,
           min_stock_threshold: newItem.minStockThreshold !== undefined ? newItem.minStockThreshold : existingItem.minStockThreshold,
           price: newItem.price !== undefined ? newItem.price : existingItem.price,
-          last_updated: new Date().toISOString()
+          last_updated: new Date().toISOString(),
+          is_archived: shouldUnarchive ? false : existingItem.isArchived
         });
 
       } else {
         // New Item
         result.added++;
-        // If it's a new item, we effectively set price from 0 to NewPrice, but usually history tracks changes. 
-        // We'll skip history for initial creation to keep table clean, or add if preferred.
         
         upsertPayload.push({
           part_number: newItem.partNumber,
@@ -271,7 +290,8 @@ export const updateOrAddItems = async (
           quantity: newItem.quantity !== undefined ? newItem.quantity : 0,
           min_stock_threshold: newItem.minStockThreshold !== undefined ? newItem.minStockThreshold : 5,
           price: newItem.price !== undefined ? newItem.price : 0,
-          last_updated: new Date().toISOString()
+          last_updated: new Date().toISOString(),
+          is_archived: false // New items default to active
         });
       }
     });
@@ -332,14 +352,19 @@ export const updateOrAddItems = async (
       if (newItem.name && newItem.name !== existingItem.name) itemChanged = true;
       if (newItem.hsnCode && newItem.hsnCode !== existingItem.hsnCode) itemChanged = true;
 
+      // Unarchive if adding stock
+      const finalQuantity = quantityInput !== undefined ? quantityInput : existingItem.quantity;
+      const shouldUnarchive = existingItem.isArchived && finalQuantity > 0;
+
       currentInventory[existingIndex] = {
         ...existingItem,
         ...newItem,
-        quantity: quantityInput !== undefined ? quantityInput : existingItem.quantity,
+        quantity: finalQuantity,
         price: priceInput !== undefined ? priceInput : existingItem.price,
         minStockThreshold: thresholdInput !== undefined ? thresholdInput : existingItem.minStockThreshold,
         brand: newItem.brand ? newItem.brand : existingItem.brand,
         lastUpdated: new Date().toISOString(),
+        isArchived: shouldUnarchive ? false : existingItem.isArchived
       };
       
       if (itemChanged) result.updated++;
@@ -354,6 +379,7 @@ export const updateOrAddItems = async (
         minStockThreshold: thresholdInput !== undefined ? thresholdInput : 5,
         price: priceInput !== undefined ? priceInput : 0,
         lastUpdated: new Date().toISOString(),
+        isArchived: false
       });
       result.added++;
     }

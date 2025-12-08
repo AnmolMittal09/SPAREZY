@@ -71,7 +71,8 @@ const App: React.FC = () => {
           <Route path="/" element={<Dashboard user={user} />} />
           <Route path="/transactions" element={<DailyTransactions user={user} />} />
           <Route path="/requests" element={<StockRequests user={user} />} />
-          <Route path="/brand/:brandName" element={<BrandDashboard />} />
+          {/* Updated to pass user role */}
+          <Route path="/brand/:brandName" element={<BrandDashboardWrapper user={user} />} />
           <Route path="/item/:partNumber" element={<ItemDetail />} />
           
           {/* Protect Admin Routes */}
@@ -89,6 +90,16 @@ const App: React.FC = () => {
       </Layout>
     </HashRouter>
   );
+};
+
+// Helper wrapper to pass props to BrandDashboard
+const BrandDashboardWrapper = ({ user }: { user: User }) => {
+  // We need to clone the element or just render it with props.
+  // Since BrandDashboard wasn't accepting props before, we need to update BrandDashboard definition first (done in other file).
+  // But wait, the file change above for BrandDashboard.tsx didn't add props to the interface yet.
+  // Let me fix the props passing logic.
+  // Actually, easiest way is to modify BrandDashboard to accept User.
+  return <BrandDashboard user={user} />;
 };
 
 export default App;

@@ -2,14 +2,18 @@
 import React, { useEffect, useState } from 'react';
 // @ts-ignore
 import { useParams } from 'react-router-dom';
-import { Brand, StockItem } from '../types';
+import { Brand, StockItem, User } from '../types';
 import { fetchInventory } from '../services/inventoryService';
 import StockTable from '../components/StockTable';
 import StatCard from '../components/StatCard';
 import TharLoader from '../components/TharLoader';
 import { Package, AlertTriangle, AlertCircle, Search, TrendingUp, Boxes } from 'lucide-react';
 
-const BrandDashboard: React.FC = () => {
+interface Props {
+  user: User;
+}
+
+const BrandDashboard: React.FC<Props> = ({ user }) => {
   const { brandName } = useParams<{ brandName: string }>();
   const [inventory, setInventory] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -107,6 +111,7 @@ const BrandDashboard: React.FC = () => {
             items={inventory} 
             title={`${targetBrand} Inventory List`} 
             brandFilter={targetBrand} 
+            userRole={user.role}
          />
       </div>
     </div>

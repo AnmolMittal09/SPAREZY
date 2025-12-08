@@ -2,16 +2,18 @@
 import React, { useState, useMemo, useEffect } from 'react';
 // @ts-ignore
 import { Link } from 'react-router-dom';
-import { StockItem, Brand } from '../types';
-import { Search, AlertTriangle, AlertCircle, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, Hourglass, X, Loader2, Filter, ChevronDown, ChevronUp, RefreshCcw } from 'lucide-react';
+import { StockItem, Brand, Role } from '../types';
+import { toggleArchiveStatus } from '../services/inventoryService';
+import { Search, AlertTriangle, AlertCircle, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, Hourglass, X, Loader2, Filter, ChevronDown, ChevronUp, RefreshCcw, Archive, ArchiveRestore } from 'lucide-react';
 
 interface StockTableProps {
   items: StockItem[];
   title?: string;
   brandFilter?: Brand;
+  userRole?: Role; // Added to check permissions
 }
 
-const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter }) => {
+const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter, userRole }) => {
   // rawSearch is what the user types immediately
   const [rawSearch, setRawSearch] = useState('');
   // debouncedSearch is what triggers the expensive filter operation
@@ -21,13 +23,16 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter }) =>
   // Filters
   const [filterType, setFilterType] = useState<'ALL' | 'LOW' | 'ZERO' | 'RECENT_ZERO'>('ALL');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
-  const [selectedHSN, setSelectedHSN] = useState<string>('ALL');
-  const [priceRange, setPriceRange] = useState<{ min: string; max: string }>({ min: '', max: '' });
+  const [showArchived, setShowArchived] = useState(false);
 
   // Pagination & Sorting
   const [currentPage, setCurrentPage] = useState(1);
   const [sortConfig, setSortConfig] = useState<{ key: keyof StockItem; direction: 'asc' | 'desc' } | null>(null);
   const itemsPerPage = 50;
+
+  // Local State update for Archive action to reflect immediately in UI
+  // Note: Parent component 'items' prop won't update until refresh, so we manage local exclusions
+  const [localArchivedState, setLocalArchivedState] = useState<Record<string, boolean>>({});
 
   // Debounce Logic: Wait 300ms after last keystroke to update filter
   useEffect(() => {
@@ -43,16 +48,36 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter }) =>
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearch, filterType, brandFilter, items, sortConfig, selectedHSN, priceRange]);
+  }, [debouncedSearch, filterType, brandFilter, items, sortConfig, showArchived]);
 
-  // Derive unique HSN codes for dropdown
-  const uniqueHSNs = useMemo(() => {
-    const codes = new Set(items.map(i => i.hsnCode).filter(c => c && c !== 'N/A'));
-    return Array.from(codes).sort();
-  }, [items]);
+  const handleArchiveToggle = async (partNumber: string, currentStatus: boolean) => {
+    if (!window.confirm(`Are you sure you want to ${currentStatus ? 'restore' : 'archive'} this item?`)) return;
+    
+    try {
+      await toggleArchiveStatus(partNumber, !currentStatus);
+      // Update local state to hide/show immediately
+      setLocalArchivedState(prev => ({ ...prev, [partNumber]: !currentStatus }));
+    } catch (err) {
+      alert("Failed to update archive status");
+    }
+  };
 
   const filteredAndSortedItems = useMemo(() => {
     let result = items.filter(item => {
+      // Check local override or item prop
+      const isArchived = localArchivedState[item.partNumber] !== undefined 
+          ? localArchivedState[item.partNumber] 
+          : item.isArchived;
+
+      // Archive Filter: By default, hide archived. If showArchived is true, show ONLY archived? 
+      // Or show mixed? Usually separate views are better.
+      // Let's say: If showArchived is OFF, hide archived. If ON, show ONLY archived (to manage them).
+      if (showArchived) {
+         if (!isArchived) return false;
+      } else {
+         if (isArchived) return false;
+      }
+
       // 1. Brand Filter
       if (brandFilter && item.brand !== brandFilter) return false;
 
@@ -82,16 +107,6 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter }) =>
         if (lastUpdated < sevenDaysAgo) return false;
       }
 
-      // 4. Advanced Filters
-      if (selectedHSN !== 'ALL' && item.hsnCode !== selectedHSN) return false;
-
-      if (priceRange.min !== '') {
-         if (item.price < parseFloat(priceRange.min)) return false;
-      }
-      if (priceRange.max !== '') {
-         if (item.price > parseFloat(priceRange.max)) return false;
-      }
-
       return true;
     });
 
@@ -112,7 +127,7 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter }) =>
     }
 
     return result;
-  }, [items, debouncedSearch, filterType, brandFilter, sortConfig, selectedHSN, priceRange]);
+  }, [items, debouncedSearch, filterType, brandFilter, sortConfig, showArchived, localArchivedState]);
 
   // Pagination Logic
   const totalPages = Math.ceil(filteredAndSortedItems.length / itemsPerPage);
@@ -138,8 +153,7 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter }) =>
     setFilterType('ALL');
     setRawSearch('');
     setDebouncedSearch('');
-    setSelectedHSN('ALL');
-    setPriceRange({ min: '', max: '' });
+    setShowArchived(false);
   };
 
   const SortHeader = ({ label, columnKey }: { label: string, columnKey: keyof StockItem }) => {
@@ -175,6 +189,11 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter }) =>
                <span className="text-xs font-medium text-gray-500 bg-white border border-gray-200 px-2 py-1 rounded-full shadow-sm">
                  {filteredAndSortedItems.length} items
                </span>
+               {showArchived && (
+                   <span className="text-xs font-bold text-orange-600 bg-orange-50 border border-orange-200 px-2 py-1 rounded-full flex items-center gap-1">
+                      <Archive size={12} /> Archived View
+                   </span>
+               )}
             </div>
             
             <div className="flex flex-col md:flex-row gap-3">
@@ -199,7 +218,7 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter }) =>
 
               <button 
                 onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border transition-all ${showAdvancedFilters || selectedHSN !== 'ALL' || priceRange.min || priceRange.max ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-100'}`}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border transition-all ${showAdvancedFilters || showArchived ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-100'}`}
               >
                  <Filter size={16} />
                  Filters
@@ -211,26 +230,26 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter }) =>
         {/* Quick Tabs */}
         <div className="flex flex-wrap gap-2">
             <button
-              onClick={() => setFilterType('ALL')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${filterType === 'ALL' ? 'bg-gray-800 text-white shadow-md' : 'bg-white border border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+              onClick={() => {setFilterType('ALL'); setShowArchived(false);}}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${filterType === 'ALL' && !showArchived ? 'bg-gray-800 text-white shadow-md' : 'bg-white border border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
             >
               All Items
             </button>
             <button
-              onClick={() => setFilterType('LOW')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${filterType === 'LOW' ? 'bg-yellow-400 text-yellow-900 shadow-md' : 'bg-white border border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+              onClick={() => {setFilterType('LOW'); setShowArchived(false);}}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${filterType === 'LOW' && !showArchived ? 'bg-yellow-400 text-yellow-900 shadow-md' : 'bg-white border border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
             >
               <AlertTriangle size={12} /> Low Stock
             </button>
             <button
-              onClick={() => setFilterType('ZERO')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${filterType === 'ZERO' ? 'bg-red-500 text-white shadow-md' : 'bg-white border border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+              onClick={() => {setFilterType('ZERO'); setShowArchived(false);}}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${filterType === 'ZERO' && !showArchived ? 'bg-red-500 text-white shadow-md' : 'bg-white border border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
             >
               <AlertCircle size={12} /> Out of Stock
             </button>
             <button
-              onClick={() => setFilterType('RECENT_ZERO')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${filterType === 'RECENT_ZERO' ? 'bg-orange-500 text-white shadow-md' : 'bg-white border border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+              onClick={() => {setFilterType('RECENT_ZERO'); setShowArchived(false);}}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${filterType === 'RECENT_ZERO' && !showArchived ? 'bg-orange-500 text-white shadow-md' : 'bg-white border border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
             >
               <Hourglass size={12} /> Recent Stockout
             </button>
@@ -238,51 +257,25 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter }) =>
 
         {/* Advanced Filters Panel */}
         {showAdvancedFilters && (
-            <div className="pt-4 border-t border-gray-200 animate-slide-in grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                {/* HSN Filter */}
-                <div>
-                   <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">HSN Code</label>
-                   <select 
-                      value={selectedHSN}
-                      onChange={(e) => setSelectedHSN(e.target.value)}
-                      className="w-full text-sm border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                   >
-                      <option value="ALL">All Codes</option>
-                      {uniqueHSNs.map(hsn => (
-                          <option key={hsn} value={hsn}>{hsn}</option>
-                      ))}
-                   </select>
-                </div>
-
-                {/* Price Range */}
-                <div className="md:col-span-2">
-                   <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Price Range (₹)</label>
-                   <div className="flex items-center gap-2">
-                       <input 
-                         type="number" 
-                         placeholder="Min" 
-                         value={priceRange.min}
-                         onChange={(e) => setPriceRange(prev => ({ ...prev, min: e.target.value }))}
-                         className="w-full text-sm border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                       />
-                       <span className="text-gray-400">-</span>
-                       <input 
-                         type="number" 
-                         placeholder="Max" 
-                         value={priceRange.max}
-                         onChange={(e) => setPriceRange(prev => ({ ...prev, max: e.target.value }))}
-                         className="w-full text-sm border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                       />
-                   </div>
+            <div className="pt-4 border-t border-gray-200 animate-slide-in grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                {/* Archive Toggle */}
+                <div className="flex items-center pb-2">
+                    <button 
+                        onClick={() => setShowArchived(!showArchived)}
+                        className={`text-sm font-medium flex items-center gap-2 px-3 py-2 rounded-lg transition-colors border w-full justify-center ${showArchived ? 'bg-orange-100 text-orange-800 border-orange-300' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'}`}
+                    >
+                        {showArchived ? <ArchiveRestore size={16} /> : <Archive size={16} />}
+                        {showArchived ? 'Viewing Archived Items' : 'Show Archived Items'}
+                    </button>
                 </div>
 
                 {/* Reset Button */}
-                <div>
+                <div className="flex justify-end pb-2">
                    <button 
                      onClick={clearAllFilters}
-                     className="w-full py-2 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                     className="py-2 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 w-full md:w-auto"
                    >
-                      <RefreshCcw size={14} /> Clear All
+                      <RefreshCcw size={14} /> Clear All Filters
                    </button>
                 </div>
             </div>
@@ -327,6 +320,9 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter }) =>
                     </span>
                  </div>
               </th>
+              {userRole === Role.OWNER && (
+                  <th className="px-6 py-4 text-center">Action</th>
+              )}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -335,11 +331,12 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter }) =>
                 const isZero = item.quantity === 0;
                 const isLow = item.quantity < item.minStockThreshold;
                 const isHyundai = item.brand === Brand.HYUNDAI;
+                const isArchived = localArchivedState[item.partNumber] !== undefined ? localArchivedState[item.partNumber] : item.isArchived;
                 
                 return (
                   <tr 
                     key={item.id} 
-                    className={`hover:bg-gray-50 transition-colors border-l-4 ${isHyundai ? 'border-l-blue-800' : 'border-l-red-600'}`}
+                    className={`hover:bg-gray-50 transition-colors border-l-4 ${isHyundai ? 'border-l-blue-800' : 'border-l-red-600'} ${isArchived ? 'opacity-70 bg-gray-50' : ''}`}
                   >
                     <td className="px-6 py-4 font-medium text-gray-900">
                       <Link to={`/item/${encodeURIComponent(item.partNumber)}`} className="text-slate-700 hover:text-blue-600 hover:underline flex flex-col">
@@ -373,15 +370,26 @@ const StockTable: React.FC<StockTableProps> = ({ items, title, brandFilter }) =>
                         </span>
                       )}
                     </td>
+                    {userRole === Role.OWNER && (
+                        <td className="px-6 py-4 text-center">
+                            <button
+                                onClick={() => handleArchiveToggle(item.partNumber, isArchived)}
+                                className={`p-2 rounded-lg transition-colors ${isArchived ? 'bg-green-50 text-green-700 hover:bg-green-100' : 'bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-600'}`}
+                                title={isArchived ? "Restore to Inventory" : "Archive (Hide)"}
+                            >
+                                {isArchived ? <ArchiveRestore size={16} /> : <Archive size={16} />}
+                            </button>
+                        </td>
+                    )}
                   </tr>
                 );
               })
             ) : (
               <tr>
-                <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                <td colSpan={userRole === Role.OWNER ? 7 : 6} className="px-6 py-12 text-center text-gray-500">
                   <div className="flex flex-col items-center gap-2">
                     <Search className="text-gray-300" size={32} />
-                    <p>No items found matching criteria.</p>
+                    <p>No items found {showArchived ? 'in archives' : 'matching criteria'}.</p>
                     <button onClick={clearAllFilters} className="text-blue-600 hover:underline text-sm">Clear all filters</button>
                   </div>
                 </td>

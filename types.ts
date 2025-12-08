@@ -27,6 +27,7 @@ export interface StockItem {
   minStockThreshold: number;
   price: number;
   lastUpdated: string;
+  isArchived: boolean;
 }
 
 export interface StockStats {
