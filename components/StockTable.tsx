@@ -236,7 +236,6 @@ const StockTable: React.FC<StockTableProps> = ({
                         <div className="flex items-center gap-1">Description <SortIcon col="name"/></div>
                     </th>
                     <th className="px-4 py-3 border-b border-slate-200 font-semibold text-slate-600 text-center w-24">Brand</th>
-                    <th className="px-4 py-3 border-b border-slate-200 font-semibold text-slate-600 w-24">Rack Loc</th>
                     <th className="px-4 py-3 border-b border-slate-200 font-semibold text-slate-600 text-center cursor-pointer select-none w-24" onClick={() => requestSort('quantity')}>
                          <div className="flex items-center justify-center gap-1">Stock <SortIcon col="quantity"/></div>
                     </th>
@@ -248,7 +247,7 @@ const StockTable: React.FC<StockTableProps> = ({
             </thead>
             <tbody className="divide-y divide-slate-100">
                 {currentItems.length === 0 ? (
-                    <tr><td colSpan={8} className="p-8 text-center text-slate-500">No parts found matching filters.</td></tr>
+                    <tr><td colSpan={7} className="p-8 text-center text-slate-500">No parts found matching filters.</td></tr>
                 ) : (
                     currentItems.map((item, idx) => {
                         const isLow = item.quantity > 0 && item.quantity <= item.minStockThreshold;
@@ -278,10 +277,6 @@ const StockTable: React.FC<StockTableProps> = ({
                                     <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold ${item.brand === Brand.HYUNDAI ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'}`}>
                                         {item.brand.substring(0, 3)}
                                     </span>
-                                </td>
-                                <td className="px-4 py-3 text-slate-500 text-xs">
-                                    {/* Mock Rack Location based on part number hash for demo */}
-                                    {item.brand.substring(0,1)}-{(item.partNumber.charCodeAt(item.partNumber.length-1) % 20) + 1}
                                 </td>
                                 <td className="px-4 py-3 text-center">
                                     <span className={`font-bold ${isZero ? 'text-red-600' : isLow ? 'text-yellow-600' : 'text-slate-700'}`}>

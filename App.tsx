@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 // @ts-ignore
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
@@ -69,23 +68,43 @@ const App: React.FC = () => {
     <HashRouter>
       <Layout user={user} onLogout={handleLogout}>
         <Routes>
+          {/* MAIN */}
           <Route path="/" element={<Dashboard user={user} />} />
+          <Route path="/parts" element={<Dashboard user={user} />} /> {/* Mapping Parts List to Dashboard for now */}
+
+          {/* TRANSACTIONS */}
+          <Route path="/billing" element={<DailyTransactions user={user} />} />
+          <Route path="/purchases" element={<DailyTransactions user={user} />} />
           <Route path="/transactions" element={<DailyTransactions user={user} />} />
           <Route path="/requests" element={<StockRequests user={user} />} />
+
+          {/* INVENTORY & BRAND */}
           <Route path="/brand/:brandName" element={<BrandDashboardWrapper user={user} />} />
           <Route path="/item/:partNumber" element={<ItemDetail />} />
+          <Route path="/low-stock" element={<Dashboard user={user} />} /> {/* Mapped to Dashboard */}
+          <Route path="/stock-movements" element={<Reports user={user} />} /> {/* Mapped to Reports */}
           
-          {/* Protect Admin Routes */}
+          {/* REPORTS */}
           <Route 
             path="/reports" 
             element={user.role === Role.OWNER ? <Reports user={user} /> : <Navigate to="/" replace />} 
           />
+          <Route 
+            path="/reports/*" 
+            element={user.role === Role.OWNER ? <Reports user={user} /> : <Navigate to="/" replace />} 
+          />
+
+          {/* ADMIN */}
           <Route 
             path="/upload" 
             element={user.role === Role.OWNER ? <UploadPage /> : <Navigate to="/" replace />} 
           />
           <Route 
             path="/users" 
+            element={user.role === Role.OWNER ? <UserManagement /> : <Navigate to="/" replace />} 
+          />
+           <Route 
+            path="/settings/*" 
             element={user.role === Role.OWNER ? <UserManagement /> : <Navigate to="/" replace />} 
           />
 

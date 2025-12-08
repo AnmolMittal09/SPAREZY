@@ -6,21 +6,27 @@ import Logo from './Logo';
 import { fetchInventory } from '../services/inventoryService';
 import { 
   LayoutDashboard, 
-  Car, 
-  Upload, 
+  Package, 
+  Receipt, 
+  ShoppingBag, 
+  ClipboardList, 
+  ArrowRightLeft, 
+  AlertTriangle, 
+  FileUp, 
+  BarChart3, 
+  TrendingUp, 
+  PieChart, 
+  Users, 
+  Settings, 
   LogOut, 
   Menu, 
-  X,
-  PackageSearch,
-  ShoppingCart,
-  ChevronRight,
-  Users,
-  ClipboardList,
   Search,
   Bell,
-  Settings,
   HelpCircle,
-  FileText
+  ChevronDown,
+  Building2,
+  Truck,
+  Contact
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -41,13 +47,14 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
   const [searchResults, setSearchResults] = useState<StockItem[]>([]);
   const searchRef = useRef<HTMLDivElement>(null);
 
+  // User Dropdown State
+  const [showUserMenu, setShowUserMenu] = useState(false);
+
   useEffect(() => {
-    // Load inventory for global search
     fetchInventory().then(setInventory);
   }, []);
 
   useEffect(() => {
-    // Click outside to close search results
     const handleClickOutside = (event: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
         setShowResults(false);
@@ -64,7 +71,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
       const results = inventory.filter(item => 
         item.partNumber.toLowerCase().includes(query.toLowerCase()) || 
         item.name.toLowerCase().includes(query.toLowerCase())
-      ).slice(0, 8); // Limit to 8 results
+      ).slice(0, 8);
       setSearchResults(results);
       setShowResults(true);
     } else {
@@ -78,34 +85,54 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
     setSearchQuery('');
   };
 
-  const isActive = (path: string) => location.pathname === path;
-
-  const NavItem = ({ to, icon: Icon, label, badge }: { to: string, icon: any, label: string, badge?: string }) => {
-    const active = isActive(to);
-    
-    return (
-      <Link
-        to={to}
-        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group relative ${
-          active 
-            ? 'bg-primary-50 text-primary-700' 
-            : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-        }`}
-        onClick={() => setIsSidebarOpen(false)}
-      >
-        <Icon size={18} className={`transition-colors ${active ? 'text-primary-600' : 'text-slate-400 group-hover:text-slate-600'}`} />
-        <span>{label}</span>
-        {badge && (
-           <span className="ml-auto bg-red-100 text-red-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">{badge}</span>
-        )}
-      </Link>
-    );
-  };
+  // --- NAVIGATION CONFIGURATION ---
+  const navGroups = [
+    {
+      title: 'Main',
+      items: [
+        { label: 'Dashboard', path: '/', icon: LayoutDashboard },
+        { label: 'Parts List', path: '/parts', icon: Package },
+      ]
+    },
+    {
+      title: 'Transactions',
+      items: [
+        { label: 'Billing / Invoices', path: '/billing', icon: Receipt },
+        { label: 'Purchases', path: '/purchases', icon: ShoppingBag },
+        { label: 'Requisitions', path: '/requests', icon: ClipboardList },
+      ]
+    },
+    {
+      title: 'Inventory Mgmt',
+      items: [
+        { label: 'Stock Movements', path: '/stock-movements', icon: ArrowRightLeft },
+        { label: 'Low Stock Items', path: '/low-stock', icon: AlertTriangle },
+        { label: 'Import / Export', path: '/upload', icon: FileUp, requiredRole: Role.OWNER },
+      ]
+    },
+    {
+      title: 'Reports',
+      items: [
+        { label: 'Analytics Dashboard', path: '/reports', icon: BarChart3, requiredRole: Role.OWNER },
+        { label: 'Sales Reports', path: '/reports/sales', icon: TrendingUp, requiredRole: Role.OWNER },
+        { label: 'Profit Summary', path: '/reports/profit', icon: PieChart, requiredRole: Role.OWNER },
+      ]
+    },
+    {
+      title: 'Admin / Settings',
+      items: [
+        { label: 'Team Access', path: '/users', icon: Users, requiredRole: Role.OWNER },
+        { label: 'Shop Settings', path: '/settings/shop', icon: Building2, requiredRole: Role.OWNER },
+        { label: 'Suppliers', path: '/settings/suppliers', icon: Truck, requiredRole: Role.OWNER },
+      ]
+    }
+  ];
 
   return (
-    <div className="h-screen bg-slate-50 flex overflow-hidden">
+    <div className="h-screen bg-slate-50 flex overflow-hidden font-sans">
       
       {/* --- 1. LEFT SIDEBAR --- */}
+      
       {/* Mobile Overlay */}
       {isSidebarOpen && (
         <div 
@@ -120,59 +147,95 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
         }`}
       >
         {/* Brand Header */}
-        <div className="h-16 flex items-center px-6 border-b border-slate-100">
+        <div className="h-16 flex items-center px-6 border-b border-slate-100 bg-white z-20">
            <Link to="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center text-white font-black text-sm">
+              <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white font-black text-sm shadow-sm">
                 S
               </div>
-              <span className="text-xl font-bold text-slate-900 tracking-tight">Sparezy<span className="text-primary-600">.</span></span>
+              <span className="text-xl font-bold text-slate-900 tracking-tight">Sparezy</span>
            </Link>
         </div>
 
-        {/* Navigation */}
-        <div className="flex-1 overflow-y-auto py-6 px-3 space-y-6">
-           <div>
-              <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Main</p>
-              <div className="space-y-1">
-                <NavItem to="/" icon={LayoutDashboard} label="Dashboard" />
-                <NavItem to="/transactions" icon={ShoppingCart} label="Billing & Purchases" />
-                <NavItem to="/requests" icon={ClipboardList} label="Requisitions" />
-              </div>
-           </div>
-
-           <div>
-              <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Inventory</p>
-              <div className="space-y-1">
-                <NavItem to="/brand/hyundai" icon={Car} label="Hyundai Parts" />
-                <NavItem to="/brand/mahindra" icon={Car} label="Mahindra Parts" />
-              </div>
-           </div>
-
-           {user.role === Role.OWNER && (
-             <div>
-                <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Management</p>
-                <div className="space-y-1">
-                  <NavItem to="/upload" icon={Upload} label="Import Data" />
-                  <NavItem to="/users" icon={Users} label="Team Access" />
-                  <NavItem to="/reports" icon={FileText} label="Reports" />
+        {/* Navigation Content */}
+        <div className="flex-1 overflow-y-auto py-4 space-y-6 scrollbar-thin scrollbar-thumb-slate-200">
+           {navGroups.map((group, idx) => (
+             <div key={idx} className="group-section">
+                {/* Sticky Header for Groups */}
+                <div className="sticky top-0 bg-white/95 backdrop-blur-sm px-6 py-2 z-10">
+                   <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                     {group.title}
+                   </h3>
+                </div>
+                
+                <div className="px-3 mt-1 space-y-0.5">
+                   {group.items.map((item, itemIdx) => {
+                      if (item.requiredRole && user.role !== item.requiredRole) return null;
+                      
+                      const isActive = location.pathname === item.path;
+                      
+                      return (
+                        <Link
+                          key={itemIdx}
+                          to={item.path}
+                          onClick={() => setIsSidebarOpen(false)}
+                          className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 group relative ${
+                            isActive 
+                              ? 'bg-slate-900 text-white shadow-md shadow-slate-900/10' 
+                              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                          }`}
+                        >
+                          <item.icon 
+                            size={18} 
+                            strokeWidth={isActive ? 2.5 : 2}
+                            className={`transition-colors ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-600'}`} 
+                          />
+                          <span>{item.label}</span>
+                          
+                          {/* Active Indicator (Optional extra detail) */}
+                          {isActive && (
+                            <span className="absolute right-2 w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                          )}
+                        </Link>
+                      );
+                   })}
                 </div>
              </div>
-           )}
+           ))}
         </div>
 
         {/* User Footer */}
-        <div className="p-4 border-t border-slate-100">
-           <div className="flex items-center gap-3 p-2 rounded-lg bg-slate-50 border border-slate-100">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ${user.role === Role.OWNER ? 'bg-indigo-600' : 'bg-teal-600'}`}>
-                  {user.name.charAt(0)}
-              </div>
-              <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-slate-900 truncate">{user.name}</p>
-                  <p className="text-xs text-slate-500 truncate">{user.role}</p>
-              </div>
-              <button onClick={onLogout} className="text-slate-400 hover:text-red-600 transition-colors">
-                  <LogOut size={16} />
-              </button>
+        <div className="p-4 border-t border-slate-200 bg-white z-20">
+           <div className="relative">
+             <button 
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all text-left group"
+             >
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-sm ${user.role === Role.OWNER ? 'bg-indigo-600' : 'bg-teal-600'}`}>
+                    {user.name.charAt(0)}
+                </div>
+                <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-slate-900 truncate group-hover:text-blue-700 transition-colors">{user.name}</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{user.role}</p>
+                </div>
+                <ChevronDown size={14} className="text-slate-400" />
+             </button>
+
+             {/* User Popup Menu */}
+             {showUserMenu && (
+               <div className="absolute bottom-full left-0 w-full mb-2 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden animate-fade-in z-50">
+                  <div className="p-3 border-b border-slate-50 bg-slate-50/50">
+                     <p className="text-xs text-slate-500">Signed in as <br/><span className="font-bold text-slate-900">@{user.username}</span></p>
+                  </div>
+                  <div className="p-1">
+                     <button onClick={() => navigate('/settings/profile')} className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg flex items-center gap-2">
+                        <Settings size={14} /> Profile Settings
+                     </button>
+                     <button onClick={onLogout} className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg flex items-center gap-2">
+                        <LogOut size={14} /> Sign Out
+                     </button>
+                  </div>
+               </div>
+             )}
            </div>
         </div>
       </aside>
@@ -187,7 +250,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
               <button onClick={() => setIsSidebarOpen(true)} className="text-slate-500 hover:bg-slate-100 p-2 rounded-lg">
                  <Menu size={20} />
               </button>
-              <Logo className="h-8 w-auto" />
+              <span className="font-bold text-lg text-slate-900">Sparezy</span>
            </div>
 
            {/* Global Search Bar */}
@@ -197,33 +260,36 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
               </div>
               <input 
                  type="text" 
-                 className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg leading-5 bg-slate-50 text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-primary-500 focus:ring-1 focus:ring-primary-500 sm:text-sm transition-colors"
-                 placeholder="Search parts by name, number, or HSN..."
+                 className="block w-full pl-10 pr-3 py-2.5 border border-slate-200 rounded-lg leading-5 bg-slate-50 text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-slate-300 focus:ring-4 focus:ring-slate-100 sm:text-sm transition-all"
+                 placeholder="Search global inventory (Name, Part No, HSN)..."
                  value={searchQuery}
                  onChange={handleSearch}
               />
               <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
-                 <span className="text-gray-400 text-xs border border-gray-200 rounded px-1.5 py-0.5 hidden xl:block">/</span>
+                 <kbd className="hidden xl:inline-block border border-slate-200 rounded px-2 text-[10px] font-medium text-slate-400 bg-white">⌘K</kbd>
               </div>
 
               {/* Search Results Dropdown */}
               {showResults && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-lg shadow-xl border border-slate-200 max-h-96 overflow-y-auto z-50">
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-lg shadow-xl border border-slate-200 max-h-96 overflow-y-auto z-50 animate-fade-in">
                    {searchResults.length === 0 ? (
-                      <div className="p-4 text-sm text-slate-500 text-center">No parts found matching "{searchQuery}"</div>
+                      <div className="p-8 text-sm text-slate-500 text-center flex flex-col items-center gap-2">
+                        <Search className="text-slate-300" size={24} />
+                        No parts found matching "{searchQuery}"
+                      </div>
                    ) : (
                       <>
-                        <div className="px-3 py-2 text-xs font-semibold text-slate-400 uppercase bg-slate-50 border-b border-slate-100">
+                        <div className="px-3 py-2 text-xs font-semibold text-slate-400 uppercase bg-slate-50 border-b border-slate-100 sticky top-0">
                            Best Matches
                         </div>
                         {searchResults.map(item => (
                           <div 
                              key={item.id}
                              onClick={() => navigateToItem(item.partNumber)}
-                             className="px-4 py-3 hover:bg-slate-50 cursor-pointer flex justify-between items-center border-b border-slate-50 last:border-0"
+                             className="px-4 py-3 hover:bg-slate-50 cursor-pointer flex justify-between items-center border-b border-slate-50 last:border-0 group"
                           >
                              <div>
-                                <div className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                                <div className="text-sm font-semibold text-slate-900 flex items-center gap-2 group-hover:text-blue-600 transition-colors">
                                   {item.partNumber}
                                   <span className={`text-[10px] px-1.5 rounded ${item.brand === 'HYUNDAI' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
                                     {item.brand.substring(0, 1)}
@@ -259,7 +325,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
 
         {/* --- 3. MAIN CONTENT --- */}
         <main className="flex-1 overflow-y-auto bg-slate-50 p-4 lg:p-8">
-           <div className="max-w-7xl mx-auto space-y-6">
+           <div className="max-w-[1600px] mx-auto space-y-6">
               {children}
            </div>
         </main>
