@@ -1,5 +1,3 @@
-
-
 import React, { useState, useRef, useEffect } from 'react';
 // @ts-ignore
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -92,7 +90,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
       title: 'Transactions',
       items: [
         { label: 'Billing (Sales)', path: '/billing', icon: Receipt },
-        { label: 'Tax Invoices', path: '/invoices', icon: FileText },
+        // Tax Invoices removed
         { label: 'Purchases', path: '/purchases', icon: ShoppingBag },
         { label: 'Requisitions', path: '/requisitions', icon: ClipboardList },
         { label: 'Approvals', path: '/approvals', icon: CheckSquare, requiredRole: Role.OWNER },
@@ -257,7 +255,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
                       ))
                    )}
                 </div>
-              )}
+             )}
            </div>
 
            <div className="flex items-center gap-3 ml-4">
