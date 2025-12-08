@@ -123,7 +123,7 @@ export const createBulkTransactions = async (
   return { success: true };
 };
 
-export const fetchTransactions = async (status?: TransactionStatus, type?: TransactionType): Promise<Transaction[]> => {
+export const fetchTransactions = async (status?: TransactionStatus | TransactionStatus[], type?: TransactionType): Promise<Transaction[]> => {
   if (!supabase) return [];
 
   let query = supabase
@@ -132,12 +132,15 @@ export const fetchTransactions = async (status?: TransactionStatus, type?: Trans
     .order('created_at', { ascending: false });
 
   if (status) {
-    query = query.eq('status', status);
-  } else if (!status) {
+    if (Array.isArray(status)) {
+       query = query.in('status', status);
+    } else {
+       query = query.eq('status', status);
+    }
+  } else {
     // If not specifically asking for Pending/etc, assume we want history (Approved/Rejected)
-    // Don't show pending in general history list usually, or show all? 
-    // Let's default to showing everything if no status specified, but limit count
-    query = query.limit(50);
+    // Show recent history limit
+    query = query.limit(100);
   }
 
   if (type) {
