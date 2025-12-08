@@ -306,7 +306,7 @@ export const generateTaxInvoiceRecord = async (
         customer_gst: customerDetails.gst,
         total_amount: totals.amount,
         tax_amount: totals.tax,
-        payment_mode: customerDetails.paymentMode,
+        payment_mode: customerDetails.paymentMode.toUpperCase(), // Ensure uppercase to match constraint
         items_count: transactionIds.length,
         generated_by: userRole
       })

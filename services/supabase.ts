@@ -17,6 +17,15 @@ export const supabase = (supabaseUrl && supabaseKey)
  * SUPABASE SQL COMMANDS (Run in SQL Editor)
  * ==========================================
  * 
+ * --- 🚨 IMPORTANT FIX FOR INVOICE ERROR 🚨 ---
+ * Run this command to fix the "violates check constraint" error:
+ * 
+ * ALTER TABLE invoices DROP CONSTRAINT IF EXISTS invoices_payment_mode_check;
+ * ALTER TABLE invoices ADD CONSTRAINT invoices_payment_mode_check 
+ * CHECK (payment_mode IN ('CASH', 'UPI', 'CARD', 'CREDIT'));
+ * 
+ * ---------------------------------------------
+ * 
  * -- 1. Enable UUID Extension
  * create extension if not exists "uuid-ossp";
  * 
@@ -88,7 +97,7 @@ export const supabase = (supabaseUrl && supabaseKey)
  *   customer_gst text,
  *   total_amount numeric,
  *   tax_amount numeric,
- *   payment_mode text,
+ *   payment_mode text check (payment_mode in ('CASH', 'UPI', 'CARD', 'CREDIT')),
  *   items_count int,
  *   generated_by text,
  *   created_at timestamptz default now()
