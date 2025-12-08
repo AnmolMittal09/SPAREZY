@@ -249,16 +249,20 @@ export const fetchAnalytics = async (startDate: Date, endDate: Date): Promise<An
 export const fetchUninvoicedSales = async (): Promise<Transaction[]> => {
   if (!supabase) return [];
 
+  // Fetch approved sales that do NOT have an invoice_id yet
   const { data, error } = await supabase
     .from('transactions')
     .select('*')
     .eq('type', 'SALE')
     .eq('status', 'APPROVED')
-    .is('invoice_id', null) // Only fetch those without an invoice
+    .is('invoice_id', null) 
     .order('created_at', { ascending: false });
 
-  if (error || !data) return [];
-  return data.map(mapDBToTransaction);
+  if (error) {
+    console.error("Fetch uninvoiced sales error:", error);
+    return [];
+  }
+  return data ? data.map(mapDBToTransaction) : [];
 };
 
 export const fetchInvoices = async (): Promise<Invoice[]> => {
