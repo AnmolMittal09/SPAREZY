@@ -22,7 +22,10 @@ import {
   ChevronDown,
   CheckSquare,
   FileText,
-  Download
+  Download,
+  X,
+  Home,
+  MoreHorizontal
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -48,6 +51,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
   const [searchResults, setSearchResults] = useState<StockItem[]>([]);
   const searchRef = useRef<HTMLDivElement>(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
   // PWA Install State
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
@@ -109,9 +113,10 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
     navigate(`/parts?search=${encodeURIComponent(partNumber)}`);
     setShowResults(false);
     setSearchQuery('');
+    setMobileSearchOpen(false);
   };
 
-  // --- NAVIGATION CONFIGURATION (STRICTLY FROM PROMPT) ---
+  // --- NAVIGATION CONFIGURATION ---
   const navGroups = [
     {
       title: 'Main',
@@ -123,7 +128,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
     {
       title: 'Transactions',
       items: [
-        { label: 'Billing (Sales)', path: '/billing', icon: Receipt },
+        { label: 'Billing', path: '/billing', icon: Receipt },
         { label: 'Tax Invoices', path: '/invoices', icon: FileText, requiredRole: Role.OWNER },
         { label: 'Purchases', path: '/purchases', icon: ShoppingBag },
         { label: 'Requisitions', path: '/requisitions', icon: ClipboardList },
@@ -155,29 +160,32 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
   return (
     <div className="h-screen bg-slate-50 flex overflow-hidden font-sans">
       
-      {/* --- 1. LEFT SIDEBAR --- */}
+      {/* --- MOBILE SIDEBAR DRAWER --- */}
       {isSidebarOpen && (
         <div 
-          className="fixed inset-0 bg-slate-900/50 z-40 lg:hidden backdrop-blur-sm"
+          className="fixed inset-0 bg-slate-900/60 z-50 lg:hidden backdrop-blur-sm transition-opacity"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
 
       <aside 
-        className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-white border-r border-slate-200 flex flex-col transform transition-transform duration-300 ease-in-out ${
+        className={`fixed lg:static inset-y-0 left-0 z-[60] w-[280px] bg-white border-r border-slate-200 flex flex-col transform transition-transform duration-300 ease-in-out shadow-2xl lg:shadow-none ${
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
-        <div className="h-16 flex items-center px-6 border-b border-slate-100 bg-white z-20">
-           <Link to="/" className="flex items-center gap-2">
+        <div className="h-16 flex items-center justify-between px-6 border-b border-slate-100 bg-white z-20">
+           <Link to="/" className="flex items-center gap-2" onClick={() => setIsSidebarOpen(false)}>
               <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white font-black text-sm shadow-sm">
                 S
               </div>
               <span className="text-xl font-bold text-slate-900 tracking-tight">Sparezy</span>
            </Link>
+           <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-slate-400">
+             <X size={24} />
+           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto py-4 space-y-6 scrollbar-thin scrollbar-thumb-slate-200">
+        <div className="flex-1 overflow-y-auto py-4 space-y-6 scrollbar-thin scrollbar-thumb-slate-200 pb-20 lg:pb-4">
            {navGroups.map((group, idx) => (
              <div key={idx} className="group-section">
                 <div className="sticky top-0 bg-white/95 backdrop-blur-sm px-6 py-2 z-10">
@@ -190,21 +198,21 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
                    {group.items.map((item, itemIdx) => {
                       if (item.requiredRole && user.role !== item.requiredRole) return null;
                       
-                      const isActive = location.pathname === item.path || (location.pathname.startsWith(item.path + '/') && item.path !== '/');
+                      const isActive = location.pathname === item.path || (location.pathname !== '/' && location.pathname.startsWith(item.path + '/'));
                       
                       return (
                         <Link
                           key={itemIdx}
                           to={item.path}
                           onClick={() => setIsSidebarOpen(false)}
-                          className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 group relative ${
+                          className={`flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-all duration-200 group relative ${
                             isActive 
                               ? 'bg-slate-900 text-white shadow-md shadow-slate-900/10' 
                               : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                           }`}
                         >
                           <item.icon 
-                            size={18} 
+                            size={20} 
                             strokeWidth={isActive ? 2.5 : 2}
                             className={`transition-colors ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-600'}`} 
                           />
@@ -217,39 +225,39 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
            ))}
         </div>
 
-        {/* INSTALL APP BUTTON (Only shows if browser supports it) */}
+        {/* INSTALL APP BUTTON */}
         {showInstallBtn && (
            <div className="px-4 py-2">
              <button 
                onClick={handleInstallClick}
-               className="w-full flex items-center justify-center gap-2 bg-blue-50 text-blue-700 hover:bg-blue-100 py-2 rounded-lg text-sm font-bold transition-colors"
+               className="w-full flex items-center justify-center gap-2 bg-blue-50 text-blue-700 hover:bg-blue-100 py-3 rounded-lg text-sm font-bold transition-colors"
              >
                <Download size={16} /> Install App
              </button>
            </div>
         )}
 
-        <div className="p-4 border-t border-slate-200 bg-white z-20">
+        <div className="p-4 border-t border-slate-200 bg-white z-20 lg:mb-0 mb-16">
            <div className="relative">
              <button 
                 onClick={() => setShowUserMenu(!showUserMenu)}
                 className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all text-left group"
              >
-                <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-sm ${user.role === Role.OWNER ? 'bg-indigo-600' : 'bg-teal-600'}`}>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-sm ${user.role === Role.OWNER ? 'bg-indigo-600' : 'bg-teal-600'}`}>
                     {user.name.charAt(0)}
                 </div>
                 <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-slate-900 truncate group-hover:text-blue-700 transition-colors">{user.name}</p>
                     <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{user.role}</p>
                 </div>
-                <ChevronDown size={14} className="text-slate-400" />
+                <ChevronDown size={16} className="text-slate-400" />
              </button>
 
              {showUserMenu && (
                <div className="absolute bottom-full left-0 w-full mb-2 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden animate-fade-in z-50">
                   <div className="p-1">
-                     <button onClick={onLogout} className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg flex items-center gap-2">
-                        <LogOut size={14} /> Sign Out
+                     <button onClick={onLogout} className="w-full text-left px-3 py-3 text-sm text-red-600 hover:bg-red-50 rounded-lg flex items-center gap-2 font-medium">
+                        <LogOut size={16} /> Sign Out
                      </button>
                   </div>
                </div>
@@ -258,17 +266,20 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
         </div>
       </aside>
 
-      {/* --- RIGHT SECTION --- */}
+      {/* --- RIGHT SECTION (MAIN CONTENT) --- */}
       <div className="flex-1 flex flex-col min-w-0 h-full">
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 lg:px-8 shadow-sm z-30 sticky top-0 no-print">
-           <div className="flex items-center gap-4 lg:hidden">
-              <button onClick={() => setIsSidebarOpen(true)} className="text-slate-500 hover:bg-slate-100 p-2 rounded-lg">
-                 <Menu size={20} />
-              </button>
-              <span className="font-bold text-lg text-slate-900">Sparezy</span>
+        
+        {/* MOBILE HEADER */}
+        <header className="h-14 lg:h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 lg:px-8 shadow-sm z-30 sticky top-0 no-print">
+           <div className="flex items-center gap-3 lg:hidden">
+              <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white font-black text-sm shadow-sm">
+                S
+              </div>
+              <span className="font-bold text-lg text-slate-900 tracking-tight">Sparezy</span>
            </div>
 
-           <div className="hidden lg:flex flex-1 max-w-2xl relative" ref={searchRef}>
+           {/* Desktop Search */}
+           <div className="hidden lg:flex flex-1 max-w-2xl relative ml-4" ref={searchRef}>
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                  <Search className="h-4 w-4 text-slate-400" />
               </div>
@@ -282,7 +293,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
               {showResults && (
                 <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-lg shadow-xl border border-slate-200 max-h-96 overflow-y-auto z-50 animate-fade-in">
                    {searchResults.length === 0 ? (
-                      <div className="p-8 text-sm text-slate-500 text-center">No parts found matching "{searchQuery}"</div>
+                      <div className="p-8 text-sm text-slate-500 text-center">No parts found.</div>
                    ) : (
                       searchResults.map(item => (
                         <div 
@@ -304,18 +315,103 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
              )}
            </div>
 
-           <div className="flex items-center gap-3 ml-4">
+           <div className="flex items-center gap-2 ml-auto">
+              {/* Mobile Search Toggle */}
+              <button 
+                onClick={() => setMobileSearchOpen(true)}
+                className="lg:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-full"
+              >
+                <Search size={20} />
+              </button>
+              
               <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full relative">
                  <Bell size={20} />
               </button>
            </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto bg-slate-50 p-4 lg:p-8">
-           <div className="max-w-[1600px] mx-auto space-y-6 h-full">
+        {/* MOBILE FULL SCREEN SEARCH MODAL */}
+        {mobileSearchOpen && (
+           <div className="fixed inset-0 bg-white z-[70] flex flex-col animate-fade-in">
+             <div className="p-4 border-b border-slate-100 flex items-center gap-2">
+                <div className="relative flex-1">
+                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                   <input 
+                     autoFocus
+                     type="text"
+                     className="w-full bg-slate-50 border-none rounded-xl pl-10 pr-4 py-3 text-base focus:ring-2 focus:ring-blue-500 outline-none"
+                     placeholder="Search Part Number..."
+                     value={searchQuery}
+                     onChange={handleSearch}
+                   />
+                </div>
+                <button 
+                  onClick={() => { setMobileSearchOpen(false); setSearchQuery(''); setShowResults(false); }}
+                  className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg"
+                >
+                  <span className="text-sm font-bold">Cancel</span>
+                </button>
+             </div>
+             <div className="flex-1 overflow-y-auto p-4">
+                 {searchResults.length > 0 ? (
+                    <div className="space-y-3">
+                       {searchResults.map(item => (
+                          <div 
+                             key={item.id}
+                             onClick={() => navigateToItem(item.partNumber)}
+                             className="bg-white border border-slate-100 shadow-sm p-4 rounded-xl active:scale-95 transition-transform"
+                          >
+                             <div className="flex justify-between items-start mb-1">
+                                <span className="font-bold text-slate-900">{item.partNumber}</span>
+                                <span className="font-bold text-blue-600">₹{item.price}</span>
+                             </div>
+                             <div className="text-sm text-slate-500">{item.name}</div>
+                          </div>
+                       ))}
+                    </div>
+                 ) : searchQuery.length > 1 ? (
+                    <div className="text-center text-slate-400 mt-10">No results found</div>
+                 ) : (
+                    <div className="text-center text-slate-400 mt-10">Type to search inventory</div>
+                 )}
+             </div>
+           </div>
+        )}
+
+        {/* Main Content Area */}
+        <main className="flex-1 overflow-y-auto bg-slate-50 p-3 lg:p-8 pb-24 lg:pb-8">
+           <div className="max-w-[1600px] mx-auto space-y-4 lg:space-y-6 h-full">
               {children}
            </div>
         </main>
+
+        {/* --- MOBILE BOTTOM NAVIGATION --- */}
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-50 flex justify-around items-center px-2 py-1 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+           <Link to="/" className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-colors ${location.pathname === '/' ? 'text-blue-600' : 'text-slate-400'}`}>
+              <Home size={24} strokeWidth={location.pathname === '/' ? 2.5 : 2} />
+              <span className="text-[10px] font-bold">Home</span>
+           </Link>
+           <Link to="/billing" className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-colors ${location.pathname === '/billing' ? 'text-blue-600' : 'text-slate-400'}`}>
+              <Receipt size={24} strokeWidth={location.pathname === '/billing' ? 2.5 : 2} />
+              <span className="text-[10px] font-bold">Billing</span>
+           </Link>
+           <Link to="/parts" className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-colors ${location.pathname === '/parts' ? 'text-blue-600' : 'text-slate-400'}`}>
+              <Package size={24} strokeWidth={location.pathname === '/parts' ? 2.5 : 2} />
+              <span className="text-[10px] font-bold">Parts</span>
+           </Link>
+           <Link to="/purchases" className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-colors ${location.pathname === '/purchases' ? 'text-blue-600' : 'text-slate-400'}`}>
+              <ShoppingBag size={24} strokeWidth={location.pathname === '/purchases' ? 2.5 : 2} />
+              <span className="text-[10px] font-bold">Buy</span>
+           </Link>
+           <button 
+             onClick={() => setIsSidebarOpen(true)}
+             className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-colors text-slate-400 hover:text-slate-600`}
+           >
+              <MoreHorizontal size={24} />
+              <span className="text-[10px] font-bold">Menu</span>
+           </button>
+        </div>
+
       </div>
     </div>
   );

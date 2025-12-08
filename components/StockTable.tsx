@@ -4,7 +4,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { StockItem, Brand, Role } from '../types';
 import { bulkArchiveItems } from '../services/inventoryService';
-import { Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, Archive, ArchiveRestore, MoreHorizontal, Loader2, Filter } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, Archive, ArchiveRestore, MoreHorizontal, Loader2, Filter, Edit, Eye, Trash2, CheckSquare } from 'lucide-react';
 
 interface StockTableProps {
   items: StockItem[];
@@ -147,16 +147,27 @@ const StockTable: React.FC<StockTableProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-slate-200 flex flex-col h-full">
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-full overflow-hidden">
       {/* Table Toolbar (Conditionally Rendered) */}
       {!hideToolbar && (
-        <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-                <h2 className="font-bold text-slate-800">{title || 'Parts List'}</h2>
-                <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-xs font-medium">{filteredItems.length} items</span>
+        <div className="p-4 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-3 justify-between md:justify-start">
+                <div className="flex items-center gap-3">
+                   <h2 className="font-bold text-slate-800 text-lg md:text-base">{title || 'Parts List'}</h2>
+                   <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-xs font-medium">{filteredItems.length}</span>
+                </div>
+                {/* Mobile Archived Toggle */}
+                {isOwner && (
+                    <button 
+                        onClick={() => setShowArchived(!showArchived)}
+                        className={`md:hidden p-2 rounded-md border ${showArchived ? 'bg-orange-50 border-orange-200 text-orange-700' : 'bg-white border-slate-200 text-slate-500'}`}
+                    >
+                        {showArchived ? <ArchiveRestore size={16} /> : <Archive size={16} />}
+                    </button>
+                )}
             </div>
             
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 w-full md:w-auto">
                 {selectedParts.size > 0 && isOwner && (
                     <button 
                     onClick={handleBulkArchive} 
@@ -164,16 +175,16 @@ const StockTable: React.FC<StockTableProps> = ({
                     className="text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-2"
                     >
                         {isArchiving ? <Loader2 className="animate-spin" size={14} /> : null}
-                        Archive {selectedParts.size} Selected
+                        Archive ({selectedParts.size})
                     </button>
                 )}
 
-                <div className="relative">
+                <div className="relative flex-1 md:flex-none">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                     <input 
                     type="text" 
                     placeholder="Filter table..." 
-                    className="pl-9 pr-4 py-1.5 border border-slate-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent w-64"
+                    className="pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 w-full md:w-64"
                     value={internalSearch}
                     onChange={e => setInternalSearch(e.target.value)}
                     />
@@ -182,7 +193,7 @@ const StockTable: React.FC<StockTableProps> = ({
                 {isOwner && (
                     <button 
                         onClick={() => setShowArchived(!showArchived)}
-                        className={`p-2 rounded-md border ${showArchived ? 'bg-orange-50 border-orange-200 text-orange-700' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                        className={`hidden md:block p-2 rounded-md border ${showArchived ? 'bg-orange-50 border-orange-200 text-orange-700' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
                         title="Toggle Archives"
                     >
                         {showArchived ? <ArchiveRestore size={16} /> : <Archive size={16} />}
@@ -197,25 +208,25 @@ const StockTable: React.FC<StockTableProps> = ({
         <>
           {isAllPageSelected && !areAllSelected && (
             <div className="bg-blue-50 border-b border-blue-100 p-2 text-center text-sm text-blue-800 animate-fade-in">
-               All <b>{currentItems.length}</b> items on this page are selected. 
+               All <b>{currentItems.length}</b> on page selected. 
                <button onClick={selectAllGlobal} className="ml-2 font-bold underline hover:text-blue-900">
-                 Select all {filteredItems.length} items in this list
+                 Select all {filteredItems.length}
                </button>
             </div>
           )}
           {areAllSelected && (
             <div className="bg-blue-50 border-b border-blue-100 p-2 text-center text-sm text-blue-800 animate-fade-in">
-               All <b>{filteredItems.length}</b> items are selected.
+               All <b>{filteredItems.length}</b> selected.
                <button onClick={clearSelection} className="ml-2 font-bold underline hover:text-blue-900">
-                 Clear selection
+                 Clear
                </button>
             </div>
           )}
         </>
       )}
 
-      {/* Table Container */}
-      <div className="flex-1 overflow-auto">
+      {/* --- DESKTOP TABLE VIEW --- */}
+      <div className="hidden md:block flex-1 overflow-auto">
         <table className="w-full text-left text-sm border-collapse">
             <thead className="bg-slate-50 sticky top-0 z-10 shadow-sm">
                 <tr>
@@ -240,7 +251,7 @@ const StockTable: React.FC<StockTableProps> = ({
                          <div className="flex items-center justify-center gap-1">Stock <SortIcon col="quantity"/></div>
                     </th>
                     <th className="px-4 py-3 border-b border-slate-200 font-semibold text-slate-600 text-right cursor-pointer select-none w-32" onClick={() => requestSort('price')}>
-                         <div className="flex items-center justify-end gap-1">Price/MRP <SortIcon col="price"/></div>
+                         <div className="flex items-center justify-end gap-1">Price <SortIcon col="price"/></div>
                     </th>
                     {enableActions && <th className="px-4 py-3 border-b border-slate-200 w-16">Action</th>}
                 </tr>
@@ -286,8 +297,8 @@ const StockTable: React.FC<StockTableProps> = ({
                                 <td className="px-4 py-3 text-right font-medium text-slate-900">₹{item.price.toLocaleString()}</td>
                                 {enableActions && (
                                     <td className="px-4 py-3 text-center">
-                                         <Link to={`/item/${encodeURIComponent(item.partNumber)}`} className="text-primary-600 hover:text-primary-800 text-xs font-medium hover:underline">
-                                            View
+                                         <Link to={`/item/${encodeURIComponent(item.partNumber)}`} className="text-primary-600 hover:text-primary-800 p-1.5 hover:bg-primary-50 rounded-lg inline-block">
+                                            <Eye size={16} />
                                          </Link>
                                     </td>
                                 )}
@@ -299,16 +310,86 @@ const StockTable: React.FC<StockTableProps> = ({
         </table>
       </div>
 
-      {/* Pagination */}
-      <div className="p-3 border-t border-slate-200 flex items-center justify-between bg-white rounded-b-lg">
+      {/* --- MOBILE CARD VIEW --- */}
+      <div className="md:hidden flex-1 overflow-y-auto bg-slate-50 p-2 space-y-3">
+         {currentItems.length === 0 ? (
+             <div className="p-8 text-center text-slate-500 bg-white rounded-lg border border-slate-200">No parts found.</div>
+         ) : (
+             currentItems.map((item) => {
+                const isLow = item.quantity > 0 && item.quantity <= item.minStockThreshold;
+                const isZero = item.quantity === 0;
+                const isSelected = selectedParts.has(item.partNumber);
+
+                return (
+                   <div key={item.id} className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 relative overflow-hidden active:scale-[0.99] transition-transform">
+                      {/* Selection Overlay */}
+                      {enableActions && isOwner && (
+                          <div className="absolute top-0 right-0 p-0 z-10">
+                             <label className={`block p-3 rounded-bl-xl cursor-pointer ${isSelected ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                                <input 
+                                    type="checkbox" 
+                                    checked={isSelected} 
+                                    onChange={() => toggleSelect(item.partNumber)}
+                                    className="hidden" 
+                                />
+                                {isSelected ? <CheckSquare size={18} /> : <div className="w-[18px] h-[18px] rounded border border-slate-400"></div>}
+                             </label>
+                          </div>
+                      )}
+
+                      <div className="flex justify-between items-start mb-2 pr-8">
+                          <div>
+                              <div className="flex items-center gap-2">
+                                  <Link to={`/item/${encodeURIComponent(item.partNumber)}`} className="text-lg font-bold text-slate-900 hover:text-blue-600">
+                                      {item.partNumber}
+                                  </Link>
+                                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${item.brand === Brand.HYUNDAI ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'}`}>
+                                      {item.brand.substring(0, 1)}
+                                  </span>
+                              </div>
+                              <div className="text-sm text-slate-500 line-clamp-1">{item.name}</div>
+                          </div>
+                      </div>
+
+                      <div className="flex items-end justify-between mt-3">
+                          <div className="flex items-center gap-3">
+                              <div className={`flex flex-col items-center px-3 py-1 rounded-lg ${isZero ? 'bg-red-50 text-red-700' : isLow ? 'bg-yellow-50 text-yellow-700' : 'bg-slate-100 text-slate-700'}`}>
+                                  <span className="text-[10px] font-bold uppercase">Stock</span>
+                                  <span className="text-lg font-bold leading-none">{item.quantity}</span>
+                              </div>
+                              <div className="flex flex-col">
+                                  <span className="text-[10px] text-slate-400 font-bold uppercase">Price</span>
+                                  <span className="text-lg font-bold text-slate-900">₹{item.price}</span>
+                              </div>
+                          </div>
+                          
+                          {enableActions && (
+                             <Link 
+                                to={`/item/${encodeURIComponent(item.partNumber)}`} 
+                                className="bg-slate-900 text-white p-2 rounded-lg shadow-sm active:bg-slate-800"
+                             >
+                                <ChevronRight size={20} />
+                             </Link>
+                          )}
+                      </div>
+                   </div>
+                );
+             })
+         )}
+         {/* Bottom Spacer for FAB */}
+         <div className="h-16"></div>
+      </div>
+
+      {/* Pagination (Common) */}
+      <div className="p-3 border-t border-slate-200 flex items-center justify-between bg-white md:rounded-b-lg shrink-0 z-20">
           <div className="text-xs text-slate-500">
-              Page {currentPage} of {totalPages}
+              Page {currentPage} / {totalPages}
           </div>
           <div className="flex gap-1">
-              <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-1 rounded hover:bg-slate-100 disabled:opacity-50">
+              <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-2 rounded-lg hover:bg-slate-100 disabled:opacity-50">
                   <ChevronLeft size={16} />
               </button>
-              <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="p-1 rounded hover:bg-slate-100 disabled:opacity-50">
+              <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="p-2 rounded-lg hover:bg-slate-100 disabled:opacity-50">
                   <ChevronRight size={16} />
               </button>
           </div>

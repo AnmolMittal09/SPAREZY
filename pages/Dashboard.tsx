@@ -1,5 +1,4 @@
 
-
 import React, { useEffect, useState } from 'react';
 import { User, Brand, Role, StockItem } from '../types';
 import { fetchInventory } from '../services/inventoryService';
@@ -41,17 +40,20 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   if (loading) return <TharLoader />;
 
   return (
-    <div className="flex flex-col h-[calc(100vh-100px)] space-y-6">
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
+    <div className="flex flex-col h-full md:h-[calc(100vh-100px)] space-y-4 md:space-y-6">
+      
+      {/* Mobile-Optimized Dashboard Header */}
+      <div className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4 md:space-y-6">
          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
              <div>
                 <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                   Operations Workspace
+                   Operations
                 </h1>
-                <p className="text-slate-500 text-sm">Find parts quickly and start transactions.</p>
+                <p className="text-slate-500 text-sm hidden md:block">Find parts quickly and start transactions.</p>
              </div>
              
-             <div className="flex gap-2">
+             {/* Desktop Action Buttons */}
+             <div className="hidden md:flex gap-2">
                  <button 
                    onClick={() => navigate('/billing')} 
                    className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors shadow-sm"
@@ -76,13 +78,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
          </div>
 
          <div className="flex flex-col md:flex-row gap-4">
+             {/* Full Width Search */}
              <div className="flex-1 relative">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
                 <input 
                   type="text" 
-                  autoFocus
-                  placeholder="Search parts by name, number, brand, or HSN code..."
-                  className="w-full pl-12 pr-4 h-12 bg-slate-50 border border-slate-200 rounded-xl text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-inner"
+                  placeholder="Search parts by name, number, brand..."
+                  className="w-full pl-12 pr-4 h-12 bg-slate-50 border border-slate-200 rounded-xl text-base md:text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-inner"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -96,34 +98,34 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                 )}
              </div>
              
-             {/* Brand Filter Buttons */}
-             <div className="flex gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200">
+             {/* Brand Filter Chips (Scrollable on Mobile) */}
+             <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 no-scrollbar">
                 <button 
                    onClick={() => setBrandFilter(undefined)}
-                   className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${
+                   className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
                       brandFilter === undefined 
-                        ? 'bg-white text-slate-800 shadow-sm' 
-                        : 'text-slate-500 hover:text-slate-700'
+                        ? 'bg-slate-900 text-white shadow-sm' 
+                        : 'bg-white border border-slate-200 text-slate-500'
                    }`}
                 >
                    <Layers size={16} /> All
                 </button>
                 <button 
                    onClick={() => setBrandFilter(Brand.HYUNDAI)}
-                   className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                   className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${
                       brandFilter === Brand.HYUNDAI 
                         ? 'bg-blue-900 text-white shadow-sm' 
-                        : 'text-slate-500 hover:text-blue-900'
+                        : 'bg-white border border-slate-200 text-slate-500'
                    }`}
                 >
                    Hyundai
                 </button>
                 <button 
                    onClick={() => setBrandFilter(Brand.MAHINDRA)}
-                   className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                   className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${
                       brandFilter === Brand.MAHINDRA 
                         ? 'bg-red-600 text-white shadow-sm' 
-                        : 'text-slate-500 hover:text-red-600'
+                        : 'bg-white border border-slate-200 text-slate-500'
                    }`}
                 >
                    Mahindra
@@ -132,10 +134,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
          </div>
       </div>
 
-      <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+      <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col min-h-0">
          <StockTable 
             items={inventory} 
-            title="Part Search Results"
+            title="Search Results"
             userRole={user.role}
             brandFilter={brandFilter}
             enableActions={true}
@@ -143,6 +145,14 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
             hideToolbar={true}
          />
       </div>
+
+      {/* Floating Action Button (Mobile Only) */}
+      <button 
+        onClick={() => navigate('/billing')}
+        className="md:hidden fixed bottom-20 right-4 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg shadow-blue-600/30 flex items-center justify-center z-40 active:scale-90 transition-transform"
+      >
+         <Plus size={28} />
+      </button>
     </div>
   );
 };
