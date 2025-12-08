@@ -193,6 +193,24 @@ export const fetchTransactions = async (
   return all.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 };
 
+export const fetchCustomerTransactions = async (customerName: string): Promise<Transaction[]> => {
+  if (supabase) {
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('*')
+      .ilike('customer_name', customerName)
+      .order('created_at', { ascending: false });
+      
+    if (error) return [];
+    return data.map(mapDBToTransaction);
+  }
+  
+  // Local Storage Fallback
+  const all = getLocalTransactions();
+  return all.filter(t => t.customerName?.toLowerCase() === customerName.toLowerCase())
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+};
+
 export const approveTransaction = async (id: string, partNumber: string, type: TransactionType, quantity: number): Promise<void> => {
   if (supabase) {
     // 1. Double check stock if Sale
@@ -397,7 +415,7 @@ export const fetchUninvoicedSales = async (): Promise<Transaction[]> => {
       console.error("Fetch uninvoiced sales error:", error);
       return [];
     }
-    return data ? data.map(mapDBToTransaction) : [];
+    return data ? data.map(mapDBToTransaction);
   }
 
   // Local Storage
