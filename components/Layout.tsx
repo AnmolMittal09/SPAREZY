@@ -14,21 +14,13 @@ import {
   AlertTriangle, 
   FileUp, 
   BarChart3, 
-  TrendingUp, 
-  PieChart, 
-  Users, 
   Settings, 
   LogOut, 
   Menu, 
   Search,
   Bell,
-  HelpCircle,
   ChevronDown,
-  Building2,
-  Truck,
-  Contact,
-  FileBarChart,
-  History
+  CheckSquare
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -100,6 +92,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
         { label: 'Billing / Invoices', path: '/billing', icon: Receipt },
         { label: 'Purchases', path: '/purchases', icon: ShoppingBag },
         { label: 'Requisitions', path: '/requisitions', icon: ClipboardList },
+        { label: 'Approvals', path: '/approvals', icon: CheckSquare, requiredRole: Role.OWNER },
       ]
     },
     {
@@ -162,7 +155,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
                    {group.items.map((item, itemIdx) => {
                       if (item.requiredRole && user.role !== item.requiredRole) return null;
                       
-                      const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
+                      const isActive = location.pathname === item.path || (location.pathname.startsWith(item.path + '/') && item.path !== '/');
                       
                       return (
                         <Link

@@ -10,6 +10,7 @@ import PartsList from './pages/PartsList';
 import Billing from './pages/Billing';
 import Purchases from './pages/Purchases';
 import Requisitions from './pages/Requisitions';
+import Approvals from './pages/Approvals';
 import StockMovements from './pages/StockMovements';
 import LowStock from './pages/LowStock';
 import ImportExport from './pages/ImportExport';
@@ -65,6 +66,10 @@ const App: React.FC = () => {
           <Route path="/billing" element={<Billing user={user} />} />
           <Route path="/purchases" element={<Purchases user={user} />} />
           <Route path="/requisitions" element={<Requisitions user={user} />} />
+          <Route 
+            path="/approvals" 
+            element={user.role === Role.OWNER ? <Approvals user={user} /> : <Navigate to="/" replace />} 
+          />
           
           {/* INVENTORY */}
           <Route path="/movements" element={<StockMovements user={user} />} />
