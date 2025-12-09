@@ -1,8 +1,9 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="theme-color" content="#ffffff" />
     <title>Sparezy - Stock Management</title>
     <!-- Favicon using Base64 encoded SVG Data URI for reliability -->
@@ -26,6 +27,10 @@
                 700: '#1d4ed8',
                 900: '#1e3a8a',
               }
+            },
+            padding: {
+              'safe': 'env(safe-area-inset-bottom)',
+              'safe-bottom': 'calc(env(safe-area-inset-bottom) + 1rem)',
             }
           }
         }

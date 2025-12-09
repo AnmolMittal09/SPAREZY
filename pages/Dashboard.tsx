@@ -1,15 +1,19 @@
 
 import React, { useEffect, useState } from 'react';
 import { User, Brand, Role, StockItem } from '../types';
-import { fetchInventory } from '../services/inventoryService';
+import { fetchInventory, getStats } from '../services/inventoryService';
 import StockTable from '../components/StockTable';
+import StatCard from '../components/StatCard';
 import { 
   Search, 
   Plus, 
   Truck, 
   PackagePlus,
   X,
-  Layers
+  Layers,
+  Package,
+  AlertTriangle,
+  AlertCircle
 } from 'lucide-react';
 // @ts-ignore
 import { Link, useNavigate } from 'react-router-dom';
@@ -36,6 +40,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
     };
     loadData();
   }, []);
+
+  const stats = getStats(inventory);
 
   if (loading) return <TharLoader />;
 
@@ -79,7 +85,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
 
          <div className="flex flex-col md:flex-row gap-4">
              {/* Full Width Search */}
-             <div className="flex-1 relative">
+             <div className="flex-1 relative sticky top-0 z-20">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
                 <input 
                   type="text" 
@@ -99,7 +105,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
              </div>
              
              {/* Brand Filter Chips (Scrollable on Mobile) */}
-             <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 no-scrollbar">
+             <div className="flex gap-2 overflow-x-auto pb-1 md:pb-0 no-scrollbar touch-pan-x">
                 <button 
                    onClick={() => setBrandFilter(undefined)}
                    className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
@@ -134,6 +140,31 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
          </div>
       </div>
 
+      {/* Quick Stats Grid (Mobile 2 cols, Desktop 4 cols) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+        <StatCard 
+            title="Total Parts" 
+            value={stats.totalItems} 
+            icon={Package} 
+        />
+        <StatCard 
+            title="Low Stock" 
+            value={stats.lowStockCount} 
+            icon={AlertTriangle} 
+            colorClass={stats.lowStockCount > 0 ? "bg-yellow-50 border-l-4 border-yellow-400" : "bg-white"}
+        />
+        <StatCard 
+            title="Out of Stock" 
+            value={stats.zeroStockCount} 
+            icon={AlertCircle} 
+            colorClass={stats.zeroStockCount > 0 ? "bg-red-50 border-l-4 border-red-500" : "bg-white"}
+        />
+        <div className="bg-blue-50 rounded-xl p-4 flex flex-col justify-center items-center text-center border border-blue-100 shadow-sm cursor-pointer hover:bg-blue-100" onClick={() => navigate('/reports')}>
+            <span className="text-blue-600 text-xs font-bold uppercase mb-1">Stock Value</span>
+            <span className="text-lg font-bold text-blue-900">₹{(stats.totalValue / 100000).toFixed(2)}L</span>
+        </div>
+      </div>
+
       <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col min-h-0">
          <StockTable 
             items={inventory} 
@@ -147,10 +178,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
       </div>
 
       {/* Floating Action Button (Mobile Only) */}
-      {/* Positioned higher (bottom-28) to clear the bottom navigation bar and safe areas */}
+      {/* Positioned at bottom-20 (80px) to clear bottom nav */}
       <button 
         onClick={() => navigate('/billing')}
-        className="md:hidden fixed bottom-28 right-5 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg shadow-blue-600/30 flex items-center justify-center z-[60] active:scale-90 transition-transform"
+        className="md:hidden fixed bottom-20 right-4 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg shadow-blue-600/30 flex items-center justify-center z-[60] active:scale-90 transition-transform"
       >
          <Plus size={28} />
       </button>

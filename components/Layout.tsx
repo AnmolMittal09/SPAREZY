@@ -162,11 +162,13 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
     return (
       <Link 
         to={to} 
-        className={`flex flex-col items-center justify-center gap-1 p-1 rounded-xl transition-all duration-200 ${
-          isActive ? 'text-blue-600 bg-blue-50' : 'text-slate-400 active:bg-slate-50'
+        className={`flex flex-col items-center justify-center gap-0.5 p-1 rounded-xl transition-all duration-200 ${
+          isActive ? 'text-blue-600' : 'text-slate-400 active:bg-slate-50'
         }`}
       >
-        <Icon size={22} strokeWidth={isActive ? 2.5 : 2} />
+        <div className={`p-1 rounded-full ${isActive ? 'bg-blue-50' : 'bg-transparent'}`}>
+           <Icon size={20} strokeWidth={isActive ? 2.5 : 2} />
+        </div>
         <span className={`text-[10px] ${isActive ? 'font-bold' : 'font-medium'}`}>{label}</span>
       </Link>
     );
@@ -188,7 +190,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
-        <div className="h-16 flex items-center justify-between px-6 border-b border-slate-100 bg-white z-20">
+        <div className="h-14 lg:h-16 flex items-center justify-between px-6 border-b border-slate-100 bg-white z-20">
            <Link to="/" className="flex items-center gap-2" onClick={() => setIsSidebarOpen(false)}>
               <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white font-black text-sm shadow-sm">
                 S
@@ -252,7 +254,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
            </div>
         )}
 
-        <div className="p-4 border-t border-slate-200 bg-white z-20 lg:mb-0 mb-16">
+        <div className="p-4 border-t border-slate-200 bg-white z-20 lg:mb-0 mb-safe-bottom">
            <div className="relative">
              <button 
                 onClick={() => setShowUserMenu(!showUserMenu)}
@@ -284,7 +286,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
       {/* --- RIGHT SECTION (MAIN CONTENT) --- */}
       <div className="flex-1 flex flex-col min-w-0 h-full">
         
-        {/* MOBILE HEADER - COMPACT */}
+        {/* MOBILE HEADER - COMPACT (h-12 / 48px) */}
         <header className="h-12 lg:h-16 bg-white border-b border-slate-200 flex items-center justify-between px-3 lg:px-8 shadow-sm z-30 sticky top-0 no-print">
            {/* Mobile Logo */}
            <div className="flex items-center gap-2 lg:hidden">
@@ -352,13 +354,13 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
         {/* MOBILE FULL SCREEN SEARCH MODAL */}
         {mobileSearchOpen && (
            <div className="fixed inset-0 bg-white z-[70] flex flex-col animate-fade-in">
-             <div className="p-3 border-b border-slate-100 flex items-center gap-2">
+             <div className="p-3 border-b border-slate-100 flex items-center gap-2 h-14">
                 <div className="relative flex-1">
                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                    <input 
                      autoFocus
                      type="text"
-                     className="w-full bg-slate-50 border-none rounded-xl pl-10 pr-4 py-3 text-base focus:ring-2 focus:ring-blue-500 outline-none"
+                     className="w-full bg-slate-50 border-none rounded-xl pl-10 pr-4 py-2.5 text-base focus:ring-2 focus:ring-blue-500 outline-none"
                      placeholder="Search Part Number..."
                      value={searchQuery}
                      onChange={handleSearch}
@@ -405,17 +407,19 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
         </main>
 
         {/* --- MOBILE BOTTOM NAVIGATION (Slimmer & Spaced) --- */}
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-50 grid grid-cols-5 gap-1 px-2 py-1.5 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] h-[60px]">
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-50 grid grid-cols-5 gap-1 px-2 py-1 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] h-[60px]">
            <NavItem to="/" icon={Home} label="Home" />
-           <NavItem to="/billing" icon={Receipt} label="Billing" />
+           <NavItem to="/billing" icon={Receipt} label="POS" />
            <NavItem to="/parts" icon={Package} label="Parts" />
            <NavItem to="/purchases" icon={ShoppingBag} label="Buy" />
            
            <button 
              onClick={() => setIsSidebarOpen(true)}
-             className={`flex flex-col items-center justify-center gap-1 p-1 rounded-xl transition-all duration-200 text-slate-400 active:bg-slate-50`}
+             className={`flex flex-col items-center justify-center gap-0.5 p-1 rounded-xl transition-all duration-200 text-slate-400 active:bg-slate-50`}
            >
-              <MoreHorizontal size={22} />
+              <div className="p-1 rounded-full bg-transparent">
+                  <MoreHorizontal size={20} />
+              </div>
               <span className="text-[10px] font-medium">Menu</span>
            </button>
         </div>

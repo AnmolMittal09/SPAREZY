@@ -4,7 +4,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { StockItem, Brand, Role } from '../types';
 import { bulkArchiveItems } from '../services/inventoryService';
-import { Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, Archive, ArchiveRestore, MoreHorizontal, Loader2, Filter, Edit, Eye, Trash2, CheckSquare } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, Archive, ArchiveRestore, Loader2, Edit, Eye, Trash2, CheckSquare } from 'lucide-react';
 
 interface StockTableProps {
   items: StockItem[];
@@ -108,6 +108,10 @@ const StockTable: React.FC<StockTableProps> = ({
     }
     return result;
   }, [items, effectiveSearch, brandFilter, showArchived, sortConfig, stockStatusFilter]);
+
+  // Mobile "Load More" Logic (Instead of pagination numbers on mobile)
+  const [mobileLimit, setMobileLimit] = useState(20);
+  const mobileItems = filteredItems.slice(0, mobileLimit);
 
   const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
   const currentItems = filteredItems.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -308,81 +312,9 @@ const StockTable: React.FC<StockTableProps> = ({
                 )}
             </tbody>
         </table>
-      </div>
-
-      {/* --- MOBILE CARD VIEW (Visible below md) --- */}
-      <div className="md:hidden flex-1 overflow-y-auto bg-slate-50 p-3 space-y-3">
-         {currentItems.length === 0 ? (
-             <div className="p-8 text-center text-slate-500 bg-white rounded-lg border border-slate-200">No parts found matching filters.</div>
-         ) : (
-             currentItems.map((item) => {
-                const isLow = item.quantity > 0 && item.quantity <= item.minStockThreshold;
-                const isZero = item.quantity === 0;
-                const isSelected = selectedParts.has(item.partNumber);
-
-                return (
-                   <div key={item.id} className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 relative overflow-hidden active:scale-[0.99] transition-transform">
-                      {/* Selection Overlay */}
-                      {enableActions && isOwner && (
-                          <div className="absolute top-0 right-0 p-0 z-10">
-                             <label className={`block p-3 rounded-bl-xl cursor-pointer ${isSelected ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-400'}`}>
-                                <input 
-                                    type="checkbox" 
-                                    checked={isSelected} 
-                                    onChange={() => toggleSelect(item.partNumber)}
-                                    className="hidden" 
-                                />
-                                {isSelected ? <CheckSquare size={20} /> : <div className="w-5 h-5 rounded border border-slate-400 bg-white/50"></div>}
-                             </label>
-                          </div>
-                      )}
-
-                      <div className="flex justify-between items-start mb-2 pr-10">
-                          <div>
-                              <div className="flex items-center gap-2 mb-1">
-                                  <Link to={`/item/${encodeURIComponent(item.partNumber)}`} className="text-lg font-bold text-slate-900 hover:text-blue-600 break-all">
-                                      {item.partNumber}
-                                  </Link>
-                                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${item.brand === Brand.HYUNDAI ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'}`}>
-                                      {item.brand.substring(0, 1)}
-                                  </span>
-                              </div>
-                              <div className="text-sm text-slate-500 line-clamp-2">{item.name}</div>
-                          </div>
-                      </div>
-
-                      <div className="flex items-end justify-between mt-4">
-                          <div className="flex items-center gap-4">
-                              <div className={`flex flex-col items-center px-3 py-1.5 rounded-lg border ${isZero ? 'bg-red-50 border-red-100 text-red-700' : isLow ? 'bg-yellow-50 border-yellow-100 text-yellow-700' : 'bg-slate-50 border-slate-100 text-slate-700'}`}>
-                                  <span className="text-[10px] font-bold uppercase opacity-70">Stock</span>
-                                  <span className="text-xl font-bold leading-none">{item.quantity}</span>
-                              </div>
-                              <div className="flex flex-col">
-                                  <span className="text-[10px] text-slate-400 font-bold uppercase">Price</span>
-                                  <span className="text-xl font-bold text-slate-900">₹{item.price.toLocaleString()}</span>
-                              </div>
-                          </div>
-                          
-                          {enableActions && (
-                             <Link 
-                                to={`/item/${encodeURIComponent(item.partNumber)}`} 
-                                className="bg-slate-900 text-white p-3 rounded-lg shadow-sm active:bg-slate-800 flex items-center justify-center"
-                                aria-label="View Details"
-                             >
-                                <ChevronRight size={20} />
-                             </Link>
-                          )}
-                      </div>
-                   </div>
-                );
-             })
-         )}
-         {/* Bottom Spacer for FAB and Navigation */}
-         <div className="h-24 md:h-0"></div>
-      </div>
-
-      {/* Pagination (Common) */}
-      <div className="p-3 border-t border-slate-200 flex items-center justify-between bg-white md:rounded-b-lg shrink-0 z-20">
+        
+        {/* Desktop Pagination */}
+        <div className="p-3 border-t border-slate-200 flex items-center justify-between bg-white sticky bottom-0 z-10">
           <div className="text-xs text-slate-500">
               Page {currentPage} / {totalPages}
           </div>
@@ -394,6 +326,59 @@ const StockTable: React.FC<StockTableProps> = ({
                   <ChevronRight size={16} />
               </button>
           </div>
+        </div>
+      </div>
+
+      {/* --- MOBILE DENSE LIST VIEW (Visible below md) --- */}
+      <div className="md:hidden flex-1 overflow-y-auto bg-slate-50 p-2 space-y-2">
+         {mobileItems.length === 0 ? (
+             <div className="p-8 text-center text-slate-500 bg-white rounded-lg border border-slate-200">No parts found matching filters.</div>
+         ) : (
+             mobileItems.map((item) => {
+                const isLow = item.quantity > 0 && item.quantity <= item.minStockThreshold;
+                const isZero = item.quantity === 0;
+
+                return (
+                   <Link 
+                      key={item.id}
+                      to={`/item/${encodeURIComponent(item.partNumber)}`}
+                      className="block bg-white border border-slate-100 p-3 rounded-lg shadow-sm active:bg-slate-50"
+                   >
+                      <div className="flex justify-between items-start">
+                         <div className="flex flex-col gap-0.5">
+                            <div className="flex items-center gap-2">
+                               <span className="font-bold text-slate-900 text-base">{item.partNumber}</span>
+                               <span className={`text-[10px] px-1 rounded font-bold uppercase ${item.brand === Brand.HYUNDAI ? 'bg-blue-50 text-blue-700' : 'bg-red-50 text-red-700'}`}>
+                                  {item.brand.substring(0, 3)}
+                               </span>
+                            </div>
+                            <span className="text-xs text-slate-500 line-clamp-1">{item.name}</span>
+                         </div>
+                         
+                         <div className="text-right">
+                            <div className="font-bold text-slate-900">₹{item.price}</div>
+                            <div className={`text-xs font-medium px-1.5 py-0.5 rounded mt-1 inline-block ${isZero ? 'bg-red-100 text-red-700' : isLow ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>
+                               {item.quantity} In Stock
+                            </div>
+                         </div>
+                      </div>
+                   </Link>
+                );
+             })
+         )}
+         
+         {/* Load More Button for Mobile */}
+         {mobileLimit < filteredItems.length && (
+            <button 
+              onClick={() => setMobileLimit(prev => prev + 20)}
+              className="w-full py-3 text-sm font-bold text-slate-500 bg-white border border-slate-200 rounded-lg shadow-sm"
+            >
+               Load More ({filteredItems.length - mobileLimit} remaining)
+            </button>
+         )}
+
+         {/* Bottom Spacer for FAB and Navigation */}
+         <div className="h-24"></div>
       </div>
     </div>
   );

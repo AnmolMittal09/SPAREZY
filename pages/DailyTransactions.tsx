@@ -110,7 +110,6 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
                   const maxStock = stockItem ? stockItem.quantity : 0;
                   
                   if (newQty > maxStock) {
-                      // Don't alert aggressively on every click, just clamp
                       newQty = maxStock;
                   }
                   
@@ -162,7 +161,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
      if (user.role === Role.MANAGER) return 'Submit';
      if (mode === 'RETURN') return 'Refund';
      if (mode === 'PURCHASE') return 'Confirm';
-     return 'Sale';
+     return 'Complete Sale';
   };
 
   const getThemeColor = () => {
@@ -176,7 +175,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
        
        {/* --- MOBILE: FULL SCREEN SEARCH MODAL --- */}
        {showMobileSearch && (
-         <div className="fixed inset-0 z-50 bg-white flex flex-col animate-fade-in lg:hidden">
+         <div className="fixed inset-0 z-[70] bg-white flex flex-col animate-fade-in lg:hidden">
             <div className="p-4 border-b border-slate-100 flex items-center gap-2">
                <div className="relative flex-1">
                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
@@ -267,12 +266,21 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
            {/* --- RIGHT COLUMN: CART (Mobile & Desktop) --- */}
            <div className="lg:col-span-1 bg-white lg:rounded-xl lg:shadow-sm lg:border border-slate-200 flex flex-col h-full overflow-hidden absolute inset-0 lg:static z-0">
                 {/* Mobile Header */}
-                <div className={`p-4 border-b flex justify-between items-center bg-white border-slate-100 sticky top-0 z-10`}>
+                <div className={`p-4 border-b flex justify-between items-center bg-white border-slate-100 sticky top-0 z-10 lg:hidden`}>
+                    <h2 className="font-bold text-lg flex items-center gap-2">
+                        <ShoppingCart size={20} className="text-slate-400" />
+                        POS Cart
+                    </h2>
+                    {cart.length > 0 && <button onClick={() => setCart([])} className="text-sm font-bold text-red-500 hover:bg-red-50 px-3 py-1 rounded-lg">Clear</button>}
+                </div>
+                
+                {/* Desktop Header */}
+                <div className={`p-4 border-b justify-between items-center bg-white border-slate-100 hidden lg:flex`}>
                     <h2 className="font-bold text-lg flex items-center gap-2">
                         <ShoppingCart size={20} className="text-slate-400" />
                         {mode === 'SALES' ? 'Current Sale' : mode === 'RETURN' ? 'Returns' : 'Purchase Order'}
                     </h2>
-                    {cart.length > 0 && <button onClick={() => setCart([])} className="text-sm font-bold text-red-500 hover:bg-red-50 px-3 py-1 rounded-lg">Clear All</button>}
+                    {cart.length > 0 && <button onClick={() => setCart([])} className="text-sm font-bold text-red-500 hover:bg-red-50 px-3 py-1 rounded-lg">Clear</button>}
                 </div>
 
                 <div className="p-4 border-b border-slate-100 bg-slate-50">
@@ -289,41 +297,41 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
                     {/* Add Item Button (Mobile Only) */}
                     <button 
                       onClick={() => setShowMobileSearch(true)}
-                      className="lg:hidden w-full py-4 border-2 border-dashed border-blue-200 bg-blue-50 text-blue-600 rounded-xl font-bold flex items-center justify-center gap-2 mb-4"
+                      className="lg:hidden w-full py-4 border-2 border-dashed border-blue-200 bg-blue-50 text-blue-600 rounded-xl font-bold flex items-center justify-center gap-2 mb-4 hover:bg-blue-100 transition-colors"
                     >
-                       <Plus size={20} /> Add Item
+                       <Plus size={20} /> Add Item to Cart
                     </button>
 
                     {cart.length === 0 && (
                        <div className="text-center text-slate-400 py-10 text-sm italic">
-                          Cart is empty. Add items to start.
+                          Cart is empty.
                        </div>
                     )}
 
                     {cart.map(item => (
-                        <div key={item.tempId} className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col gap-3">
+                        <div key={item.tempId} className="p-3 rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col gap-2">
                             <div className="flex justify-between items-start">
                                 <div>
-                                    <div className="font-bold text-slate-800 text-lg">{item.partNumber}</div>
-                                    <div className="text-sm text-slate-500">Unit: ₹{item.price}</div>
+                                    <div className="font-bold text-slate-900">{item.partNumber}</div>
+                                    <div className="text-xs text-slate-500">₹{item.price} x {item.quantity}</div>
                                 </div>
-                                <div className={`font-bold text-lg ${mode === 'RETURN' ? 'text-red-600' : 'text-slate-900'}`}>
+                                <div className={`font-bold ${mode === 'RETURN' ? 'text-red-600' : 'text-slate-900'}`}>
                                     {mode === 'RETURN' ? '-' : ''}₹{item.price * item.quantity}
                                 </div>
                             </div>
                             
                             <div className="flex justify-between items-center pt-2 border-t border-slate-100">
-                                <button onClick={() => removeItem(item.tempId)} className="text-red-400 hover:text-red-600 p-2">
-                                    <Trash2 size={18}/>
+                                <button onClick={() => removeItem(item.tempId)} className="text-red-400 hover:text-red-600 p-2 rounded-lg hover:bg-red-50">
+                                    <Trash2 size={16}/>
                                 </button>
                                 
-                                <div className="flex items-center gap-3 bg-slate-100 rounded-lg p-1">
-                                    <button onClick={() => updateQty(item.tempId, -1)} className="w-10 h-10 bg-white rounded-md shadow-sm flex items-center justify-center text-slate-700 active:scale-90 transition-transform">
-                                        <Minus size={18}/>
+                                <div className="flex items-center gap-2 bg-slate-100 rounded-lg p-1">
+                                    <button onClick={() => updateQty(item.tempId, -1)} className="w-8 h-8 bg-white rounded-md shadow-sm flex items-center justify-center text-slate-700 active:scale-90 transition-transform">
+                                        <Minus size={16}/>
                                     </button>
-                                    <span className="font-bold text-lg w-8 text-center">{item.quantity}</span>
-                                    <button onClick={() => updateQty(item.tempId, 1)} className="w-10 h-10 bg-white rounded-md shadow-sm flex items-center justify-center text-slate-700 active:scale-90 transition-transform">
-                                        <Plus size={18}/>
+                                    <span className="font-bold w-6 text-center text-sm">{item.quantity}</span>
+                                    <button onClick={() => updateQty(item.tempId, 1)} className="w-8 h-8 bg-white rounded-md shadow-sm flex items-center justify-center text-slate-700 active:scale-90 transition-transform">
+                                        <Plus size={16}/>
                                     </button>
                                 </div>
                             </div>
@@ -332,23 +340,23 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
                 </div>
 
                 {/* Footer Actions */}
-                <div className="p-4 bg-white border-t border-slate-200 fixed bottom-0 left-0 right-0 lg:static shadow-[0_-4px_10px_rgba(0,0,0,0.05)] lg:shadow-none pb-safe lg:pb-4 z-20">
-                    <div className="flex justify-between items-center mb-4">
-                        <span className="text-slate-500 font-medium text-lg">
-                            Total
+                <div className="p-4 bg-white border-t border-slate-200 fixed bottom-0 left-0 right-0 lg:static shadow-[0_-4px_10px_rgba(0,0,0,0.05)] lg:shadow-none pb-safe lg:pb-4 z-50">
+                    <div className="flex justify-between items-center mb-3">
+                        <span className="text-slate-500 font-medium text-sm">
+                            Total Amount
                         </span>
-                        <span className={`text-2xl font-black ${mode === 'RETURN' ? 'text-red-600' : 'text-slate-900'}`}>
+                        <span className={`text-xl font-black ${mode === 'RETURN' ? 'text-red-600' : 'text-slate-900'}`}>
                             {mode === 'RETURN' ? '-' : ''}₹{totalAmount.toLocaleString()}
                         </span>
                     </div>
                     <button 
                        onClick={handleSubmit}
                        disabled={loading || cart.length === 0}
-                       className={`w-full py-4 rounded-xl font-bold text-white text-lg flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:scale-100 ${
+                       className={`w-full py-3.5 rounded-xl font-bold text-white text-base flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:scale-100 ${
                           mode === 'RETURN' ? 'bg-red-600 shadow-red-200' : 'bg-slate-900 shadow-slate-200'
                        }`}
                     >
-                       {loading ? <Loader2 className="animate-spin" size={24} /> : (mode === 'RETURN' ? <Undo2 size={24}/> : <CheckCircle2 size={24}/>)}
+                       {loading ? <Loader2 className="animate-spin" size={20} /> : (mode === 'RETURN' ? <Undo2 size={20}/> : <CheckCircle2 size={20}/>)}
                        {getButtonText()} {cart.length > 0 ? `(${cart.length})` : ''}
                     </button>
                 </div>
