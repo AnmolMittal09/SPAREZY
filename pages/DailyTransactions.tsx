@@ -29,7 +29,7 @@ interface Props {
 interface CartItem {
   tempId: string;
   partNumber: string;
-  name?: string; // Added optional name
+  name?: string; 
   type: TransactionType;
   quantity: number;
   price: number;
@@ -66,10 +66,8 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
   useEffect(() => {
     fetchInventory().then(setInventory);
     
-    // Load customers for suggestions if in Sales mode
     if (forcedMode === 'SALES' || !forcedMode) {
       getCustomers().then(data => {
-         // Safety check to ensure data is an array
          if (Array.isArray(data)) {
             setSavedCustomers(data);
          }
@@ -81,7 +79,6 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
       setUseNativeScanner(true);
     }
     
-    // Click outside listener to close suggestions
     function handleClickOutside(event: MouseEvent) {
       if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
         setShowCustomerList(false);
@@ -101,23 +98,28 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
   };
 
   const playBeep = () => {
-    try {
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioCtx.createOscillator();
-      const gainNode = audioCtx.createGain();
-      
-      oscillator.connect(gainNode);
-      gainNode.connect(audioCtx.destination);
-      
-      oscillator.type = "sine";
-      oscillator.frequency.value = 1500; // Hz
-      gainNode.gain.value = 0.1; // Volume
-      
-      oscillator.start();
-      setTimeout(() => oscillator.stop(), 100); // 100ms beep
-    } catch (e) {
-      console.error("Audio play failed", e);
-    }
+    // Try playing audio file first (if exists)
+    const audio = new Audio("/sounds/beep.mp3");
+    audio.play().catch(() => {
+        // Fallback to Web Audio API oscillator
+        try {
+          const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+          const oscillator = audioCtx.createOscillator();
+          const gainNode = audioCtx.createGain();
+          
+          oscillator.connect(gainNode);
+          gainNode.connect(audioCtx.destination);
+          
+          oscillator.type = "sine";
+          oscillator.frequency.value = 1500; // Hz
+          gainNode.gain.value = 0.1; // Volume
+          
+          oscillator.start();
+          setTimeout(() => oscillator.stop(), 100); // 100ms beep
+        } catch (e) {
+          console.error("Audio play failed", e);
+        }
+    });
   };
 
   const normalizePartCode = (code: string) => {
@@ -129,10 +131,9 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
   const handleScannedCode = (decodedText: string) => {
     if (!decodedText) return;
 
-    // 1. Normalization Logic
     const partCode = normalizePartCode(decodedText);
 
-    // 2. Check for EXACT MATCH in 'barcode' field first (legacy support)
+    // 1. Check for EXACT MATCH in 'barcode' field first
     const barcodeMatch = inventory.find(i => i.barcode === decodedText || i.barcode === partCode);
     
     if (barcodeMatch) {
@@ -142,7 +143,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
         return;
     }
 
-    // 3. Search inventory part_number (ignoring dashes)
+    // 2. Search inventory part_number (ignoring dashes)
     const match = inventory.find(i => {
         const normalizedInv = i.partNumber.toUpperCase().replace(/[^A-Z0-9]/g, '');
         return normalizedInv === partCode;
@@ -165,12 +166,22 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
     let stream: MediaStream | null = null;
     let html5QrCode: any = null;
 
+    const cleanup = () => {
+      isActive = false;
+      if (stream) {
+         stream.getTracks().forEach(track => track.stop());
+      }
+      if (html5QrCode && html5QrCode.isScanning) {
+         html5QrCode.stop().then(() => html5QrCode.clear()).catch(console.error);
+      }
+    };
+
     const handleSuccess = (code: string) => {
       if (!isActive) return;
       playBeep();
+      cleanup(); // Stop scanning immediately
       handleScannedCode(code);
       setShowScanner(false);
-      isActive = false; // Stop further processing
     };
 
     const startNativeScanner = async () => {
@@ -178,24 +189,19 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
         const constraints = { 
           video: { 
             facingMode: "environment",
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          } 
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+            focusMode: 'continuous'
+          } as any
         };
         
         stream = await navigator.mediaDevices.getUserMedia(constraints);
         
         if (videoRef.current && isActive) {
           videoRef.current.srcObject = stream;
-          // Wait for video to be ready
-          await new Promise((resolve) => {
-             if (videoRef.current) {
-               videoRef.current.onloadedmetadata = () => resolve(true);
-             }
-          });
           await videoRef.current.play();
 
-          // @ts-ignore - BarcodeDetector is strictly checked in useEffect but TS might not know
+          // @ts-ignore - Check existence before usage
           const detector = new window.BarcodeDetector({
             formats: [
               "code_128", "code_39", "ean_13", "ean_8", 
@@ -205,23 +211,33 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
 
           const detectLoop = async () => {
              if (!isActive || !videoRef.current) return;
+             
              try {
-               const barcodes = await detector.detect(videoRef.current);
-               if (barcodes.length > 0) {
-                 handleSuccess(barcodes[0].rawValue);
-                 return;
+               if (videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
+                 // Use createImageBitmap for efficient frame grabbing
+                 const bitmap = await createImageBitmap(videoRef.current);
+                 try {
+                   const barcodes = await detector.detect(bitmap);
+                   if (barcodes.length > 0) {
+                     handleSuccess(barcodes[0].rawValue);
+                     return;
+                   }
+                 } finally {
+                   bitmap.close();
+                 }
                }
              } catch (e) {
-               // Ignore detection errors in loop
+               // Ignore detection errors, just keep looping
              }
-             requestAnimationFrame(detectLoop);
+             
+             if (isActive) requestAnimationFrame(detectLoop);
           };
           
           detectLoop();
         }
       } catch (err) {
         console.error("Native scanner failed, falling back to html5-qrcode", err);
-        setUseNativeScanner(false); // Trigger fallback
+        setUseNativeScanner(false); 
       }
     };
 
@@ -234,7 +250,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
           
           const config = {
              fps: 10,
-             qrbox: { width: 280, height: 180 },
+             qrbox: { width: 250, height: 250 },
              formatsToSupport: [
                Html5QrcodeSupportedFormats.CODE_128,
                Html5QrcodeSupportedFormats.CODE_39,
@@ -243,7 +259,8 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
                Html5QrcodeSupportedFormats.UPC_A,
                Html5QrcodeSupportedFormats.UPC_E,
                Html5QrcodeSupportedFormats.ITF,
-               Html5QrcodeSupportedFormats.QR_CODE
+               Html5QrcodeSupportedFormats.QR_CODE,
+               Html5QrcodeSupportedFormats.DATA_MATRIX
              ],
              experimentalFeatures: {
                useBarCodeDetectorIfSupported: true
@@ -266,21 +283,13 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
        }
     };
 
-    if (useNativeScanner) {
+    if (useNativeScanner && 'BarcodeDetector' in window) {
        startNativeScanner();
     } else {
        startHtml5Scanner();
     }
 
-    return () => {
-       isActive = false;
-       if (stream) {
-          stream.getTracks().forEach(track => track.stop());
-       }
-       if (html5QrCode && html5QrCode.isScanning) {
-          html5QrCode.stop().then(() => html5QrCode.clear()).catch(console.error);
-       }
-    };
+    return cleanup;
   }, [showScanner, useNativeScanner, inventory]); 
 
   const handleSearch = (val: string) => {
@@ -337,7 +346,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
       const newItem: CartItem = {
           tempId: Math.random().toString(36),
           partNumber: item.partNumber,
-          name: item.name, // Added name from item
+          name: item.name, 
           type: mode === 'SALES' ? TransactionType.SALE : mode === 'PURCHASE' ? TransactionType.PURCHASE : TransactionType.RETURN,
           quantity: 1,
           price: item.price,
