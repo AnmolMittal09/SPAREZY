@@ -30,6 +30,7 @@ interface Props {
 interface CartItem {
   tempId: string;
   partNumber: string;
+  name?: string; // Added optional name
   type: TransactionType;
   quantity: number;
   price: number;
@@ -137,6 +138,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
       const newItem: CartItem = {
           tempId: Math.random().toString(36),
           partNumber: item.partNumber,
+          name: item.name, // Added name from item
           type: mode === 'SALES' ? TransactionType.SALE : mode === 'PURCHASE' ? TransactionType.PURCHASE : TransactionType.RETURN,
           quantity: 1,
           price: item.price,
@@ -439,6 +441,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
                             <div className="flex justify-between items-start">
                                 <div>
                                     <div className="font-bold text-slate-900">{item.partNumber}</div>
+                                    <div className="text-xs text-slate-500">{item.name || 'Part Name'}</div>
                                     <div className="text-xs text-slate-500">₹{item.price} x {item.quantity}</div>
                                 </div>
                                 <div className={`font-bold ${mode === 'RETURN' ? 'text-red-600' : 'text-slate-900'}`}>
@@ -469,39 +472,37 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
            </div>
        </div>
 
-       {/* --- MOBILE LAYOUT (POS Optimized) --- */}
-       <div className="lg:hidden flex flex-col h-full bg-slate-50 relative overflow-hidden">
-          
-          {/* 1. Context Input (Compact & Top) */}
-          <div className="bg-white px-4 py-3 border-b border-slate-200 shadow-sm z-10 sticky top-0">
-              <div className="flex flex-col gap-1 relative">
-                <label className="text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-1">
-                    {mode === 'PURCHASE' ? "Supplier" : "Customer"} Details
-                </label>
-                <div className={`flex items-center gap-3 bg-slate-50 p-2.5 rounded-xl border focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent transition-all ${mode === 'SALES' && !customerName ? 'border-red-300 ring-1 ring-red-100' : 'border-slate-200'}`}>
-                    {mode === 'PURCHASE' ? (
-                       <Truck size={20} className="text-blue-500" />
-                    ) : (
-                       <UserIcon size={20} className="text-slate-400" />
-                    )}
-                    <input 
-                       type="text"
-                       className="flex-1 text-base bg-transparent outline-none font-semibold text-slate-900 placeholder:text-slate-400"
-                       placeholder={mode === 'PURCHASE' ? "Select Supplier" : "Enter Name"}
-                       value={customerName}
-                       onChange={e => handleCustomerType(e.target.value)}
-                       onFocus={() => {
-                          if(mode === 'SALES' && customerName) setShowCustomerList(true);
-                       }}
-                    />
-                     {cart.length > 0 && <span className="text-[10px] font-black bg-blue-100 text-blue-700 px-2 py-1 rounded-md">{cart.length} Items</span>}
-                </div>
-                {/* Validation Dot */}
-                {mode === 'SALES' && !customerName && <div className="absolute right-3 top-9 w-2 h-2 rounded-full bg-red-500 animate-pulse pointer-events-none"></div>}
-                
-                {/* Mobile Dropdown */}
-                {showCustomerList && customerSuggestions.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 z-50 bg-white border border-slate-200 rounded-xl shadow-xl mt-2 overflow-hidden animate-fade-in mx-1">
+       {/* --- MOBILE LAYOUT (Redesigned POS) --- */}
+       <div className="lg:hidden flex flex-col h-full bg-slate-50 relative">
+
+          {/* SCROLLABLE CONTENT */}
+          <div className="flex-1 overflow-y-auto px-4 pt-4 pb-48">
+              
+              {/* 1. Customer Card */}
+              <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-4 relative" ref={wrapperRef}>
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">
+                    {mode === 'PURCHASE' ? "Supplier Details" : "Customer Details"}
+                  </label>
+                  <div className={`flex items-center gap-3 bg-slate-50 p-3 rounded-xl border focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent transition-all ${
+                       mode === 'SALES' && !customerName ? 'border-red-300 ring-1 ring-red-100' : 'border-slate-200'
+                  }`}>
+                       <UserIcon className="text-slate-400" size={20} />
+                       <input 
+                          type="text"
+                          className="flex-1 bg-transparent outline-none font-semibold text-slate-900 placeholder:text-slate-400"
+                          placeholder={mode === 'PURCHASE' ? "Select Supplier" : "Enter Name"}
+                          value={customerName}
+                          onChange={e => handleCustomerType(e.target.value)}
+                          onFocus={() => {
+                             if(mode === 'SALES' && customerName) setShowCustomerList(true);
+                          }}
+                       />
+                       {mode === 'SALES' && !customerName && <AlertCircle size={18} className="text-red-400" />}
+                  </div>
+                  
+                  {/* Customer Dropdown */}
+                  {showCustomerList && customerSuggestions.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 z-50 bg-white border border-slate-200 rounded-xl shadow-xl mt-2 overflow-hidden animate-fade-in mx-1">
                          {customerSuggestions.map(c => (
                             <button
                                key={c.id}
@@ -512,101 +513,94 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
                                <span className="text-xs text-slate-500 font-medium">{c.phone || ''}</span>
                             </button>
                          ))}
-                    </div>
-                )}
+                      </div>
+                  )}
               </div>
+
+              {/* 2. Cart List */}
+              <div className="space-y-3">
+                  {cart.length === 0 ? (
+                      <div className="text-center py-10 opacity-60">
+                         <div className="w-16 h-16 bg-slate-200 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <ShoppingCart size={32} className="text-slate-400" />
+                         </div>
+                         <p className="font-bold text-slate-600">Cart is Empty</p>
+                         <p className="text-xs text-slate-400 mt-1">Tap the "Add Item" button below.</p>
+                      </div>
+                  ) : (
+                     cart.map(item => (
+                        <div key={item.tempId} className="bg-white p-3 rounded-xl shadow-sm border border-slate-100 flex flex-col gap-3">
+                           {/* Top: Info */}
+                           <div className="flex justify-between">
+                               <div>
+                                  <div className="font-bold text-slate-900">{item.partNumber}</div>
+                                  <div className="text-xs text-slate-500">{item.name || 'Part Name'}</div>
+                                  <div className="text-sm font-bold text-blue-600 mt-0.5">₹{item.price.toLocaleString()}</div>
+                               </div>
+                               <div className="text-right">
+                                  <div className="font-bold text-slate-900">₹{(item.price * item.quantity).toLocaleString()}</div>
+                                  {mode === 'RETURN' && <div className="text-[10px] text-red-500 font-bold uppercase">Return</div>}
+                               </div>
+                           </div>
+                           {/* Bottom: Controls */}
+                           <div className="flex items-center justify-between border-t border-slate-50 pt-2">
+                               <button onClick={() => removeItem(item.tempId)} className="text-red-400 p-2 rounded-lg hover:bg-red-50"><Trash2 size={18} /></button>
+                               <div className="flex items-center gap-3 bg-slate-50 rounded-lg p-1 border border-slate-100">
+                                   <button 
+                                      onClick={() => updateQty(item.tempId, -1)} 
+                                      className="w-8 h-8 bg-white shadow-sm rounded border border-slate-200 flex items-center justify-center active:scale-95"
+                                   >
+                                      <Minus size={16} className="text-slate-600"/>
+                                   </button>
+                                   <span className="w-8 text-center font-bold text-slate-800">{item.quantity}</span>
+                                   <button 
+                                      onClick={() => updateQty(item.tempId, 1)} 
+                                      className="w-8 h-8 bg-slate-800 shadow-sm text-white rounded flex items-center justify-center active:scale-95"
+                                   >
+                                      <Plus size={16}/>
+                                   </button>
+                               </div>
+                           </div>
+                        </div>
+                     ))
+                  )}
+              </div>
+
           </div>
 
-          {/* 2. Scrollable Cart Area */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 pb-[160px] bg-slate-50"> 
-              {cart.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center pt-20 opacity-50 space-y-4">
-                     <div className="w-20 h-20 bg-slate-200 rounded-full flex items-center justify-center">
-                        <ShoppingCart size={40} className="text-slate-400" />
-                     </div>
-                     <div className="text-center">
-                         <p className="text-lg font-bold text-slate-600">Cart Empty</p>
-                         <p className="text-sm text-slate-400 max-w-[200px] mx-auto mt-1">Tap the "Add Item" button below to start billing.</p>
-                     </div>
-                  </div>
-              ) : (
-                  cart.map(item => (
-                    <div key={item.tempId} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden group">
-                        {/* Part Details */}
-                        <div className="flex justify-between items-start mb-4">
-                            <div>
-                                <span className="text-[10px] font-bold uppercase text-slate-400 mb-0.5 block tracking-wider">Part Number</span>
-                                <div className="font-black text-slate-800 text-xl tracking-tight">{item.partNumber}</div>
-                                <div className="text-xs text-slate-500 font-medium mt-0.5">₹{item.price.toLocaleString()} / unit</div>
-                            </div>
-                            <div className="text-right">
-                                <span className="text-[10px] font-bold uppercase text-slate-400 mb-0.5 block tracking-wider">Amount</span>
-                                <div className={`font-black text-xl tracking-tight ${mode === 'RETURN' ? 'text-red-600' : 'text-blue-600'}`}>
-                                    {mode === 'RETURN' ? '-' : ''}₹{(item.price * item.quantity).toLocaleString()}
-                                </div>
-                            </div>
-                        </div>
-                        
-                        {/* Actions */}
-                        <div className="flex items-center justify-between bg-slate-50 rounded-xl p-1.5 border border-slate-100">
-                              <div className="flex items-center gap-3">
-                                  <button 
-                                    onClick={() => item.quantity === 1 ? removeItem(item.tempId) : updateQty(item.tempId, -1)} 
-                                    className="w-10 h-10 bg-white shadow-sm rounded-lg flex items-center justify-center text-slate-600 active:scale-90 border border-slate-200 transition-transform"
-                                  >
-                                      <Minus size={20}/>
-                                  </button>
-                                  <span className="font-black text-slate-900 w-8 text-center text-xl">{item.quantity}</span>
-                                  <button 
-                                    onClick={() => updateQty(item.tempId, 1)} 
-                                    className="w-10 h-10 bg-slate-900 shadow-sm rounded-lg flex items-center justify-center text-white active:scale-90 transition-transform"
-                                  >
-                                      <Plus size={20}/>
-                                  </button>
-                              </div>
-                              <button 
-                                onClick={() => removeItem(item.tempId)} 
-                                className="w-10 h-10 flex items-center justify-center text-red-400 hover:text-red-600 active:bg-red-50 rounded-lg transition-colors"
-                              >
-                                  <Trash2 size={20} />
-                              </button>
-                        </div>
-                    </div>
-                  ))
-              )}
-          </div>
-
-          {/* 3. Fixed Bottom Stack */}
-          <div className="fixed bottom-0 left-0 right-0 z-40 bg-white shadow-[0_-8px_30px_rgba(0,0,0,0.12)] rounded-t-2xl border-t border-slate-100">
+          {/* FIXED BOTTOM AREA */}
+          <div className="fixed bottom-[60px] lg:bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-40 pb-safe-bottom">
               
-              {/* Action Row */}
-              <div className="flex gap-3 p-4 pb-safe-bottom">
-                  {/* Add Button */}
-                  <button 
-                    onClick={() => setShowMobileSearch(true)}
-                    className="flex-1 bg-blue-50 text-blue-700 active:bg-blue-100 rounded-xl font-bold py-4 flex flex-col items-center justify-center gap-1 border border-blue-100 transition-colors"
-                  >
-                     <PackagePlus size={24} />
-                     <span className="text-xs uppercase tracking-wide">Add Item</span>
-                  </button>
+              {/* Add Item Button */}
+              <button 
+                 onClick={() => setShowMobileSearch(true)}
+                 className="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold py-3.5 rounded-xl border border-blue-200 flex items-center justify-center gap-2 mb-4 active:scale-95 transition-transform"
+              >
+                  <PackagePlus size={20} /> Add Item
+              </button>
 
-                  {/* Checkout Button */}
+              {/* Checkout Bar */}
+              <div className="flex items-center gap-4">
+                  <div className="flex-1">
+                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Total Amount</p>
+                     <p className={`text-2xl font-black ${mode === 'RETURN' ? 'text-red-600' : 'text-slate-900'}`}>
+                        {mode === 'RETURN' ? '-' : ''}₹{totalAmount.toLocaleString()}
+                     </p>
+                  </div>
                   <button 
                      onClick={handleSubmit}
                      disabled={loading || cart.length === 0}
-                     className={`flex-[2] rounded-xl font-bold text-white shadow-lg flex flex-col items-center justify-center relative overflow-hidden transition-transform active:scale-[0.98] disabled:opacity-50 disabled:scale-100 ${getAccentColor()}`}
+                     className={`flex-[1.5] text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-transform disabled:opacity-50 disabled:shadow-none ${getAccentColor()}`}
                   >
-                     <div className="flex items-center gap-2 mb-0.5">
-                         {loading ? <Loader2 className="animate-spin" size={18} /> : (mode === 'RETURN' ? <Undo2 size={18}/> : <CheckCircle2 size={18}/>)}
-                         <span className="text-sm uppercase tracking-wide">{getButtonText()}</span>
-                     </div>
-                     <div className="text-2xl font-black">
-                         {mode === 'RETURN' ? '-' : ''}₹{totalAmount.toLocaleString()}
-                     </div>
+                     {loading ? <Loader2 className="animate-spin" size={20} /> : (
+                        <>
+                           {getButtonText()} <CheckCircle2 size={20} />
+                        </>
+                     )}
                   </button>
               </div>
-          </div>
 
+          </div>
        </div>
     </div>
   );
