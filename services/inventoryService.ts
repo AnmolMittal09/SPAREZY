@@ -1,4 +1,5 @@
 
+
 import { INITIAL_STOCK_DATA } from '../constants';
 import { Brand, PriceHistoryEntry, StockItem, StockStats, UploadHistoryEntry } from '../types';
 import { supabase } from './supabase';
@@ -17,6 +18,7 @@ interface DBItem {
   price: number;
   last_updated: string;
   is_archived: boolean;
+  barcode?: string;
 }
 
 // --- Mappers ---
@@ -31,6 +33,7 @@ const toAppItem = (dbItem: DBItem): StockItem => ({
   price: dbItem.price,
   lastUpdated: dbItem.last_updated,
   isArchived: dbItem.is_archived || false,
+  barcode: dbItem.barcode
 });
 
 const toDBItem = (item: Partial<StockItem>): Partial<DBItem> => {
@@ -44,6 +47,7 @@ const toDBItem = (item: Partial<StockItem>): Partial<DBItem> => {
   if (item.price !== undefined) dbItem.price = item.price;
   if (item.lastUpdated) dbItem.last_updated = item.lastUpdated;
   if (item.isArchived !== undefined) dbItem.is_archived = item.isArchived;
+  if (item.barcode !== undefined) dbItem.barcode = item.barcode;
   return dbItem;
 };
 
@@ -122,6 +126,18 @@ export const toggleArchiveStatus = async (partNumber: string, isArchived: boolea
     .ilike('part_number', partNumber); // Case insensitive match
 
   if (error) throw new Error(error.message);
+};
+
+export const updateItemBarcode = async (partNumber: string, barcode: string): Promise<{success: boolean, message: string}> => {
+  if (!supabase) return { success: false, message: "DB Disconnected" };
+  
+  const { error } = await supabase
+    .from('inventory')
+    .update({ barcode: barcode })
+    .ilike('part_number', partNumber);
+
+  if (error) return { success: false, message: error.message };
+  return { success: true, message: "Barcode linked successfully" };
 };
 
 export const saveInventory = async (items: StockItem[]): Promise<void> => {

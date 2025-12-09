@@ -1,3 +1,5 @@
+
+
 import React, { useEffect, useState, useRef } from 'react';
 import { Role, TransactionType, User, StockItem, Customer } from '../types';
 import { createBulkTransactions } from '../services/transactionService';
@@ -106,10 +108,16 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
             
             const onScanSuccess = (decodedText: string) => {
                 // Logic: 
-                // 1. Remove non-alphanumeric
-                // 2. Take first 10 chars -> partCode
-                // 3. Match against normalized part numbers
+                // 1. First, check for EXACT MATCH in 'barcode' field
+                const barcodeMatch = inventory.find(i => i.barcode === decodedText);
                 
+                if (barcodeMatch) {
+                    addToCart(barcodeMatch);
+                    showToast(`Found: ${barcodeMatch.partNumber}`);
+                    return;
+                }
+
+                // 2. Fallback: Parse Part Number from text (Original Logic)
                 const cleaned = decodedText.replace(/[^a-zA-Z0-9]/g, '');
                 const partCode = cleaned.substring(0, 10).toUpperCase();
 
@@ -123,7 +131,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
                     addToCart(match);
                     showToast(`Added: ${match.partNumber}`);
                 } else {
-                    showToast(`No part found for code: ${partCode}`);
+                    showToast(`No part found for: ${decodedText}`);
                 }
             };
 

@@ -1,10 +1,11 @@
 
+
 import React, { useEffect, useState } from 'react';
 // @ts-ignore
 import { useParams, Link } from 'react-router-dom';
-import { fetchItemDetails, fetchPriceHistory } from '../services/inventoryService';
+import { fetchItemDetails, fetchPriceHistory, updateItemBarcode } from '../services/inventoryService';
 import { PriceHistoryEntry, StockItem, Brand } from '../types';
-import { ArrowLeft, Loader2, TrendingUp, TrendingDown, Clock, Tag, Box, Hash } from 'lucide-react';
+import { ArrowLeft, Loader2, TrendingUp, TrendingDown, Clock, Tag, Box, Hash, ScanBarcode, X } from 'lucide-react';
 import TharLoader from '../components/TharLoader';
 
 const ItemDetail: React.FC = () => {
@@ -12,21 +13,69 @@ const ItemDetail: React.FC = () => {
   const [item, setItem] = useState<StockItem | null>(null);
   const [history, setHistory] = useState<PriceHistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showScanner, setShowScanner] = useState(false);
 
   useEffect(() => {
-    const loadData = async () => {
-      if (!partNumber) return;
-      setLoading(true);
-      const [itemData, historyData] = await Promise.all([
-        fetchItemDetails(partNumber),
-        fetchPriceHistory(partNumber)
-      ]);
-      setItem(itemData);
-      setHistory(historyData);
-      setLoading(false);
-    };
     loadData();
   }, [partNumber]);
+
+  const loadData = async () => {
+    if (!partNumber) return;
+    setLoading(true);
+    const [itemData, historyData] = await Promise.all([
+      fetchItemDetails(partNumber),
+      fetchPriceHistory(partNumber)
+    ]);
+    setItem(itemData);
+    setHistory(historyData);
+    setLoading(false);
+  };
+
+  // --- SCANNER LOGIC ---
+  useEffect(() => {
+    let html5QrCode: any;
+    let isActive = true;
+
+    const startScanner = async () => {
+        if (showScanner && typeof window !== 'undefined') {
+            try {
+                const { Html5Qrcode } = await import('html5-qrcode');
+                if (!isActive) return;
+
+                html5QrCode = new Html5Qrcode("item-reader");
+                const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+                const onScanSuccess = async (decodedText: string) => {
+                    await html5QrCode.stop();
+                    setShowScanner(false);
+                    if (item && partNumber) {
+                        const result = await updateItemBarcode(partNumber, decodedText);
+                        if (result.success) {
+                            alert(`Barcode ${decodedText} linked to ${partNumber}`);
+                            loadData(); // Refresh to show new barcode
+                        } else {
+                            alert("Failed to link: " + result.message);
+                        }
+                    }
+                };
+
+                await html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess, (err:any) => {});
+            } catch (err) {
+                console.error("Scanner Error", err);
+                setShowScanner(false);
+            }
+        }
+    };
+
+    startScanner();
+
+    return () => {
+        isActive = false;
+        if (html5QrCode && html5QrCode.isScanning) {
+            html5QrCode.stop().catch(console.error);
+        }
+    };
+  }, [showScanner]);
 
   if (loading) {
     return <TharLoader />;
@@ -46,6 +95,25 @@ const ItemDetail: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
+      
+      {/* SCANNER MODAL */}
+      {showScanner && (
+        <div className="fixed inset-0 z-50 bg-black flex flex-col">
+            <div className="flex items-center justify-between p-4 bg-black text-white">
+                <h3 className="font-bold flex items-center gap-2">Scan to Link</h3>
+                <button onClick={() => setShowScanner(false)} className="p-2 bg-white/20 rounded-full">
+                    <X size={24} />
+                </button>
+            </div>
+            <div className="flex-1 bg-black flex items-center justify-center relative overflow-hidden">
+                 <div id="item-reader" className="w-full max-w-sm h-auto"></div>
+            </div>
+            <div className="p-6 bg-black text-white text-center">
+                Scan product barcode to link it with <b>{item.partNumber}</b>
+            </div>
+        </div>
+      )}
+
       {/* Header with Back Button */}
       <div className="flex items-center gap-4">
         <Link to="/" className="p-2 bg-white rounded-full border border-gray-200 hover:bg-gray-50 text-gray-600 transition-colors">
@@ -55,8 +123,16 @@ const ItemDetail: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900">{item.partNumber}</h1>
           <p className="text-gray-500">{item.name}</p>
         </div>
-        <div className="ml-auto">
-             <span className={`px-3 py-1 rounded-full text-sm font-bold ${
+        <div className="ml-auto flex gap-2">
+             {/* Mobile Only Scan Button */}
+             <button 
+                onClick={() => setShowScanner(true)}
+                className="md:hidden flex items-center gap-2 bg-slate-900 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm active:scale-95"
+             >
+                <ScanBarcode size={16} /> Link Barcode
+             </button>
+
+             <span className={`px-3 py-1 rounded-full text-sm font-bold flex items-center ${
                 item.brand === Brand.HYUNDAI ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'
              }`}>
                 {item.brand}
@@ -100,6 +176,14 @@ const ItemDetail: React.FC = () => {
                 </span>
                 <span className="font-medium">{item.hsnCode}</span>
              </div>
+             {item.barcode && (
+               <div className="flex justify-between items-center">
+                  <span className="flex items-center gap-2 text-gray-500 text-sm">
+                     <ScanBarcode size={16} /> Barcode
+                  </span>
+                  <span className="font-mono bg-slate-100 px-2 rounded text-xs py-0.5">{item.barcode}</span>
+               </div>
+             )}
              <div className="flex justify-between items-center">
                 <span className="flex items-center gap-2 text-gray-500 text-sm">
                    <Clock size={16} /> Last Updated
