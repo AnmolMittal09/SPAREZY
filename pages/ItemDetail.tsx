@@ -1,5 +1,3 @@
-
-
 import React, { useEffect, useState } from 'react';
 // @ts-ignore
 import { useParams, Link } from 'react-router-dom';
@@ -59,9 +57,15 @@ const ItemDetail: React.FC = () => {
 
                 html5QrCode = new Html5Qrcode("item-reader");
                 const config = { 
-                    fps: 15, 
-                    qrbox: { width: 300, height: 120 }, // WIDE RECTANGLE for 1D
-                    aspectRatio: 1.0,
+                    fps: 15,
+                    // No qrbox = scan full frame
+                    // videoConstraints: Force high resolution
+                    videoConstraints: {
+                       facingMode: "environment",
+                       width: { min: 1280, ideal: 1920 },
+                       height: { min: 720, ideal: 1080 },
+                       focusMode: "continuous"
+                    },
                     formatsToSupport: [
                         Html5QrcodeSupportedFormats.CODE_128,
                         Html5QrcodeSupportedFormats.CODE_39,
@@ -74,13 +78,17 @@ const ItemDetail: React.FC = () => {
                         Html5QrcodeSupportedFormats.DATA_MATRIX
                     ],
                     experimentalFeatures: {
-                        useBarCodeDetectorIfSupported: false // FORCE SOFTWARE DECODER
+                        useBarCodeDetectorIfSupported: true // Use Native if available
                     }
                 };
 
                 const onScanSuccess = async (decodedText: string) => {
-                    await html5QrCode.stop();
-                    handleBarcodeLink(decodedText);
+                    if (isActive) {
+                        handleBarcodeLink(decodedText);
+                        // Stop after first success
+                        isActive = false; 
+                        await html5QrCode.stop();
+                    }
                 };
 
                 await html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess, (err:any) => {});
@@ -130,20 +138,14 @@ const ItemDetail: React.FC = () => {
                 </button>
             </div>
             <div className="flex-1 bg-black flex items-center justify-center relative overflow-hidden">
-                 <div id="item-reader" className="w-full max-w-sm h-auto"></div>
-                 {/* Scanner Overlay Guide */}
-                 <div className="absolute inset-0 border-2 border-white/20 pointer-events-none">
-                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-32 border-2 border-white/50 rounded-lg shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]">
-                      <div className="absolute top-0 left-0 w-4 h-4 border-l-4 border-t-4 border-blue-500 -mt-0.5 -ml-0.5"></div>
-                      <div className="absolute top-0 right-0 w-4 h-4 border-r-4 border-t-4 border-blue-500 -mt-0.5 -mr-0.5"></div>
-                      <div className="absolute bottom-0 left-0 w-4 h-4 border-l-4 border-b-4 border-blue-500 -mb-0.5 -ml-0.5"></div>
-                      <div className="absolute bottom-0 right-0 w-4 h-4 border-r-4 border-b-4 border-blue-500 -mb-0.5 -mr-0.5"></div>
-                      
-                      {/* Red Scanning Line */}
-                      <div className="absolute top-1/2 left-4 right-4 h-0.5 bg-red-500/80 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]"></div>
+                 <div id="item-reader" className="w-full h-full"></div>
+                 {/* Visual Guide (Does not crop scan area) */}
+                 <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
+                   <div className="w-[85%] h-32 border-2 border-white/50 rounded-lg shadow-[0_0_0_9999px_rgba(0,0,0,0.7)] relative">
+                      <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-red-500/80 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]"></div>
                    </div>
-                   <div className="absolute bottom-20 w-full text-center text-white/80 text-sm font-medium">
-                      Center barcode in the box
+                   <div className="mt-8 text-white/90 text-sm font-medium bg-black/50 px-4 py-2 rounded-full backdrop-blur-sm">
+                      Align barcode within box
                    </div>
                 </div>
             </div>

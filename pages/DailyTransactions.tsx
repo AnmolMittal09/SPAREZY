@@ -60,8 +60,6 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
   const [showScanner, setShowScanner] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [manualCode, setManualCode] = useState('');
-  const [useNativeScanner, setUseNativeScanner] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     fetchInventory().then(setInventory);
@@ -72,11 +70,6 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
             setSavedCustomers(data);
          }
       });
-    }
-
-    // Check for native BarcodeDetector support
-    if ('BarcodeDetector' in window) {
-      setUseNativeScanner(true);
     }
     
     function handleClickOutside(event: MouseEvent) {
@@ -98,34 +91,26 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
   };
 
   const playBeep = () => {
-    // Try playing audio file first (if exists)
-    const audio = new Audio("/sounds/beep.mp3");
-    audio.play().catch(() => {
-        // Fallback to Web Audio API oscillator
-        try {
-          const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-          const oscillator = audioCtx.createOscillator();
-          const gainNode = audioCtx.createGain();
-          
-          oscillator.connect(gainNode);
-          gainNode.connect(audioCtx.destination);
-          
-          oscillator.type = "sine";
-          oscillator.frequency.value = 1500; // Hz
-          gainNode.gain.value = 0.1; // Volume
-          
-          oscillator.start();
-          setTimeout(() => oscillator.stop(), 100); // 100ms beep
-        } catch (e) {
-          console.error("Audio play failed", e);
-        }
-    });
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      oscillator.type = "sine";
+      oscillator.frequency.value = 1500; 
+      gainNode.gain.value = 0.1;
+      oscillator.start();
+      setTimeout(() => oscillator.stop(), 100);
+    } catch (e) {
+      console.error("Audio play failed", e);
+    }
   };
 
   const normalizePartCode = (code: string) => {
-    // Remove non-alphanumeric and take first 10 characters
+    // Remove non-alphanumeric and take first 10-12 characters
     const cleaned = code.replace(/[^A-Za-z0-9]/g, "");
-    return cleaned.slice(0, 10).toUpperCase(); 
+    return cleaned.toUpperCase(); 
   };
 
   const handleScannedCode = (decodedText: string) => {
@@ -144,9 +129,11 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
     }
 
     // 2. Search inventory part_number (ignoring dashes)
+    // Matches "54660B4000" against "54660-B4000"
     const match = inventory.find(i => {
         const normalizedInv = i.partNumber.toUpperCase().replace(/[^A-Z0-9]/g, '');
-        return normalizedInv === partCode;
+        // Compare first 10 chars to handle potential suffix variations
+        return normalizedInv.startsWith(partCode.slice(0, 10));
     });
 
     if (match) {
@@ -154,7 +141,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
         showToast(`Added: ${match.partNumber}`);
         setManualCode('');
     } else {
-        showToast(`No part found for: ${decodedText}`);
+        showToast(`No match: ${decodedText}`);
     }
   };
 
@@ -162,109 +149,39 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
   useEffect(() => {
     if (!showScanner) return;
 
-    let isActive = true;
-    let stream: MediaStream | null = null;
     let html5QrCode: any = null;
+    let isActive = true;
 
-    const cleanup = () => {
-      isActive = false;
-      if (stream) {
-         stream.getTracks().forEach(track => track.stop());
-      }
-      if (html5QrCode && html5QrCode.isScanning) {
-         html5QrCode.stop().then(() => html5QrCode.clear()).catch(console.error);
-      }
-    };
-
-    const handleSuccess = (code: string) => {
-      if (!isActive) return;
-      playBeep();
-      cleanup(); // Stop scanning immediately
-      handleScannedCode(code);
-      setShowScanner(false);
-    };
-
-    const startNativeScanner = async () => {
-      try {
-        const constraints = { 
-          video: { 
-            facingMode: "environment",
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
-            focusMode: 'continuous'
-          } as any
-        };
-        
-        stream = await navigator.mediaDevices.getUserMedia(constraints);
-        
-        if (videoRef.current && isActive) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play();
-
-          // @ts-ignore - Check existence before usage
-          const detector = new window.BarcodeDetector({
-            formats: [
-              "code_128", "code_39", "ean_13", "ean_8", 
-              "upc_a", "upc_e", "itf", "qr_code", "data_matrix"
-            ]
-          });
-
-          const detectLoop = async () => {
-             if (!isActive || !videoRef.current) return;
-             
-             try {
-               if (videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
-                 // Use createImageBitmap for efficient frame grabbing
-                 const bitmap = await createImageBitmap(videoRef.current);
-                 try {
-                   const barcodes = await detector.detect(bitmap);
-                   if (barcodes.length > 0) {
-                     handleSuccess(barcodes[0].rawValue);
-                     return;
-                   }
-                 } finally {
-                   bitmap.close();
-                 }
-               }
-             } catch (e) {
-               // Ignore detection errors, just keep looping
-             }
-             
-             if (isActive) requestAnimationFrame(detectLoop);
-          };
-          
-          detectLoop();
-        }
-      } catch (err) {
-        console.error("Native scanner failed, falling back to html5-qrcode", err);
-        setUseNativeScanner(false); 
-      }
-    };
-
-    const startHtml5Scanner = async () => {
+    const startScanner = async () => {
        try {
           const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import('html5-qrcode');
           if (!isActive) return;
 
+          // Use the verbose ID to ensure we target the specific element
           html5QrCode = new Html5Qrcode("reader");
           
           const config = {
-             fps: 15, // Increased FPS for better responsiveness
-             qrbox: { width: 300, height: 120 }, // WIDE RECTANGLE for 1D barcodes
-             aspectRatio: 1.0,
+             fps: 10,
+             // videoConstraints: Force high resolution and back camera
+             videoConstraints: {
+                facingMode: "environment",
+                width: { min: 1280, ideal: 1920, max: 3840 },
+                height: { min: 720, ideal: 1080, max: 2160 },
+                focusMode: "continuous"
+             },
+             // IMPORTANT: We do NOT pass 'qrbox' here. 
+             // Omitting qrbox causes the scanner to process the FULL FRAME.
+             // This is critical for long 1D barcodes that might be clipped by a square box.
              formatsToSupport: [
                Html5QrcodeSupportedFormats.CODE_128,
                Html5QrcodeSupportedFormats.CODE_39,
                Html5QrcodeSupportedFormats.EAN_13,
-               Html5QrcodeSupportedFormats.EAN_8,
                Html5QrcodeSupportedFormats.UPC_A,
-               Html5QrcodeSupportedFormats.UPC_E,
-               Html5QrcodeSupportedFormats.ITF,
                Html5QrcodeSupportedFormats.QR_CODE,
                Html5QrcodeSupportedFormats.DATA_MATRIX
              ],
              experimentalFeatures: {
-               useBarCodeDetectorIfSupported: false // FORCE SOFTWARE DECODER (More reliable for 1D on some devices)
+               useBarCodeDetectorIfSupported: true // Use Native Android API if available (faster)
              }
           };
 
@@ -272,7 +189,12 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
              { facingMode: "environment" },
              config,
              (decodedText: string) => {
-               handleSuccess(decodedText);
+               if(isActive) {
+                 playBeep();
+                 handleScannedCode(decodedText);
+                 // Optional: Close scanner immediately on success
+                 setShowScanner(false); 
+               }
              },
              (errorMessage: string) => {
                // ignore errors
@@ -280,18 +202,19 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
           );
        } catch (err) {
           console.error("HTML5 Scanner Error", err);
-          showToast("Camera access failed");
+          showToast("Camera failed. Try manual entry.");
        }
     };
 
-    if (useNativeScanner && 'BarcodeDetector' in window) {
-       startNativeScanner();
-    } else {
-       startHtml5Scanner();
-    }
+    startScanner();
 
-    return cleanup;
-  }, [showScanner, useNativeScanner, inventory]); 
+    return () => {
+       isActive = false;
+       if (html5QrCode && html5QrCode.isScanning) {
+          html5QrCode.stop().then(() => html5QrCode.clear()).catch(console.error);
+       }
+    };
+  }, [showScanner, inventory]); 
 
   const handleSearch = (val: string) => {
     setSearch(val);
@@ -338,7 +261,6 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
           return;
       }
       
-      // Strict stock check only for SALES
       if (mode === 'SALES' && item.quantity === 0) {
           alert("Item is out of stock!");
           return;
@@ -389,9 +311,8 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
   const handleSubmit = async () => {
       if (cart.length === 0) return;
       
-      // Mandatory Customer Name Check for Sales
       if (mode === 'SALES' && !customerName.trim()) {
-        alert("Customer Name is mandatory for sales. Please select a customer or enter a name.");
+        alert("Customer Name is mandatory for sales.");
         return;
       }
 
@@ -456,32 +377,26 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
                     <X size={24} />
                 </button>
             </div>
+            
             <div className="flex-1 flex items-center justify-center relative overflow-hidden bg-black">
-                {useNativeScanner ? (
-                   <video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />
-                ) : (
-                   <div id="reader" className="w-full h-full max-w-sm"></div>
-                )}
+                {/* Scanner container - Full width/height */}
+                <div id="reader" className="w-full h-full"></div>
                 
-                {/* Scanner Overlay Guide */}
-                <div className="absolute inset-0 border-2 border-white/20 pointer-events-none">
-                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-32 border-2 border-white/50 rounded-lg shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]">
-                      <div className="absolute top-0 left-0 w-4 h-4 border-l-4 border-t-4 border-blue-500 -mt-0.5 -ml-0.5"></div>
-                      <div className="absolute top-0 right-0 w-4 h-4 border-r-4 border-t-4 border-blue-500 -mt-0.5 -mr-0.5"></div>
-                      <div className="absolute bottom-0 left-0 w-4 h-4 border-l-4 border-b-4 border-blue-500 -mb-0.5 -ml-0.5"></div>
-                      <div className="absolute bottom-0 right-0 w-4 h-4 border-r-4 border-b-4 border-blue-500 -mb-0.5 -mr-0.5"></div>
-                      
-                      {/* Red Scanning Line */}
-                      <div className="absolute top-1/2 left-4 right-4 h-0.5 bg-red-500/80 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]"></div>
+                {/* Visual Guide Overlay (Does not affect scan area) */}
+                <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
+                   {/* Rectangular Guide for 1D Barcodes */}
+                   <div className="w-[85%] h-32 border-2 border-red-500/80 rounded-lg shadow-[0_0_0_9999px_rgba(0,0,0,0.7)] relative">
+                      {/* Scanning Line */}
+                      <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-red-500 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.8)]"></div>
                    </div>
-                   <div className="absolute bottom-40 w-full text-center text-white/80 text-sm font-medium">
-                      Center barcode in the box
+                   <div className="mt-8 text-white/90 text-sm font-medium bg-black/50 px-4 py-2 rounded-full backdrop-blur-sm">
+                      Align barcode within box
                    </div>
                 </div>
 
-                {/* Toast Overlay inside Scanner */}
+                {/* Toast Overlay */}
                 {toastMessage && (
-                  <div className="absolute bottom-40 left-1/2 -translate-x-1/2 bg-white/90 text-black px-4 py-2 rounded-full text-sm font-bold shadow-lg animate-in fade-in slide-in-from-bottom-2 z-20 whitespace-nowrap">
+                  <div className="absolute bottom-40 left-1/2 -translate-x-1/2 bg-white text-black px-6 py-3 rounded-full text-sm font-bold shadow-xl z-20 whitespace-nowrap animate-in fade-in slide-in-from-bottom-4">
                      {toastMessage}
                   </div>
                 )}
@@ -490,13 +405,13 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
             {/* Manual Entry Fallback */}
             <div className="p-4 bg-slate-900 pb-safe-bottom space-y-3 border-t border-white/10">
                 <p className="text-white/60 text-center text-xs flex items-center justify-center gap-2">
-                   <Keyboard size={14} /> Camera not working? Enter code manually:
+                   <Keyboard size={14} /> Camera issue? Type code manually:
                 </p>
                 <div className="flex gap-2">
                     <input
                         type="text"
                         className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder:text-slate-500 outline-none focus:border-blue-500 text-sm font-mono uppercase"
-                        placeholder="Type barcode/part no..."
+                        placeholder="e.g. 54660B4000"
                         value={manualCode}
                         onChange={(e) => setManualCode(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleScannedCode(manualCode)}
