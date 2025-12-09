@@ -13,6 +13,7 @@ import Requisitions from './pages/Requisitions';
 import Approvals from './pages/Approvals';
 import StockMovements from './pages/StockMovements';
 import LowStock from './pages/LowStock';
+import OutOfStock from './pages/OutOfStock';
 import ImportExport from './pages/ImportExport';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
@@ -79,6 +80,7 @@ const App: React.FC = () => {
           {/* INVENTORY */}
           <Route path="/movements" element={<StockMovements user={user} />} />
           <Route path="/low-stock" element={<LowStock user={user} />} />
+          <Route path="/out-of-stock" element={<OutOfStock user={user} />} />
           <Route 
             path="/import-export" 
             element={user.role === Role.OWNER ? <ImportExport /> : <Navigate to="/" replace />} 

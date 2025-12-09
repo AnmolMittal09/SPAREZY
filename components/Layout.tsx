@@ -25,7 +25,8 @@ import {
   Download,
   X,
   Home,
-  MoreHorizontal
+  MoreHorizontal,
+  XCircle
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -140,6 +141,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
       items: [
         { label: 'Stock Movements', path: '/movements', icon: ArrowRightLeft },
         { label: 'Low Stock Items', path: '/low-stock', icon: AlertTriangle },
+        { label: 'Out of Stock', path: '/out-of-stock', icon: XCircle },
         { label: 'Import / Export', path: '/import-export', icon: FileUp, requiredRole: Role.OWNER },
       ]
     },
