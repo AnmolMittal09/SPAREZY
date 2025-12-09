@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Upload as UploadIcon, FileSpreadsheet, CheckCircle, AlertCircle, RefreshCw, FileText, DollarSign, Package, History, Undo2, Loader2 } from 'lucide-react';
+import { Upload as UploadIcon, FileSpreadsheet, CheckCircle, AlertCircle, RefreshCw, FileText, DollarSign, Package, History, Undo2, Loader2, AlertTriangle, XCircle } from 'lucide-react';
 import { updateOrAddItems, UpdateResult, fetchUploadHistory, revertUploadBatch } from '../services/inventoryService';
 import { Brand, StockItem, UploadHistoryEntry } from '../types';
 import * as XLSX from 'xlsx';
@@ -12,6 +12,7 @@ const UploadPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'paste' | 'file' | 'history'>('file');
   const [textData, setTextData] = useState('');
   const [log, setLog] = useState<UpdateResult | null>(null);
+  const [validationWarnings, setValidationWarnings] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [targetBrand, setTargetBrand] = useState<Brand>(Brand.HYUNDAI);
   const [uploadMode, setUploadMode] = useState<UploadMode>('MASTER');
@@ -53,14 +54,21 @@ const UploadPage: React.FC = () => {
 
   const processRowData = async (rows: any[][], fileName: string = 'Manual Paste') => {
     const parsedItems: Partial<StockItem>[] = [];
+    const localErrors: string[] = [];
+    const localWarnings: string[] = [];
+    const seenPartNumbers = new Set<string>();
     
+    // Heuristic counters
+    let validPricesFound = 0;
+    let validQuantitiesFound = 0;
+
     rows.forEach((row, index) => {
-        // Skip empty rows
+        // Skip completely empty rows
         if (!row || row.length === 0) return;
         
         // Skip header row loosely
         const firstCell = String(row[0] || '').toLowerCase().trim();
-        if (['part no', 'part number', 'part_no', 'code'].includes(firstCell)) return;
+        if (['part no', 'part number', 'part_no', 'code', 'sl no', 's.no'].includes(firstCell)) return;
 
         let partNumber = '';
         let name = '';
@@ -69,7 +77,18 @@ const UploadPage: React.FC = () => {
         let quantity: number | undefined = undefined;
 
         partNumber = String(row[0] || '').trim();
-        if (!partNumber) return; // Skip if no part number
+        
+        // Validation: Missing Part Number
+        if (!partNumber) {
+            localErrors.push(`Row ${index + 1}: Skipped - Missing Part Number`);
+            return; 
+        }
+
+        // Validation: Duplicate in File
+        if (seenPartNumbers.has(partNumber.toLowerCase())) {
+            localWarnings.push(`Row ${index + 1}: Duplicate Part Number "${partNumber}" found in this file. Using latest value.`);
+        }
+        seenPartNumbers.add(partNumber.toLowerCase());
 
         if (uploadMode === 'MASTER') {
             // --- MASTER LIST MODE (Updates Price, Name, Details) ---
@@ -77,16 +96,36 @@ const UploadPage: React.FC = () => {
                 // Hyundai Specific Format:
                 // Col 0: PART NO | Col 1: PART NAME | Col 2: HSN CD | Col 3: MRP (Price)
                 name = String(row[1] || '').trim();
-                hsnCode = String(row[2] || '').trim(); // HSN CD
-                const priceStr = String(row[3] || '0').replace(/[^0-9.]/g, '');
-                if (row[3] !== undefined) price = parseFloat(priceStr);
+                hsnCode = String(row[2] || '').trim(); 
+                
+                const rawPrice = row[3];
+                if (rawPrice !== undefined && rawPrice !== null && String(rawPrice).trim() !== '') {
+                    const priceStr = String(rawPrice).replace(/[^0-9.]/g, '');
+                    const parsed = parseFloat(priceStr);
+                    if (!isNaN(parsed)) {
+                        price = parsed;
+                        validPricesFound++;
+                    } else {
+                        localWarnings.push(`Row ${index + 1}: Invalid Price value "${rawPrice}" for item ${partNumber}`);
+                    }
+                }
             } else {
                 // Mahindra / General Master Format
                 // Col 0: PartNo | Col 1: Name | Col 2: HSN CD | Col 3: Price
                 name = String(row[1] || '').trim();
                 hsnCode = String(row[2] || '').trim();
-                const priceStr = String(row[3] || '0').replace(/[^0-9.]/g, '');
-                if (row[3] !== undefined) price = parseFloat(priceStr);
+                
+                const rawPrice = row[3];
+                if (rawPrice !== undefined && rawPrice !== null && String(rawPrice).trim() !== '') {
+                    const priceStr = String(rawPrice).replace(/[^0-9.]/g, '');
+                    const parsed = parseFloat(priceStr);
+                    if (!isNaN(parsed)) {
+                        price = parsed;
+                        validPricesFound++;
+                    } else {
+                        localWarnings.push(`Row ${index + 1}: Invalid Price value "${rawPrice}" for item ${partNumber}`);
+                    }
+                }
             }
         } else {
             // --- STOCK LIST MODE (Updates Quantity Only) ---
@@ -107,10 +146,15 @@ const UploadPage: React.FC = () => {
                 quantityRaw = col2;
             }
 
-            const qtyStr = String(quantityRaw || '0').replace(/[^0-9]/g, '');
-            // Prevent setting quantity if raw data was clearly invalid/empty
             if (quantityRaw !== undefined && quantityRaw !== null && String(quantityRaw).trim() !== '') {
-                quantity = parseInt(qtyStr);
+                const qtyStr = String(quantityRaw).replace(/[^0-9]/g, '');
+                const parsed = parseInt(qtyStr);
+                if (!isNaN(parsed)) {
+                    quantity = parsed;
+                    validQuantitiesFound++;
+                } else {
+                    localWarnings.push(`Row ${index + 1}: Invalid Quantity "${quantityRaw}" for item ${partNumber}`);
+                }
             }
         }
 
@@ -124,19 +168,38 @@ const UploadPage: React.FC = () => {
         });
     });
 
-    if (parsedItems.length > 0) {
-        // Await the async update with metadata
-        const result = await updateOrAddItems(parsedItems, { fileName, mode: uploadMode });
-        setLog(result);
-        setTextData('');
-    } else {
-        setLog({ added: 0, updated: 0, priceUpdates: 0, stockUpdates: 0, errors: ['No valid data found in input.'] });
+    // --- Global Validation Checks ---
+    if (parsedItems.length === 0) {
+        setLog({ added: 0, updated: 0, priceUpdates: 0, stockUpdates: 0, errors: ['No valid data rows found in file. Please check file format.'] });
+        setIsProcessing(false);
+        return;
     }
+
+    if (uploadMode === 'MASTER' && validPricesFound === 0) {
+        localWarnings.unshift("CRITICAL WARNING: No valid prices were detected. Did you select the correct brand/format? Prices will default to 0.");
+    }
+    if (uploadMode === 'STOCK' && validQuantitiesFound === 0) {
+        localWarnings.unshift("CRITICAL WARNING: No valid quantities were detected. Check if your quantity column is correct.");
+    }
+
+    setValidationWarnings(localWarnings);
+
+    // Call Service
+    const result = await updateOrAddItems(parsedItems, { fileName, mode: uploadMode });
+    
+    // Combine local parsing errors with service errors
+    setLog({
+        ...result,
+        errors: [...localErrors, ...result.errors]
+    });
+    
+    setTextData('');
     setIsProcessing(false);
   };
 
   const handlePasteProcess = async () => {
     setIsProcessing(true);
+    setValidationWarnings([]);
     // Basic CSV/TSV parser for pasted text
     const rows = textData.trim().split('\n').map(row => 
         row.split(/[\t,]+/).map(c => c.trim())
@@ -150,32 +213,56 @@ const UploadPage: React.FC = () => {
 
     setIsProcessing(true);
     setLog(null);
+    setValidationWarnings([]);
 
     try {
         if (file.name.toLowerCase().endsWith('.csv')) {
             const reader = new FileReader();
             reader.onload = async (evt) => {
-                const text = evt.target?.result as string;
-                const rows = text.trim().split('\n').map(row => 
-                    row.split(',').map(c => c.trim())
-                );
-                await processRowData(rows, file.name);
+                try {
+                    const text = evt.target?.result as string;
+                    const rows = text.trim().split('\n').map(row => 
+                        row.split(',').map(c => c.trim())
+                    );
+                    await processRowData(rows, file.name);
+                } catch (parseError) {
+                    setLog({ added: 0, updated: 0, priceUpdates: 0, stockUpdates: 0, errors: ['Failed to parse CSV content. Check for special characters or encoding.'] });
+                    setIsProcessing(false);
+                }
             };
+            reader.onerror = () => {
+                setLog({ added: 0, updated: 0, priceUpdates: 0, stockUpdates: 0, errors: ['Failed to read file.'] });
+                setIsProcessing(false);
+            }
             reader.readAsText(file);
         } else if (file.name.match(/\.(xlsx|xls|xlsb|xlsm)$/i)) {
             const data = await file.arrayBuffer();
-            const workbook = XLSX.read(data, { type: 'array' });
-            const sheetName = workbook.SheetNames[0];
-            const sheet = workbook.Sheets[sheetName];
-            const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
-            await processRowData(jsonData, file.name);
+            try {
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheetName = workbook.SheetNames[0];
+                const sheet = workbook.Sheets[sheetName];
+                const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
+                
+                if (!jsonData || jsonData.length === 0) {
+                    throw new Error("Sheet appears empty.");
+                }
+                
+                await processRowData(jsonData, file.name);
+            } catch (xlsxError: any) {
+                console.error(xlsxError);
+                setLog({ 
+                    added: 0, updated: 0, priceUpdates: 0, stockUpdates: 0, 
+                    errors: [`Excel Parsing Error: ${xlsxError.message || 'File might be corrupted or password protected.'}`] 
+                });
+                setIsProcessing(false);
+            }
         } else {
             setLog({ added: 0, updated: 0, priceUpdates: 0, stockUpdates: 0, errors: ['Unsupported file format. Please use CSV or Excel (.xlsx, .xls, .xlsb)'] });
             setIsProcessing(false);
         }
-    } catch (error) {
+    } catch (error: any) {
         console.error(error);
-        setLog({ added: 0, updated: 0, priceUpdates: 0, stockUpdates: 0, errors: ['Failed to parse file. Ensure it is a valid CSV or Excel file.'] });
+        setLog({ added: 0, updated: 0, priceUpdates: 0, stockUpdates: 0, errors: [`Unexpected Error: ${error.message}`] });
         setIsProcessing(false);
     }
     
@@ -397,12 +484,12 @@ const UploadPage: React.FC = () => {
         </div>
       </div>
 
-      {log && (
+      {(log || validationWarnings.length > 0) && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 animate-fade-in">
             <div className="flex items-center justify-between mb-6">
                 <h3 className="font-bold text-gray-900 flex items-center gap-2 text-lg">
-                    {log.errors.length > 0 && log.added === 0 && log.updated === 0 ? (
-                        <AlertCircle className="text-red-500" size={24} />
+                    {log && log.errors.length > 0 && log.added === 0 && log.updated === 0 ? (
+                        <XCircle className="text-red-500" size={24} />
                     ) : (
                         <CheckCircle className="text-green-500" size={24} />
                     )}
@@ -410,33 +497,52 @@ const UploadPage: React.FC = () => {
                 </h3>
             </div>
             
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <div className="bg-green-50 border border-green-100 p-4 rounded-xl text-center">
-                    <span className="block text-3xl font-bold text-green-700">{log.added}</span>
-                    <span className="text-xs font-bold uppercase text-green-800 tracking-wide mt-1">New Items</span>
+            {log && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div className="bg-green-50 border border-green-100 p-4 rounded-xl text-center">
+                        <span className="block text-3xl font-bold text-green-700">{log.added}</span>
+                        <span className="text-xs font-bold uppercase text-green-800 tracking-wide mt-1">New Items</span>
+                    </div>
+                    <div className="bg-gray-50 border border-gray-200 p-4 rounded-xl text-center">
+                        <span className="block text-3xl font-bold text-gray-700">{log.updated}</span>
+                        <span className="text-xs font-bold uppercase text-gray-600 tracking-wide mt-1">Items Touched</span>
+                    </div>
+                    <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl text-center">
+                        <span className="block text-3xl font-bold text-blue-700">{log.priceUpdates}</span>
+                        <span className="text-xs font-bold uppercase text-blue-800 tracking-wide mt-1">Price Updates</span>
+                    </div>
+                    <div className="bg-purple-50 border border-purple-100 p-4 rounded-xl text-center">
+                        <span className="block text-3xl font-bold text-purple-700">{log.stockUpdates}</span>
+                        <span className="text-xs font-bold uppercase text-purple-800 tracking-wide mt-1">Stock Updates</span>
+                    </div>
                 </div>
-                <div className="bg-gray-50 border border-gray-200 p-4 rounded-xl text-center">
-                    <span className="block text-3xl font-bold text-gray-700">{log.updated}</span>
-                    <span className="text-xs font-bold uppercase text-gray-600 tracking-wide mt-1">Items Touched</span>
-                </div>
-                <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl text-center">
-                    <span className="block text-3xl font-bold text-blue-700">{log.priceUpdates}</span>
-                    <span className="text-xs font-bold uppercase text-blue-800 tracking-wide mt-1">Price Updates</span>
-                </div>
-                <div className="bg-purple-50 border border-purple-100 p-4 rounded-xl text-center">
-                    <span className="block text-3xl font-bold text-purple-700">{log.stockUpdates}</span>
-                    <span className="text-xs font-bold uppercase text-purple-800 tracking-wide mt-1">Stock Updates</span>
-                </div>
-            </div>
+            )}
             
-            {log.errors.length > 0 && (
-                <div className="bg-red-50 border border-red-100 rounded-xl p-5">
+            {/* Critical Errors */}
+            {log && log.errors.length > 0 && (
+                <div className="bg-red-50 border border-red-100 rounded-xl p-5 mb-4">
                     <h4 className="font-bold text-red-800 mb-2 flex items-center gap-2">
                         <AlertCircle size={18} />
-                        Issues Encountered ({log.errors.length})
+                        Critical Errors ({log.errors.length})
                     </h4>
                     <ul className="list-disc list-inside text-sm text-red-700 space-y-1 max-h-40 overflow-y-auto pl-2">
-                        {log.errors.map((err, i) => <li key={i}>{err}</li>)}
+                        {log.errors.slice(0, 50).map((err, i) => <li key={i}>{err}</li>)}
+                        {log.errors.length > 50 && <li className="font-bold">... and {log.errors.length - 50} more errors.</li>}
+                    </ul>
+                </div>
+            )}
+
+            {/* Validation Warnings */}
+            {validationWarnings.length > 0 && (
+                <div className="bg-orange-50 border border-orange-100 rounded-xl p-5">
+                    <h4 className="font-bold text-orange-800 mb-2 flex items-center gap-2">
+                        <AlertTriangle size={18} />
+                        Validation Warnings ({validationWarnings.length})
+                    </h4>
+                    <p className="text-xs text-orange-700 mb-2">These items were processed but had potential issues:</p>
+                    <ul className="list-disc list-inside text-sm text-orange-700 space-y-1 max-h-40 overflow-y-auto pl-2">
+                        {validationWarnings.slice(0, 50).map((warn, i) => <li key={i}>{warn}</li>)}
+                        {validationWarnings.length > 50 && <li className="font-bold">... and {validationWarnings.length - 50} more warnings.</li>}
                     </ul>
                 </div>
             )}
