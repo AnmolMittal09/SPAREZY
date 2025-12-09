@@ -63,8 +63,11 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
 
     // PWA Install Listener
     const handleBeforeInstallPrompt = (e: Event) => {
+      // Prevent the mini-infobar from appearing on mobile
       e.preventDefault();
+      // Stash the event so it can be triggered later.
       setDeferredPrompt(e as BeforeInstallPromptEvent);
+      // Update UI notify the user they can install the PWA
       setShowInstallBtn(true);
     };
 
@@ -77,8 +80,11 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
 
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
+    // Show the install prompt
     deferredPrompt.prompt();
+    // Wait for the user to respond to the prompt
     const { outcome } = await deferredPrompt.userChoice;
+    // Optionally, send analytics event with outcome of user choice
     if (outcome === 'accepted') {
       setDeferredPrompt(null);
       setShowInstallBtn(false);
