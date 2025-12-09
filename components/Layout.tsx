@@ -157,6 +157,21 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
     }
   ];
 
+  const NavItem = ({ to, icon: Icon, label }: { to: string, icon: any, label: string }) => {
+    const isActive = location.pathname === to;
+    return (
+      <Link 
+        to={to} 
+        className={`flex flex-col items-center justify-center gap-1 p-1 rounded-xl transition-all duration-200 ${
+          isActive ? 'text-blue-600 bg-blue-50' : 'text-slate-400 active:bg-slate-50'
+        }`}
+      >
+        <Icon size={22} strokeWidth={isActive ? 2.5 : 2} />
+        <span className={`text-[10px] ${isActive ? 'font-bold' : 'font-medium'}`}>{label}</span>
+      </Link>
+    );
+  };
+
   return (
     <div className="h-screen bg-slate-50 flex overflow-hidden font-sans">
       
@@ -269,13 +284,16 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
       {/* --- RIGHT SECTION (MAIN CONTENT) --- */}
       <div className="flex-1 flex flex-col min-w-0 h-full">
         
-        {/* MOBILE HEADER */}
-        <header className="h-14 lg:h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 lg:px-8 shadow-sm z-30 sticky top-0 no-print">
-           <div className="flex items-center gap-3 lg:hidden">
-              <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white font-black text-sm shadow-sm">
-                S
-              </div>
-              <span className="font-bold text-lg text-slate-900 tracking-tight">Sparezy</span>
+        {/* MOBILE HEADER - COMPACT */}
+        <header className="h-12 lg:h-16 bg-white border-b border-slate-200 flex items-center justify-between px-3 lg:px-8 shadow-sm z-30 sticky top-0 no-print">
+           {/* Mobile Logo */}
+           <div className="flex items-center gap-2 lg:hidden">
+              <Link to="/" className="flex items-center gap-2">
+                <div className="w-7 h-7 bg-slate-900 rounded-lg flex items-center justify-center text-white font-black text-xs shadow-sm">
+                  S
+                </div>
+                <span className="font-bold text-base text-slate-900 tracking-tight">Sparezy</span>
+              </Link>
            </div>
 
            {/* Desktop Search */}
@@ -319,13 +337,14 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
               {/* Mobile Search Toggle */}
               <button 
                 onClick={() => setMobileSearchOpen(true)}
-                className="lg:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-full"
+                className="lg:hidden p-2 text-slate-600 hover:bg-slate-50 rounded-full"
               >
                 <Search size={20} />
               </button>
               
-              <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full relative">
+              <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-full relative">
                  <Bell size={20} />
+                 <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
               </button>
            </div>
         </header>
@@ -333,7 +352,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
         {/* MOBILE FULL SCREEN SEARCH MODAL */}
         {mobileSearchOpen && (
            <div className="fixed inset-0 bg-white z-[70] flex flex-col animate-fade-in">
-             <div className="p-4 border-b border-slate-100 flex items-center gap-2">
+             <div className="p-3 border-b border-slate-100 flex items-center gap-2">
                 <div className="relative flex-1">
                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                    <input 
@@ -379,36 +398,25 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
         )}
 
         {/* Main Content Area */}
-        <main className="flex-1 overflow-y-auto bg-slate-50 p-3 lg:p-8 pb-24 lg:pb-8">
+        <main className="flex-1 overflow-y-auto bg-slate-50 p-3 lg:p-8 pb-20 lg:pb-8">
            <div className="max-w-[1600px] mx-auto space-y-4 lg:space-y-6 h-full">
               {children}
            </div>
         </main>
 
-        {/* --- MOBILE BOTTOM NAVIGATION --- */}
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-50 flex justify-around items-center px-2 py-1 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-           <Link to="/" className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-colors ${location.pathname === '/' ? 'text-blue-600' : 'text-slate-400'}`}>
-              <Home size={24} strokeWidth={location.pathname === '/' ? 2.5 : 2} />
-              <span className="text-[10px] font-bold">Home</span>
-           </Link>
-           <Link to="/billing" className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-colors ${location.pathname === '/billing' ? 'text-blue-600' : 'text-slate-400'}`}>
-              <Receipt size={24} strokeWidth={location.pathname === '/billing' ? 2.5 : 2} />
-              <span className="text-[10px] font-bold">Billing</span>
-           </Link>
-           <Link to="/parts" className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-colors ${location.pathname === '/parts' ? 'text-blue-600' : 'text-slate-400'}`}>
-              <Package size={24} strokeWidth={location.pathname === '/parts' ? 2.5 : 2} />
-              <span className="text-[10px] font-bold">Parts</span>
-           </Link>
-           <Link to="/purchases" className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-colors ${location.pathname === '/purchases' ? 'text-blue-600' : 'text-slate-400'}`}>
-              <ShoppingBag size={24} strokeWidth={location.pathname === '/purchases' ? 2.5 : 2} />
-              <span className="text-[10px] font-bold">Buy</span>
-           </Link>
+        {/* --- MOBILE BOTTOM NAVIGATION (Slimmer & Spaced) --- */}
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-50 grid grid-cols-5 gap-1 px-2 py-1.5 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] h-[60px]">
+           <NavItem to="/" icon={Home} label="Home" />
+           <NavItem to="/billing" icon={Receipt} label="Billing" />
+           <NavItem to="/parts" icon={Package} label="Parts" />
+           <NavItem to="/purchases" icon={ShoppingBag} label="Buy" />
+           
            <button 
              onClick={() => setIsSidebarOpen(true)}
-             className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-colors text-slate-400 hover:text-slate-600`}
+             className={`flex flex-col items-center justify-center gap-1 p-1 rounded-xl transition-all duration-200 text-slate-400 active:bg-slate-50`}
            >
-              <MoreHorizontal size={24} />
-              <span className="text-[10px] font-bold">Menu</span>
+              <MoreHorizontal size={22} />
+              <span className="text-[10px] font-medium">Menu</span>
            </button>
         </div>
 
