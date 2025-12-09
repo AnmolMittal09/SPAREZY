@@ -5,7 +5,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { fetchItemDetails, fetchPriceHistory, updateItemBarcode } from '../services/inventoryService';
 import { PriceHistoryEntry, StockItem, Brand } from '../types';
-import { ArrowLeft, Loader2, TrendingUp, TrendingDown, Clock, Tag, Box, Hash, ScanBarcode, X } from 'lucide-react';
+import { ArrowLeft, Loader2, TrendingUp, TrendingDown, Clock, Tag, Box, Hash, ScanBarcode, X, Keyboard } from 'lucide-react';
 import TharLoader from '../components/TharLoader';
 
 const ItemDetail: React.FC = () => {
@@ -14,6 +14,7 @@ const ItemDetail: React.FC = () => {
   const [history, setHistory] = useState<PriceHistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [showScanner, setShowScanner] = useState(false);
+  const [manualCode, setManualCode] = useState('');
 
   useEffect(() => {
     loadData();
@@ -29,6 +30,20 @@ const ItemDetail: React.FC = () => {
     setItem(itemData);
     setHistory(historyData);
     setLoading(false);
+  };
+
+  const handleBarcodeLink = async (decodedText: string) => {
+     if (item && partNumber) {
+        const result = await updateItemBarcode(partNumber, decodedText);
+        if (result.success) {
+            alert(`Barcode ${decodedText} linked to ${partNumber}`);
+            setShowScanner(false);
+            setManualCode('');
+            loadData(); // Refresh to show new barcode
+        } else {
+            alert("Failed to link: " + result.message);
+        }
+    }
   };
 
   // --- SCANNER LOGIC ---
@@ -47,16 +62,7 @@ const ItemDetail: React.FC = () => {
 
                 const onScanSuccess = async (decodedText: string) => {
                     await html5QrCode.stop();
-                    setShowScanner(false);
-                    if (item && partNumber) {
-                        const result = await updateItemBarcode(partNumber, decodedText);
-                        if (result.success) {
-                            alert(`Barcode ${decodedText} linked to ${partNumber}`);
-                            loadData(); // Refresh to show new barcode
-                        } else {
-                            alert("Failed to link: " + result.message);
-                        }
-                    }
+                    handleBarcodeLink(decodedText);
                 };
 
                 await html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess, (err:any) => {});
@@ -108,8 +114,27 @@ const ItemDetail: React.FC = () => {
             <div className="flex-1 bg-black flex items-center justify-center relative overflow-hidden">
                  <div id="item-reader" className="w-full max-w-sm h-auto"></div>
             </div>
-            <div className="p-6 bg-black text-white text-center">
-                Scan product barcode to link it with <b>{item.partNumber}</b>
+            
+            {/* Manual Fallback */}
+            <div className="p-4 bg-slate-900 border-t border-white/10 space-y-3 pb-safe-bottom">
+                 <p className="text-white/60 text-center text-xs">Enter digits manually to link:</p>
+                 <div className="flex gap-2">
+                    <input
+                        type="text"
+                        className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder:text-slate-500 outline-none focus:border-blue-500 text-sm font-mono"
+                        placeholder="Barcode digits..."
+                        value={manualCode}
+                        onChange={(e) => setManualCode(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleBarcodeLink(manualCode)}
+                    />
+                    <button
+                        onClick={() => handleBarcodeLink(manualCode)}
+                        disabled={!manualCode}
+                        className="bg-blue-600 text-white font-bold px-6 rounded-lg text-sm disabled:opacity-50"
+                    >
+                        LINK
+                    </button>
+                </div>
             </div>
         </div>
       )}

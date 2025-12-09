@@ -21,7 +21,8 @@ import {
   X,
   CreditCard,
   AlertCircle,
-  ScanBarcode
+  ScanBarcode,
+  Keyboard
 } from 'lucide-react';
 
 interface Props {
@@ -62,6 +63,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
   // Barcode Scanning State
   const [showScanner, setShowScanner] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [manualCode, setManualCode] = useState('');
 
   useEffect(() => {
     fetchInventory().then(setInventory);
@@ -90,6 +92,43 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
     if (forcedMode) setMode(forcedMode);
   }, [forcedMode]);
 
+  const showToast = (msg: string) => {
+      setToastMessage(msg);
+      setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const handleScannedCode = (decodedText: string) => {
+    if (!decodedText) return;
+
+    // 1. First, check for EXACT MATCH in 'barcode' field
+    const barcodeMatch = inventory.find(i => i.barcode === decodedText);
+    
+    if (barcodeMatch) {
+        addToCart(barcodeMatch);
+        showToast(`Found: ${barcodeMatch.partNumber}`);
+        setManualCode('');
+        return;
+    }
+
+    // 2. Fallback: Parse Part Number from text (Original Logic)
+    const cleaned = decodedText.replace(/[^a-zA-Z0-9]/g, '');
+    const partCode = cleaned.substring(0, 10).toUpperCase();
+
+    // Normalize inventory items: Remove dashes, uppercase
+    const match = inventory.find(i => {
+        const normalizedInv = i.partNumber.toUpperCase().replace(/[^a-zA-Z0-9]/g, '');
+        return normalizedInv === partCode;
+    });
+
+    if (match) {
+        addToCart(match);
+        showToast(`Added: ${match.partNumber}`);
+        setManualCode('');
+    } else {
+        showToast(`No part found for: ${decodedText}`);
+    }
+  };
+
   // --- BARCODE SCANNER LOGIC ---
   useEffect(() => {
     let html5QrCode: any;
@@ -107,32 +146,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
             const config = { fps: 10, qrbox: { width: 250, height: 250 } };
             
             const onScanSuccess = (decodedText: string) => {
-                // Logic: 
-                // 1. First, check for EXACT MATCH in 'barcode' field
-                const barcodeMatch = inventory.find(i => i.barcode === decodedText);
-                
-                if (barcodeMatch) {
-                    addToCart(barcodeMatch);
-                    showToast(`Found: ${barcodeMatch.partNumber}`);
-                    return;
-                }
-
-                // 2. Fallback: Parse Part Number from text (Original Logic)
-                const cleaned = decodedText.replace(/[^a-zA-Z0-9]/g, '');
-                const partCode = cleaned.substring(0, 10).toUpperCase();
-
-                // Normalize inventory items: Remove dashes, uppercase
-                const match = inventory.find(i => {
-                    const normalizedInv = i.partNumber.toUpperCase().replace(/[^a-zA-Z0-9]/g, '');
-                    return normalizedInv === partCode;
-                });
-
-                if (match) {
-                    addToCart(match);
-                    showToast(`Added: ${match.partNumber}`);
-                } else {
-                    showToast(`No part found for: ${decodedText}`);
-                }
+                handleScannedCode(decodedText);
             };
 
             const onScanFailure = (error: any) => {
@@ -143,7 +157,6 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
         } catch (err: any) {
             console.error("Error starting scanner", err);
             showToast("Failed to start camera");
-            // setShowScanner(false); // Don't auto close, let user see error or try again
         }
       }
     };
@@ -157,11 +170,6 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
         }
     };
   }, [showScanner, inventory]); // Re-run if inventory updates
-
-  const showToast = (msg: string) => {
-      setToastMessage(msg);
-      setTimeout(() => setToastMessage(null), 3000);
-  };
 
   const handleSearch = (val: string) => {
     setSearch(val);
@@ -330,13 +338,34 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
                 <div id="reader" className="w-full h-full max-w-sm"></div>
                 {/* Toast Overlay inside Scanner */}
                 {toastMessage && (
-                  <div className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-white/90 text-black px-4 py-2 rounded-full text-sm font-bold shadow-lg animate-in fade-in slide-in-from-bottom-2">
+                  <div className="absolute bottom-40 left-1/2 -translate-x-1/2 bg-white/90 text-black px-4 py-2 rounded-full text-sm font-bold shadow-lg animate-in fade-in slide-in-from-bottom-2 z-20 whitespace-nowrap">
                      {toastMessage}
                   </div>
                 )}
             </div>
-            <div className="p-4 bg-black text-center text-white/60 text-xs">
-                Point camera at barcode. Auto-adds to cart.
+            
+            {/* Manual Entry Fallback */}
+            <div className="p-4 bg-slate-900 pb-safe-bottom space-y-3 border-t border-white/10">
+                <p className="text-white/60 text-center text-xs flex items-center justify-center gap-2">
+                   <Keyboard size={14} /> Camera not working? Enter code manually:
+                </p>
+                <div className="flex gap-2">
+                    <input
+                        type="text"
+                        className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder:text-slate-500 outline-none focus:border-blue-500 text-sm font-mono uppercase"
+                        placeholder="Type barcode/part no..."
+                        value={manualCode}
+                        onChange={(e) => setManualCode(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleScannedCode(manualCode)}
+                    />
+                    <button
+                        onClick={() => handleScannedCode(manualCode)}
+                        disabled={!manualCode}
+                        className="bg-blue-600 text-white font-bold px-6 rounded-lg text-sm disabled:opacity-50"
+                    >
+                        ADD
+                    </button>
+                </div>
             </div>
          </div>
        )}
