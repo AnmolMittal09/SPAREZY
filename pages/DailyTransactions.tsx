@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import { Role, TransactionType, User, StockItem } from '../types';
+import React, { useEffect, useState, useRef } from 'react';
+import { Role, TransactionType, User, StockItem, Customer } from '../types';
 import { createBulkTransactions } from '../services/transactionService';
 import { fetchInventory } from '../services/inventoryService';
+import { getCustomers } from '../services/masterService';
 import { 
   Search,
   Loader2,
@@ -15,7 +16,8 @@ import {
   PackagePlus,
   ArrowLeft,
   Truck,
-  X
+  X,
+  ChevronDown
 } from 'lucide-react';
 
 interface Props {
@@ -43,12 +45,32 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
   const [suggestions, setSuggestions] = useState<StockItem[]>([]);
   const [customerName, setCustomerName] = useState('');
   
+  // Customer Suggestions State
+  const [savedCustomers, setSavedCustomers] = useState<Customer[]>([]);
+  const [customerSuggestions, setCustomerSuggestions] = useState<Customer[]>([]);
+  const [showCustomerList, setShowCustomerList] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  
   // Mobile UI States
   const [showMobileSearch, setShowMobileSearch] = useState(false);
 
   useEffect(() => {
     fetchInventory().then(setInventory);
-  }, []);
+    
+    // Load customers for suggestions
+    if (forcedMode === 'SALES' || !forcedMode) {
+      getCustomers().then(setSavedCustomers);
+    }
+    
+    // Click outside listener to close suggestions
+    function handleClickOutside(event: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+        setShowCustomerList(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [forcedMode]);
 
   useEffect(() => {
     if (forcedMode) setMode(forcedMode);
@@ -65,6 +87,25 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
     } else {
        setSuggestions([]);
     }
+  };
+
+  const handleCustomerType = (val: string) => {
+    setCustomerName(val);
+    if (mode === 'SALES' && val.length > 0) {
+      const matches = savedCustomers.filter(c => 
+        c.name.toLowerCase().includes(val.toLowerCase()) || 
+        c.phone.includes(val)
+      ).slice(0, 5);
+      setCustomerSuggestions(matches);
+      setShowCustomerList(true);
+    } else {
+      setShowCustomerList(false);
+    }
+  };
+
+  const selectCustomer = (customer: Customer) => {
+    setCustomerName(customer.name);
+    setShowCustomerList(false);
   };
 
   const addToCart = (item: StockItem) => {
@@ -126,13 +167,20 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
 
   const handleSubmit = async () => {
       if (cart.length === 0) return;
+      
+      // Mandatory Customer Name Check for Sales
+      if (mode === 'SALES' && !customerName.trim()) {
+        alert("Customer Name is mandatory for sales.");
+        return;
+      }
+
       if (mode === 'SALES' && cart.some(i => i.stockError)) {
           alert("Fix stock errors.");
           return;
       }
       const payload = cart.map(c => ({
           ...c,
-          customerName: customerName || (mode === 'PURCHASE' ? 'Unknown Supplier' : (mode === 'RETURN' ? 'Return Customer' : 'Walk-in')),
+          customerName: customerName || (mode === 'PURCHASE' ? 'Unknown Supplier' : 'Walk-in'),
           createdByRole: user.role
       }));
       setLoading(true);
@@ -329,15 +377,51 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
                     </h2>
                     {cart.length > 0 && <button onClick={() => setCart([])} className="text-sm font-bold text-red-500 hover:bg-red-50 px-3 py-1 rounded-lg">Clear</button>}
                 </div>
-                <div className="p-4 border-b border-slate-100 bg-slate-50">
-                    <input 
-                       type="text" 
-                       className="w-full px-4 py-3 border border-slate-300 rounded-xl text-base outline-none focus:ring-2 focus:ring-primary-500 bg-white"
-                       placeholder={mode === 'PURCHASE' ? "Supplier Name" : "Customer Name (Optional)"}
-                       value={customerName}
-                       onChange={e => setCustomerName(e.target.value)}
-                    />
+                
+                {/* Customer Input Section */}
+                <div className="p-4 border-b border-slate-100 bg-slate-50 relative" ref={wrapperRef}>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">
+                       {mode === 'PURCHASE' ? "Supplier Name" : mode === 'RETURN' ? "Customer" : "Customer Name *"}
+                    </label>
+                    <div className="relative">
+                        <input 
+                           type="text" 
+                           className={`w-full px-4 py-3 border rounded-xl text-base outline-none focus:ring-2 focus:ring-primary-500 bg-white ${
+                             mode === 'SALES' && !customerName ? 'border-red-300' : 'border-slate-300'
+                           }`}
+                           placeholder={mode === 'PURCHASE' ? "Enter Supplier" : "Enter Customer Name"}
+                           value={customerName}
+                           onChange={e => handleCustomerType(e.target.value)}
+                           onFocus={() => {
+                             if(mode === 'SALES' && customerName) setShowCustomerList(true);
+                           }}
+                        />
+                        {/* Validation Indicator */}
+                        {mode === 'SALES' && !customerName && (
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-red-400 text-xs font-bold pointer-events-none">
+                             Required
+                          </span>
+                        )}
+                    </div>
+                    
+                    {/* Customer Suggestion Dropdown */}
+                    {showCustomerList && customerSuggestions.length > 0 && (
+                      <div className="absolute top-full left-4 right-4 z-50 bg-white border border-slate-200 rounded-lg shadow-xl mt-1 overflow-hidden animate-fade-in">
+                         <div className="text-[10px] font-bold bg-slate-50 text-slate-400 px-3 py-1 uppercase tracking-wider">Suggestions</div>
+                         {customerSuggestions.map(c => (
+                            <button
+                               key={c.id}
+                               onClick={() => selectCustomer(c)}
+                               className="w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-slate-50 last:border-0 flex justify-between items-center"
+                            >
+                               <span className="font-bold text-slate-800 text-sm">{c.name}</span>
+                               <span className="text-xs text-slate-500">{c.phone}</span>
+                            </button>
+                         ))}
+                      </div>
+                    )}
                 </div>
+
                 <div className="flex-1 overflow-y-auto p-4 space-y-3 pb-4">
                     {cart.length === 0 && <div className="text-center text-slate-400 py-10 text-sm italic">Cart is empty.</div>}
                     {cart.map(item => (
@@ -380,20 +464,42 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
           
           {/* 1. Context Input (Compact & Top) */}
           <div className="bg-white px-3 py-2 border-b border-slate-200 shadow-sm z-10">
-              <div className="flex items-center gap-2 bg-slate-100 p-2 rounded-lg">
-                  {mode === 'PURCHASE' ? (
-                     <Truck size={16} className="text-blue-500" />
-                  ) : (
-                     <UserIcon size={16} className="text-slate-400" />
-                  )}
-                  <input 
-                     type="text"
-                     className="flex-1 text-sm bg-transparent outline-none font-medium text-slate-900 placeholder:text-slate-400"
-                     placeholder={mode === 'PURCHASE' ? "Supplier Name" : "Customer Name (Optional)"}
-                     value={customerName}
-                     onChange={e => setCustomerName(e.target.value)}
-                  />
-                  {cart.length > 0 && <span className="text-[10px] font-bold bg-white px-2 py-0.5 rounded border border-slate-200">{cart.length}</span>}
+              <div className="flex flex-col gap-1 relative">
+                <div className="flex items-center gap-2 bg-slate-100 p-2 rounded-lg border border-slate-200">
+                    {mode === 'PURCHASE' ? (
+                       <Truck size={16} className="text-blue-500" />
+                    ) : (
+                       <UserIcon size={16} className="text-slate-400" />
+                    )}
+                    <input 
+                       type="text"
+                       className="flex-1 text-sm bg-transparent outline-none font-medium text-slate-900 placeholder:text-slate-400"
+                       placeholder={mode === 'PURCHASE' ? "Supplier Name" : "Customer Name *"}
+                       value={customerName}
+                       onChange={e => handleCustomerType(e.target.value)}
+                       onFocus={() => {
+                          if(mode === 'SALES' && customerName) setShowCustomerList(true);
+                       }}
+                    />
+                    {mode === 'SALES' && !customerName && <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>}
+                    {cart.length > 0 && <span className="text-[10px] font-bold bg-white px-2 py-0.5 rounded border border-slate-200">{cart.length}</span>}
+                </div>
+                
+                {/* Mobile Dropdown */}
+                {showCustomerList && customerSuggestions.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 z-50 bg-white border border-slate-200 rounded-b-lg shadow-xl mt-0 overflow-hidden">
+                         {customerSuggestions.map(c => (
+                            <button
+                               key={c.id}
+                               onClick={() => selectCustomer(c)}
+                               className="w-full text-left px-4 py-3 hover:bg-blue-50 border-b border-slate-50 last:border-0 flex justify-between items-center"
+                            >
+                               <span className="font-bold text-slate-800 text-sm">{c.name}</span>
+                               <span className="text-xs text-slate-500">{c.phone}</span>
+                            </button>
+                         ))}
+                    </div>
+                )}
               </div>
           </div>
 
