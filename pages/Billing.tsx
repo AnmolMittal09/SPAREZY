@@ -138,29 +138,29 @@ const Billing: React.FC<Props> = ({ user }) => {
     <div className="h-full flex flex-col bg-slate-50 md:bg-transparent">
        
        {/* --- MOBILE COMPACT HEADER --- */}
-       <div className="md:hidden bg-white p-3 pb-0 shadow-sm z-10">
-          <div className="flex justify-between items-baseline mb-2">
-             <h1 className="text-lg font-bold text-slate-900">POS Billing</h1>
-             <p className="text-[10px] text-slate-400">Cash Sales & Returns</p>
+       <div className="md:hidden bg-white px-4 pt-3 pb-2 shadow-sm z-20 sticky top-0 border-b border-slate-100">
+          <div className="mb-2">
+             <h1 className="text-xl font-black text-slate-900 leading-tight">Billing</h1>
+             <p className="text-xs text-slate-500 font-medium">Record sales & returns</p>
           </div>
           
-          {/* Segmented Control */}
+          {/* Compact Segmented Control */}
           <div className="flex bg-slate-100 p-1 rounded-lg">
              <button 
                onClick={() => setActiveTab('NEW')}
-               className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${activeTab === 'NEW' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
+               className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${activeTab === 'NEW' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
              >
                New Sale
              </button>
              <button 
                onClick={() => setActiveTab('RETURN')}
-               className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${activeTab === 'RETURN' ? 'bg-white text-red-600 shadow-sm' : 'text-slate-500'}`}
+               className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${activeTab === 'RETURN' ? 'bg-white text-red-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
              >
                Return
              </button>
              <button 
                onClick={() => setActiveTab('HISTORY')}
-               className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${activeTab === 'HISTORY' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
+               className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${activeTab === 'HISTORY' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
              >
                History
              </button>

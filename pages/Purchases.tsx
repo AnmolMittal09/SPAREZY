@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { User, Transaction, TransactionStatus, TransactionType } from '../types';
 import DailyTransactions from './DailyTransactions';
@@ -31,8 +30,34 @@ const Purchases: React.FC<Props> = ({ user }) => {
   };
 
   return (
-    <div className="space-y-4 h-full flex flex-col">
-       <div className="flex justify-between items-center">
+    <div className="h-full flex flex-col bg-slate-50 md:bg-transparent">
+       
+       {/* --- MOBILE COMPACT HEADER --- */}
+       <div className="md:hidden bg-white px-4 pt-3 pb-2 shadow-sm z-20 sticky top-0 border-b border-slate-100">
+          <div className="mb-2">
+             <h1 className="text-xl font-black text-slate-900 leading-tight">Purchases</h1>
+             <p className="text-xs text-slate-500 font-medium">Stock In & History</p>
+          </div>
+          
+          {/* Segmented Control */}
+          <div className="flex bg-slate-100 p-1 rounded-lg">
+             <button 
+               onClick={() => setActiveTab('NEW')}
+               className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${activeTab === 'NEW' ? 'bg-white text-blue-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+             >
+               New Purchase
+             </button>
+             <button 
+               onClick={() => setActiveTab('HISTORY')}
+               className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${activeTab === 'HISTORY' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+             >
+               History
+             </button>
+          </div>
+       </div>
+
+       {/* --- DESKTOP HEADER --- */}
+       <div className="hidden md:flex justify-between items-center mb-4 space-y-4">
           <div>
              <h1 className="text-2xl font-bold text-slate-900">Purchases</h1>
              <p className="text-slate-500">Record stock coming in from suppliers.</p>
@@ -53,7 +78,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
           </div>
        </div>
 
-       <div className="flex-1 overflow-hidden">
+       <div className="flex-1 overflow-hidden flex flex-col">
           {activeTab === 'NEW' && (
              <DailyTransactions user={user} forcedMode="PURCHASE" />
           )}
