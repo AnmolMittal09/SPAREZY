@@ -54,11 +54,29 @@ const ItemDetail: React.FC = () => {
     const startScanner = async () => {
         if (showScanner && typeof window !== 'undefined') {
             try {
-                const { Html5Qrcode } = await import('html5-qrcode');
+                const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import('html5-qrcode');
                 if (!isActive) return;
 
                 html5QrCode = new Html5Qrcode("item-reader");
-                const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+                const config = { 
+                    fps: 15, 
+                    qrbox: { width: 300, height: 120 }, // WIDE RECTANGLE for 1D
+                    aspectRatio: 1.0,
+                    formatsToSupport: [
+                        Html5QrcodeSupportedFormats.CODE_128,
+                        Html5QrcodeSupportedFormats.CODE_39,
+                        Html5QrcodeSupportedFormats.EAN_13,
+                        Html5QrcodeSupportedFormats.EAN_8,
+                        Html5QrcodeSupportedFormats.UPC_A,
+                        Html5QrcodeSupportedFormats.UPC_E,
+                        Html5QrcodeSupportedFormats.ITF,
+                        Html5QrcodeSupportedFormats.QR_CODE,
+                        Html5QrcodeSupportedFormats.DATA_MATRIX
+                    ],
+                    experimentalFeatures: {
+                        useBarCodeDetectorIfSupported: false // FORCE SOFTWARE DECODER
+                    }
+                };
 
                 const onScanSuccess = async (decodedText: string) => {
                     await html5QrCode.stop();
@@ -113,6 +131,21 @@ const ItemDetail: React.FC = () => {
             </div>
             <div className="flex-1 bg-black flex items-center justify-center relative overflow-hidden">
                  <div id="item-reader" className="w-full max-w-sm h-auto"></div>
+                 {/* Scanner Overlay Guide */}
+                 <div className="absolute inset-0 border-2 border-white/20 pointer-events-none">
+                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-32 border-2 border-white/50 rounded-lg shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]">
+                      <div className="absolute top-0 left-0 w-4 h-4 border-l-4 border-t-4 border-blue-500 -mt-0.5 -ml-0.5"></div>
+                      <div className="absolute top-0 right-0 w-4 h-4 border-r-4 border-t-4 border-blue-500 -mt-0.5 -mr-0.5"></div>
+                      <div className="absolute bottom-0 left-0 w-4 h-4 border-l-4 border-b-4 border-blue-500 -mb-0.5 -ml-0.5"></div>
+                      <div className="absolute bottom-0 right-0 w-4 h-4 border-r-4 border-b-4 border-blue-500 -mb-0.5 -mr-0.5"></div>
+                      
+                      {/* Red Scanning Line */}
+                      <div className="absolute top-1/2 left-4 right-4 h-0.5 bg-red-500/80 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]"></div>
+                   </div>
+                   <div className="absolute bottom-20 w-full text-center text-white/80 text-sm font-medium">
+                      Center barcode in the box
+                   </div>
+                </div>
             </div>
             
             {/* Manual Fallback */}

@@ -249,8 +249,9 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
           html5QrCode = new Html5Qrcode("reader");
           
           const config = {
-             fps: 10,
-             qrbox: { width: 250, height: 250 },
+             fps: 15, // Increased FPS for better responsiveness
+             qrbox: { width: 300, height: 120 }, // WIDE RECTANGLE for 1D barcodes
+             aspectRatio: 1.0,
              formatsToSupport: [
                Html5QrcodeSupportedFormats.CODE_128,
                Html5QrcodeSupportedFormats.CODE_39,
@@ -263,7 +264,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
                Html5QrcodeSupportedFormats.DATA_MATRIX
              ],
              experimentalFeatures: {
-               useBarCodeDetectorIfSupported: true
+               useBarCodeDetectorIfSupported: false // FORCE SOFTWARE DECODER (More reliable for 1D on some devices)
              }
           };
 
@@ -464,11 +465,17 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
                 
                 {/* Scanner Overlay Guide */}
                 <div className="absolute inset-0 border-2 border-white/20 pointer-events-none">
-                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-32 border-2 border-white/50 rounded-lg shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]">
+                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-32 border-2 border-white/50 rounded-lg shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]">
                       <div className="absolute top-0 left-0 w-4 h-4 border-l-4 border-t-4 border-blue-500 -mt-0.5 -ml-0.5"></div>
                       <div className="absolute top-0 right-0 w-4 h-4 border-r-4 border-t-4 border-blue-500 -mt-0.5 -mr-0.5"></div>
                       <div className="absolute bottom-0 left-0 w-4 h-4 border-l-4 border-b-4 border-blue-500 -mb-0.5 -ml-0.5"></div>
                       <div className="absolute bottom-0 right-0 w-4 h-4 border-r-4 border-b-4 border-blue-500 -mb-0.5 -mr-0.5"></div>
+                      
+                      {/* Red Scanning Line */}
+                      <div className="absolute top-1/2 left-4 right-4 h-0.5 bg-red-500/80 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]"></div>
+                   </div>
+                   <div className="absolute bottom-40 w-full text-center text-white/80 text-sm font-medium">
+                      Center barcode in the box
                    </div>
                 </div>
 
