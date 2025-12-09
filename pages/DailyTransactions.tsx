@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useRef } from 'react';
 import { Role, TransactionType, User, StockItem, Customer } from '../types';
 import { createBulkTransactions } from '../services/transactionService';
@@ -16,8 +17,7 @@ import {
   PackagePlus,
   ArrowLeft,
   Truck,
-  X,
-  ChevronDown
+  X
 } from 'lucide-react';
 
 interface Props {
@@ -59,7 +59,12 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
     
     // Load customers for suggestions
     if (forcedMode === 'SALES' || !forcedMode) {
-      getCustomers().then(setSavedCustomers);
+      getCustomers().then(data => {
+         // Safety check to ensure data is an array
+         if (Array.isArray(data)) {
+            setSavedCustomers(data);
+         }
+      });
     }
     
     // Click outside listener to close suggestions
@@ -93,8 +98,8 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
     setCustomerName(val);
     if (mode === 'SALES' && val.length > 0) {
       const matches = savedCustomers.filter(c => 
-        c.name.toLowerCase().includes(val.toLowerCase()) || 
-        c.phone.includes(val)
+        (c.name && c.name.toLowerCase().includes(val.toLowerCase())) || 
+        (c.phone && c.phone.includes(val))
       ).slice(0, 5);
       setCustomerSuggestions(matches);
       setShowCustomerList(true);

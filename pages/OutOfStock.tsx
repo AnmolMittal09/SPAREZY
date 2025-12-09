@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { User, StockItem } from '../types';
 import { fetchInventory } from '../services/inventoryService';
