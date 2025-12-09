@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Role, TransactionType, User, StockItem } from '../types';
 import { createBulkTransactions } from '../services/transactionService';
@@ -11,7 +12,6 @@ import {
   CheckCircle2,
   Undo2,
   ShoppingCart,
-  X,
   User as UserIcon,
   PackagePlus,
   ArrowLeft
@@ -59,7 +59,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
        const matches = inventory.filter(i => 
          i.partNumber.toLowerCase().includes(val.toLowerCase()) || 
          i.name.toLowerCase().includes(val.toLowerCase())
-       ).slice(0, 20); // Increased limit for better mobile scrolling
+       ).slice(0, 20); 
        setSuggestions(matches);
     } else {
        setSuggestions([]);
@@ -175,68 +175,84 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
   };
 
   return (
-    <div className="flex-1 h-full min-h-0 relative flex flex-col bg-slate-50">
+    <div className="flex-1 h-full min-h-0 relative flex flex-col bg-slate-50 md:bg-transparent">
        
        {/* --- MOBILE: FULL SCREEN SEARCH MODAL (POS ITEM PICKER) --- */}
        {showMobileSearch && (
-         <div className="fixed inset-0 z-[80] bg-white flex flex-col animate-in slide-in-from-bottom-5 duration-200">
-            {/* Modal Header */}
-            <div className="p-3 border-b border-slate-100 flex items-center gap-2 bg-white sticky top-0 z-10">
-               <button onClick={() => setShowMobileSearch(false)} className="p-2 -ml-2 text-slate-500">
-                  <ArrowLeft size={24} />
-               </button>
-               <div className="relative flex-1">
-                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                   <input 
-                     autoFocus
-                     type="text" 
-                     placeholder="Search Part No / Name..."
-                     className="w-full pl-10 pr-4 py-2 bg-slate-100 border-none rounded-lg text-base focus:ring-2 focus:ring-blue-500 outline-none"
-                     value={search}
-                     onChange={e => handleSearch(e.target.value)}
-                   />
+         <div className="fixed inset-0 z-[100] bg-slate-50 flex flex-col animate-in slide-in-from-bottom-10 duration-200">
+            {/* 1. Sticky Header + Search */}
+            <div className="bg-white border-b border-slate-200 sticky top-0 z-20">
+               <div className="flex items-center gap-2 p-2">
+                   <button onClick={() => setShowMobileSearch(false)} className="p-2 -ml-1 text-slate-500 rounded-full hover:bg-slate-100">
+                      <ArrowLeft size={24} />
+                   </button>
+                   <div className="relative flex-1">
+                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                       <input 
+                         autoFocus
+                         type="text" 
+                         placeholder="Search Part No / Name..."
+                         className="w-full pl-10 pr-4 py-2.5 bg-slate-100 border-none rounded-lg text-base font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+                         value={search}
+                         onChange={e => handleSearch(e.target.value)}
+                       />
+                   </div>
+               </div>
+
+               {/* 2. Filter Chips */}
+               <div className="px-4 pb-3 flex gap-2 overflow-x-auto no-scrollbar">
+                   <button className="px-3 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-md whitespace-nowrap shadow-sm">All Parts</button>
+                   <button className="px-3 py-1.5 bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded-md whitespace-nowrap">Hyundai</button>
+                   <button className="px-3 py-1.5 bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded-md whitespace-nowrap">Mahindra</button>
                </div>
             </div>
             
-            {/* Category Chips (Mock) */}
-            <div className="px-4 py-2 flex gap-2 overflow-x-auto no-scrollbar border-b border-slate-50">
-               <button className="px-4 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-full whitespace-nowrap">All Parts</button>
-               <button className="px-4 py-1.5 bg-slate-100 text-slate-600 text-xs font-bold rounded-full whitespace-nowrap">Hyundai</button>
-               <button className="px-4 py-1.5 bg-slate-100 text-slate-600 text-xs font-bold rounded-full whitespace-nowrap">Mahindra</button>
-            </div>
-
-            {/* Results List */}
-            <div className="flex-1 overflow-y-auto p-2 pb-20">
+            {/* 3. Dense Results List */}
+            <div className="flex-1 overflow-y-auto p-2 pb-safe-bottom">
                 {suggestions.map(item => (
-                    <button 
+                    <div 
                       key={item.id}
-                      onClick={() => addToCart(item)}
-                      className="w-full text-left p-3 mb-2 rounded-xl border border-slate-100 shadow-sm bg-white active:scale-[0.98] transition-transform flex justify-between items-center"
+                      className="w-full flex items-center justify-between bg-white p-3 mb-2 rounded-lg border border-slate-200 shadow-sm"
                     >
-                        <div>
-                            <div className="font-bold text-base text-slate-900">{item.partNumber}</div>
+                        <div className="flex-1 min-w-0 pr-3">
+                            <div className="font-bold text-base text-slate-900 tracking-tight">{item.partNumber}</div>
                             <div className="text-xs text-slate-500 line-clamp-1">{item.name}</div>
-                            <div className={`text-[10px] mt-1 px-1.5 py-0.5 rounded w-fit font-bold ${item.quantity > 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                            <div className={`text-[10px] mt-1 inline-block px-1.5 rounded font-bold uppercase tracking-wider ${item.quantity > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                                 Stock: {item.quantity}
                             </div>
                         </div>
-                        <div className="text-right pl-4">
-                            <div className="font-bold text-blue-600 text-lg">₹{item.price}</div>
-                            <div className="text-[10px] text-blue-400 font-bold uppercase">Add +</div>
+                        <div className="flex flex-col items-end gap-2">
+                             <div className="font-bold text-slate-900">₹{item.price}</div>
+                             <button 
+                               onClick={() => addToCart(item)}
+                               className="bg-blue-600 active:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-md shadow-sm transition-transform active:scale-95"
+                             >
+                                ADD +
+                             </button>
                         </div>
-                    </button>
+                    </div>
                 ))}
-                {suggestions.length === 0 && search.length > 1 && (
-                    <div className="text-center text-slate-400 mt-10">No items found.</div>
-                )}
-                {suggestions.length === 0 && search.length <= 1 && (
-                    <div className="text-center text-slate-400 mt-10 text-sm">Type to search inventory...</div>
+                
+                {suggestions.length === 0 && (
+                    <div className="flex flex-col items-center justify-center pt-24 text-slate-400">
+                        {search.length > 1 ? (
+                           <>
+                             <PackagePlus size={48} className="mb-4 opacity-20" />
+                             <div className="text-center font-medium">No items found</div>
+                           </>
+                        ) : (
+                           <>
+                             <Search size={48} className="mb-4 opacity-20" />
+                             <div className="text-center font-medium">Type to search inventory</div>
+                           </>
+                        )}
+                    </div>
                 )}
             </div>
          </div>
        )}
 
-       {/* --- DESKTOP LAYOUT (Original Grid) --- */}
+       {/* --- DESKTOP LAYOUT (Grid) --- */}
        <div className="hidden lg:grid grid-cols-3 gap-6 h-full">
            {/* Left: Search & Suggestions */}
            <div className="col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
@@ -338,92 +354,91 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
        </div>
 
        {/* --- MOBILE LAYOUT (POS Optimized) --- */}
-       <div className="lg:hidden flex flex-col h-full bg-white relative">
+       <div className="lg:hidden flex flex-col h-full bg-slate-50 relative overflow-hidden">
           
-          {/* 1. Sticky Top: Customer/Supplier Input */}
-          <div className="bg-white px-4 py-3 border-b border-slate-100 flex items-center gap-2 sticky top-0 z-20 shadow-sm">
-              <UserIcon size={18} className="text-slate-400" />
-              <input 
-                 type="text"
-                 className="flex-1 text-base outline-none text-slate-900 font-medium placeholder:text-slate-400 bg-transparent"
-                 placeholder={mode === 'PURCHASE' ? "Supplier Name" : "Customer Name (Optional)"}
-                 value={customerName}
-                 onChange={e => setCustomerName(e.target.value)}
-              />
-              {cart.length > 0 && <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-md font-bold">{cart.length} Items</span>}
+          {/* 1. Customer Input (Compact & Top) */}
+          <div className="bg-white px-3 py-2 border-b border-slate-200 shadow-sm z-10">
+              <div className="flex items-center gap-2 bg-slate-100 p-2 rounded-lg">
+                  <UserIcon size={16} className="text-slate-400" />
+                  <input 
+                     type="text"
+                     className="flex-1 text-sm bg-transparent outline-none font-medium text-slate-900 placeholder:text-slate-400"
+                     placeholder={mode === 'PURCHASE' ? "Supplier Name" : "Customer Name (Optional)"}
+                     value={customerName}
+                     onChange={e => setCustomerName(e.target.value)}
+                  />
+                  {cart.length > 0 && <span className="text-[10px] font-bold bg-white px-2 py-0.5 rounded border border-slate-200">{cart.length}</span>}
+              </div>
           </div>
 
-          {/* 2. Scrollable Cart Area (Dense List) */}
-          <div className="flex-1 overflow-y-auto pb-48"> 
+          {/* 2. Scrollable Cart Area */}
+          {/* Added pb-[130px] to ensure content scrolls above the fixed bottom stack */}
+          <div className="flex-1 overflow-y-auto p-3 space-y-2 pb-[140px]"> 
               {cart.length === 0 ? (
-                 <div className="flex flex-col items-center justify-center pt-20 text-slate-400 opacity-60">
-                     <ShoppingCart size={48} className="mb-4 stroke-1" />
-                     <p>Cart is empty</p>
-                     <p className="text-xs">Tap '+ Add Item' below</p>
-                 </div>
+                  <div className="flex flex-col items-center justify-center pt-16 opacity-50">
+                     <ShoppingCart size={32} className="mb-2 text-slate-300" />
+                     <p className="text-sm font-medium text-slate-400">Cart Empty</p>
+                  </div>
               ) : (
-                 <div className="divide-y divide-slate-50">
-                    {cart.map(item => (
-                        <div key={item.tempId} className="px-4 py-3 bg-white flex justify-between items-center">
-                            <div className="flex-1 min-w-0 pr-4">
-                                <div className="font-bold text-base text-slate-900 truncate">{item.partNumber}</div>
+                  cart.map(item => (
+                    <div key={item.tempId} className="bg-white p-3 rounded-lg shadow-sm border border-slate-100 flex flex-col gap-2">
+                        {/* Top Row */}
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <div className="font-bold text-slate-900">{item.partNumber}</div>
                                 <div className="text-xs text-slate-400">₹{item.price} each</div>
                             </div>
-                            
-                            <div className="flex items-center gap-4">
-                                {/* Compact Qty Control */}
-                                <div className="flex items-center gap-3 bg-slate-50 rounded-lg p-1 border border-slate-100">
-                                    <button 
-                                      onClick={() => item.quantity === 1 ? removeItem(item.tempId) : updateQty(item.tempId, -1)} 
-                                      className="w-8 h-8 flex items-center justify-center text-slate-500 active:text-red-500 active:bg-red-50 rounded"
-                                    >
-                                       {item.quantity === 1 ? <Trash2 size={16}/> : <Minus size={16}/>}
-                                    </button>
-                                    <span className="font-bold text-slate-900 w-4 text-center">{item.quantity}</span>
-                                    <button 
-                                      onClick={() => updateQty(item.tempId, 1)} 
-                                      className="w-8 h-8 flex items-center justify-center text-slate-900 active:bg-slate-200 rounded"
-                                    >
-                                       <Plus size={16}/>
-                                    </button>
-                                </div>
-                                
-                                <div className="w-16 text-right font-bold text-slate-900">
-                                   ₹{item.price * item.quantity}
-                                </div>
+                            <div className="text-right">
+                                <div className="font-bold text-slate-900">₹{(item.price * item.quantity).toLocaleString()}</div>
                             </div>
                         </div>
-                    ))}
-                 </div>
+                        {/* Control Row */}
+                        <div className="flex items-center justify-between border-t border-slate-50 pt-2">
+                             <button onClick={() => removeItem(item.tempId)} className="text-slate-300 hover:text-red-500 p-1">
+                                <Trash2 size={18} />
+                             </button>
+                             
+                             <div className="flex items-center gap-3 bg-slate-50 rounded-lg p-0.5 border border-slate-100">
+                                <button onClick={() => item.quantity === 1 ? removeItem(item.tempId) : updateQty(item.tempId, -1)} className="w-8 h-8 flex items-center justify-center bg-white rounded border border-slate-200 text-slate-600 active:scale-90">
+                                   <Minus size={16}/>
+                                </button>
+                                <span className="font-bold text-slate-900 w-6 text-center">{item.quantity}</span>
+                                <button onClick={() => updateQty(item.tempId, 1)} className="w-8 h-8 flex items-center justify-center bg-slate-900 rounded text-white active:scale-90">
+                                   <Plus size={16}/>
+                                </button>
+                             </div>
+                        </div>
+                    </div>
+                  ))
               )}
           </div>
 
-          {/* 3. Fixed Bottom Action Stack (Above Bottom Nav) */}
-          {/* Positioning: 'bottom-[60px]' clears the Bottom Nav Bar. z-40 ensures it's above content but below modals */}
-          <div className="fixed bottom-[60px] left-0 right-0 z-40 bg-white border-t border-slate-100 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+          {/* 3. Fixed Bottom Stack (Add Button + Checkout) */}
+          {/* Fixed height container at bottom */}
+          <div className="fixed bottom-0 left-0 right-0 z-40 bg-white shadow-top border-t border-slate-200">
               
-              {/* Full Width 'Add Item' Button */}
+              {/* Add Item Button (Sits above checkout bar) */}
               <button 
                 onClick={() => setShowMobileSearch(true)}
-                className="w-full py-3 bg-blue-50 text-blue-700 font-bold text-sm flex items-center justify-center gap-2 active:bg-blue-100 transition-colors border-b border-blue-100"
+                className="w-full py-3 bg-blue-50 text-blue-700 font-bold text-sm flex items-center justify-center gap-2 active:bg-blue-100 border-b border-blue-100"
               >
                  <PackagePlus size={18} />
-                 + ADD ITEM
+                 ADD ITEM
               </button>
 
-              {/* Checkout Footer */}
-              <div className="flex justify-between items-center p-3 pb-safe bg-white gap-3">
-                  <div className="flex flex-col">
-                      <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total Amount</span>
-                      <span className={`text-xl font-black ${mode === 'RETURN' ? 'text-red-600' : 'text-slate-900'}`}>
+              {/* Checkout Bar (Safe Area Padding) */}
+              <div className="flex items-center p-3 gap-3 pb-safe-bottom bg-white h-[70px]">
+                  <div className="flex-1">
+                      <div className="text-[10px] uppercase font-bold text-slate-400">Total</div>
+                      <div className={`text-xl font-black ${mode === 'RETURN' ? 'text-red-600' : 'text-slate-900'}`}>
                          {mode === 'RETURN' ? '-' : ''}₹{totalAmount.toLocaleString()}
-                      </span>
+                      </div>
                   </div>
                   
                   <button 
                      onClick={handleSubmit}
                      disabled={loading || cart.length === 0}
-                     className={`flex-1 py-3 px-6 rounded-xl font-bold text-white shadow-lg flex items-center justify-center gap-2 transition-transform active:scale-95 disabled:opacity-50 disabled:scale-100 ${getAccentColor()}`}
+                     className={`px-6 py-2.5 h-full rounded-lg font-bold text-white shadow-sm flex items-center gap-2 active:scale-95 disabled:opacity-50 ${getAccentColor()}`}
                   >
                      {loading ? <Loader2 className="animate-spin" size={18} /> : (mode === 'RETURN' ? <Undo2 size={18}/> : <CheckCircle2 size={18}/>)}
                      {getButtonText()}
