@@ -3,8 +3,6 @@ import { Role, TransactionType, User, StockItem, Customer } from '../types';
 import { createBulkTransactions } from '../services/transactionService';
 import { fetchInventory } from '../services/inventoryService';
 import { getCustomers } from '../services/masterService';
-// @ts-ignore
-import { Html5Qrcode } from 'html5-qrcode';
 import { 
   Search,
   Loader2,
@@ -93,55 +91,64 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
   // --- BARCODE SCANNER LOGIC ---
   useEffect(() => {
     let html5QrCode: any;
+    let isActive = true;
     
-    if (showScanner) {
-        html5QrCode = new Html5Qrcode("reader");
-        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-        
-        const onScanSuccess = (decodedText: string) => {
-            // Logic: 
-            // 1. Remove non-alphanumeric
-            // 2. Take first 10 chars -> partCode
-            // 3. Match against normalized part numbers
+    const startScanner = async () => {
+      if (showScanner && typeof window !== 'undefined') {
+        try {
+            // Dynamic Import for Client-Side Only
+            const { Html5Qrcode } = await import('html5-qrcode');
             
-            const cleaned = decodedText.replace(/[^a-zA-Z0-9]/g, '');
-            const partCode = cleaned.substring(0, 10).toUpperCase();
+            if (!isActive) return;
 
-            // Normalize inventory items: Remove dashes, uppercase
-            const match = inventory.find(i => {
-                const normalizedInv = i.partNumber.toUpperCase().replace(/[^a-zA-Z0-9]/g, '');
-                return normalizedInv === partCode;
-            });
-
-            if (match) {
-                addToCart(match);
-                showToast(`Added: ${match.partNumber}`);
-            } else {
-                showToast(`No part found for code: ${partCode}`);
-            }
+            html5QrCode = new Html5Qrcode("reader");
+            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
             
-            // Optional: Close scanner on success? Keeping it open for rapid scanning
-            // setShowScanner(false); 
-        };
+            const onScanSuccess = (decodedText: string) => {
+                // Logic: 
+                // 1. Remove non-alphanumeric
+                // 2. Take first 10 chars -> partCode
+                // 3. Match against normalized part numbers
+                
+                const cleaned = decodedText.replace(/[^a-zA-Z0-9]/g, '');
+                const partCode = cleaned.substring(0, 10).toUpperCase();
 
-        const onScanFailure = (error: any) => {
-            // console.warn(`Code scan error = ${error}`);
-        };
+                // Normalize inventory items: Remove dashes, uppercase
+                const match = inventory.find(i => {
+                    const normalizedInv = i.partNumber.toUpperCase().replace(/[^a-zA-Z0-9]/g, '');
+                    return normalizedInv === partCode;
+                });
 
-        html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess, onScanFailure)
-            .catch((err: any) => {
-                console.error("Error starting scanner", err);
-                showToast("Failed to start camera");
-                setShowScanner(false);
-            });
-    }
+                if (match) {
+                    addToCart(match);
+                    showToast(`Added: ${match.partNumber}`);
+                } else {
+                    showToast(`No part found for code: ${partCode}`);
+                }
+            };
+
+            const onScanFailure = (error: any) => {
+                // console.warn(`Code scan error = ${error}`);
+            };
+
+            await html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess, onScanFailure);
+        } catch (err: any) {
+            console.error("Error starting scanner", err);
+            showToast("Failed to start camera");
+            // setShowScanner(false); // Don't auto close, let user see error or try again
+        }
+      }
+    };
+
+    startScanner();
 
     return () => {
+        isActive = false;
         if (html5QrCode) {
             html5QrCode.stop().catch((err: any) => console.error("Failed to stop scanner", err));
         }
     };
-  }, [showScanner, inventory]); // Re-run if inventory updates (unlikely during scan but safe)
+  }, [showScanner, inventory]); // Re-run if inventory updates
 
   const showToast = (msg: string) => {
       setToastMessage(msg);
