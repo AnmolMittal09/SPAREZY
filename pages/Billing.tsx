@@ -219,128 +219,130 @@ const Billing: React.FC<Props> = ({ user }) => {
                          <p>No compatible sales found.</p>
                       </div>
                    ) : (
-                      // Mobile View for Returns
-                      <div className="block md:hidden divide-y divide-slate-100">
-                          {filteredSalesLog.map(tx => {
-                              const isSelected = !!selectedReturns[tx.id];
-                              const prevReturned = alreadyReturnedMap.get(tx.id) || 0;
-                              const remainingQty = tx.quantity - prevReturned;
-                              const returnQty = selectedReturns[tx.id] || remainingQty;
-                              
-                              return (
-                                  <div key={tx.id} className={`p-4 flex gap-3 ${isSelected ? 'bg-red-50' : 'bg-white'}`}>
-                                      <div className="pt-1">
-                                          <input 
-                                           type="checkbox"
-                                           checked={isSelected}
-                                           onChange={() => handleReturnToggle(tx)}
-                                           className="w-5 h-5 text-red-600 rounded border-slate-300"
-                                          />
-                                      </div>
-                                      <div className="flex-1">
-                                          <div className="flex justify-between">
-                                              <span className="font-bold text-slate-900">{tx.partNumber}</span>
-                                              <span className="text-xs text-slate-500">{new Date(tx.createdAt).toLocaleDateString()}</span>
-                                          </div>
-                                          <div className="text-sm text-slate-600">{tx.customerName || 'Walk-in'}</div>
-                                          <div className="mt-2 flex justify-between items-end">
-                                              <div className="text-xs">
-                                                  <span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold mr-2">Sold: {tx.quantity}</span>
-                                                  <span className="text-slate-400">Rem: {remainingQty}</span>
-                                              </div>
-                                              {isSelected && (
-                                                  <div className="flex items-center gap-2">
-                                                      <span className="text-xs font-bold text-slate-400">Ret Qty:</span>
-                                                      <input 
-                                                          type="number"
-                                                          min="1"
-                                                          max={remainingQty}
-                                                          value={returnQty}
-                                                          onChange={(e) => handleReturnQtyChange(tx.id, remainingQty, e.target.value)}
-                                                          className="w-12 p-1 border border-red-300 rounded text-center font-bold text-sm"
-                                                      />
-                                                  </div>
-                                              )}
-                                          </div>
-                                      </div>
-                                  </div>
-                              )
-                          })}
-                      </div>
-                   )}
-                   {/* Desktop Table Hidden on Mobile */}
-                   <div className="hidden md:block">
-                      <table className="w-full text-sm text-left">
-                         <thead className="bg-white text-slate-600 font-medium sticky top-0 shadow-sm z-10">
-                            <tr>
-                               <th className="px-6 py-4 w-16 text-center">Select</th>
-                               <th className="px-6 py-4">Sale Date</th>
-                               <th className="px-6 py-4">Customer</th>
-                               <th className="px-6 py-4">Part Details</th>
-                               <th className="px-6 py-4 text-center">Sold (Rem)</th>
-                               <th className="px-6 py-4 text-center w-32">Return Qty</th>
-                               <th className="px-6 py-4 text-right">Refund Amount</th>
-                            </tr>
-                         </thead>
-                         <tbody className="divide-y divide-slate-100">
+                      <>
+                        {/* Mobile View for Returns */}
+                        <div className="block md:hidden divide-y divide-slate-100 pb-20">
                             {filteredSalesLog.map(tx => {
-                               const isSelected = !!selectedReturns[tx.id];
-                               const prevReturned = alreadyReturnedMap.get(tx.id) || 0;
-                               const remainingQty = tx.quantity - prevReturned;
-                               const returnQty = selectedReturns[tx.id] || remainingQty;
-                               
-                               return (
-                                  <tr key={tx.id} className={`hover:bg-red-50 transition-colors ${isSelected ? 'bg-red-50/50' : ''}`}>
-                                     <td className="px-6 py-4 text-center">
-                                        <input 
-                                           type="checkbox"
-                                           checked={isSelected}
-                                           onChange={() => handleReturnToggle(tx)}
-                                           className="w-5 h-5 text-red-600 rounded border-slate-300 focus:ring-red-500 cursor-pointer"
-                                        />
-                                     </td>
-                                     <td className="px-6 py-4 text-slate-500">
-                                        {new Date(tx.createdAt).toLocaleDateString()}
-                                     </td>
-                                     <td className="px-6 py-4 font-medium text-slate-700">
-                                        {tx.customerName || 'Walk-in'}
-                                     </td>
-                                     <td className="px-6 py-4">
-                                        <div className="font-bold text-slate-900">{tx.partNumber}</div>
-                                        <div className="text-xs text-slate-500">Price: ₹{tx.price}</div>
-                                     </td>
-                                     <td className="px-6 py-4 text-center">
-                                        <span className="font-bold text-slate-800">{tx.quantity}</span>
-                                        {prevReturned > 0 && (
-                                            <div className="text-[10px] text-red-500 font-bold">Ret: {prevReturned}</div>
-                                        )}
-                                        <div className="text-[10px] text-green-600 font-bold bg-green-50 rounded px-1 mt-1">
-                                            Rem: {remainingQty}
+                                const isSelected = !!selectedReturns[tx.id];
+                                const prevReturned = alreadyReturnedMap.get(tx.id) || 0;
+                                const remainingQty = tx.quantity - prevReturned;
+                                const returnQty = selectedReturns[tx.id] || remainingQty;
+                                
+                                return (
+                                    <div key={tx.id} className={`p-4 flex gap-3 ${isSelected ? 'bg-red-50' : 'bg-white'}`}>
+                                        <div className="pt-1">
+                                            <input 
+                                            type="checkbox"
+                                            checked={isSelected}
+                                            onChange={() => handleReturnToggle(tx)}
+                                            className="w-5 h-5 text-red-600 rounded border-slate-300"
+                                            />
                                         </div>
-                                     </td>
-                                     <td className="px-6 py-4 text-center">
-                                        {isSelected ? (
-                                           <input 
-                                             type="number" 
-                                             min="1" 
-                                             max={remainingQty}
-                                             value={returnQty}
-                                             onChange={(e) => handleReturnQtyChange(tx.id, remainingQty, e.target.value)}
-                                             className="w-20 px-2 py-1 border border-red-300 rounded text-center font-bold text-red-700 outline-none focus:ring-2 focus:ring-red-500"
-                                           />
-                                        ) : (
-                                           <span className="text-slate-300">-</span>
-                                        )}
-                                     </td>
-                                     <td className="px-6 py-4 text-right font-bold text-red-600">
-                                        {isSelected ? `₹${(tx.price * returnQty).toLocaleString()}` : '-'}
-                                     </td>
-                                  </tr>
-                               );
+                                        <div className="flex-1">
+                                            <div className="flex justify-between">
+                                                <span className="font-bold text-slate-900">{tx.partNumber}</span>
+                                                <span className="text-xs text-slate-500">{new Date(tx.createdAt).toLocaleDateString()}</span>
+                                            </div>
+                                            <div className="text-sm text-slate-600">{tx.customerName || 'Walk-in'}</div>
+                                            <div className="mt-2 flex justify-between items-end">
+                                                <div className="text-xs">
+                                                    <span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold mr-2">Sold: {tx.quantity}</span>
+                                                    <span className="text-slate-400">Rem: {remainingQty}</span>
+                                                </div>
+                                                {isSelected && (
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-xs font-bold text-slate-400">Ret Qty:</span>
+                                                        <input 
+                                                            type="number"
+                                                            min="1"
+                                                            max={remainingQty}
+                                                            value={returnQty}
+                                                            onChange={(e) => handleReturnQtyChange(tx.id, remainingQty, e.target.value)}
+                                                            className="w-12 p-1 border border-red-300 rounded text-center font-bold text-sm"
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )
                             })}
-                         </tbody>
-                      </table>
-                   </div>
+                        </div>
+                        {/* Desktop Table Hidden on Mobile */}
+                        <div className="hidden md:block">
+                            <table className="w-full text-sm text-left">
+                                <thead className="bg-white text-slate-600 font-medium sticky top-0 shadow-sm z-10">
+                                    <tr>
+                                    <th className="px-6 py-4 w-16 text-center">Select</th>
+                                    <th className="px-6 py-4">Sale Date</th>
+                                    <th className="px-6 py-4">Customer</th>
+                                    <th className="px-6 py-4">Part Details</th>
+                                    <th className="px-6 py-4 text-center">Sold (Rem)</th>
+                                    <th className="px-6 py-4 text-center w-32">Return Qty</th>
+                                    <th className="px-6 py-4 text-right">Refund Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {filteredSalesLog.map(tx => {
+                                    const isSelected = !!selectedReturns[tx.id];
+                                    const prevReturned = alreadyReturnedMap.get(tx.id) || 0;
+                                    const remainingQty = tx.quantity - prevReturned;
+                                    const returnQty = selectedReturns[tx.id] || remainingQty;
+                                    
+                                    return (
+                                        <tr key={tx.id} className={`hover:bg-red-50 transition-colors ${isSelected ? 'bg-red-50/50' : ''}`}>
+                                            <td className="px-6 py-4 text-center">
+                                                <input 
+                                                type="checkbox"
+                                                checked={isSelected}
+                                                onChange={() => handleReturnToggle(tx)}
+                                                className="w-5 h-5 text-red-600 rounded border-slate-300 focus:ring-red-500 cursor-pointer"
+                                                />
+                                            </td>
+                                            <td className="px-6 py-4 text-slate-500">
+                                                {new Date(tx.createdAt).toLocaleDateString()}
+                                            </td>
+                                            <td className="px-6 py-4 font-medium text-slate-700">
+                                                {tx.customerName || 'Walk-in'}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="font-bold text-slate-900">{tx.partNumber}</div>
+                                                <div className="text-xs text-slate-500">Price: ₹{tx.price}</div>
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className="font-bold text-slate-800">{tx.quantity}</span>
+                                                {prevReturned > 0 && (
+                                                    <div className="text-[10px] text-red-500 font-bold">Ret: {prevReturned}</div>
+                                                )}
+                                                <div className="text-[10px] text-green-600 font-bold bg-green-50 rounded px-1 mt-1">
+                                                    Rem: {remainingQty}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                {isSelected ? (
+                                                <input 
+                                                    type="number" 
+                                                    min="1" 
+                                                    max={remainingQty}
+                                                    value={returnQty}
+                                                    onChange={(e) => handleReturnQtyChange(tx.id, remainingQty, e.target.value)}
+                                                    className="w-20 px-2 py-1 border border-red-300 rounded text-center font-bold text-red-700 outline-none focus:ring-2 focus:ring-red-500"
+                                                />
+                                                ) : (
+                                                <span className="text-slate-300">-</span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 text-right font-bold text-red-600">
+                                                {isSelected ? `₹${(tx.price * returnQty).toLocaleString()}` : '-'}
+                                            </td>
+                                        </tr>
+                                    );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                      </>
+                   )}
                 </div>
 
                 {/* Return Footer Actions */}
@@ -379,7 +381,39 @@ const Billing: React.FC<Props> = ({ user }) => {
                   ) : history.length === 0 ? (
                     <div className="p-12 text-center text-slate-400">No history found.</div>
                   ) : (
-                    <table className="w-full text-sm text-left">
+                    <>
+                    {/* Mobile Card List for History */}
+                    <div className="md:hidden divide-y divide-slate-100">
+                      {history.map(tx => {
+                          const isReturn = tx.type === TransactionType.RETURN;
+                          return (
+                            <div key={tx.id} className={`p-4 ${isReturn ? 'bg-red-50/20' : 'bg-white'}`}>
+                                <div className="flex justify-between items-start mb-2">
+                                    <div>
+                                        <div className="font-bold text-slate-900 text-base">{tx.partNumber}</div>
+                                        <div className="text-xs text-slate-500">{new Date(tx.createdAt).toLocaleString()}</div>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className={`font-black text-base ${isReturn ? 'text-red-600' : 'text-slate-900'}`}>
+                                            {isReturn ? '-' : ''}₹{(tx.price * tx.quantity).toLocaleString()}
+                                        </div>
+                                        <div className="text-[10px] text-slate-400 font-bold uppercase">{tx.type}</div>
+                                    </div>
+                                </div>
+                                <div className="flex justify-between items-center text-sm">
+                                    <div className="text-slate-600 flex items-center gap-1">
+                                        <UserIcon size={12}/> {tx.customerName || 'Walk-in'}
+                                    </div>
+                                    <div className="bg-slate-100 px-2 py-0.5 rounded text-xs font-bold text-slate-600">
+                                        Qty: {tx.quantity}
+                                    </div>
+                                </div>
+                            </div>
+                          );
+                      })}
+                    </div>
+                    {/* Desktop Table */}
+                    <table className="hidden md:table w-full text-sm text-left">
                        <thead className="bg-white text-slate-600 font-medium sticky top-0 border-b border-slate-200 shadow-sm">
                           <tr>
                              <th className="px-4 md:px-6 py-4">Date</th>
@@ -423,6 +457,7 @@ const Billing: React.FC<Props> = ({ user }) => {
                           })}
                        </tbody>
                     </table>
+                    </>
                   )}
                 </div>
              </div>

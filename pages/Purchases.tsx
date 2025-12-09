@@ -94,7 +94,30 @@ const Purchases: React.FC<Props> = ({ user }) => {
                   ) : history.length === 0 ? (
                     <div className="p-12 text-center text-slate-400">No purchase history found.</div>
                   ) : (
-                    <table className="w-full text-sm text-left">
+                    <>
+                    {/* Mobile Card List */}
+                    <div className="md:hidden divide-y divide-slate-100">
+                        {history.map(tx => (
+                            <div key={tx.id} className="p-4 bg-white">
+                                <div className="flex justify-between items-start mb-1">
+                                    <div>
+                                        <div className="font-bold text-slate-900 text-base">{tx.partNumber}</div>
+                                        <div className="text-xs text-slate-500">{new Date(tx.createdAt).toLocaleString()}</div>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="font-black text-slate-900 text-base">₹{(tx.price * tx.quantity).toLocaleString()}</div>
+                                        <div className="text-[10px] text-green-700 font-bold bg-green-50 px-1 rounded inline-block">+{tx.quantity} Stock</div>
+                                    </div>
+                                </div>
+                                <div className="text-sm text-slate-600 truncate">
+                                    Supplier: {tx.customerName || 'Unknown'}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Desktop Table */}
+                    <table className="hidden md:table w-full text-sm text-left">
                        <thead className="bg-slate-50 text-slate-600 font-medium sticky top-0 border-b border-slate-200">
                           <tr>
                              <th className="px-6 py-4">Date</th>
@@ -123,6 +146,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
                           ))}
                        </tbody>
                     </table>
+                    </>
                   )}
                 </div>
              </div>
