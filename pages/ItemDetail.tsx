@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 // @ts-ignore
 import { useParams, Link } from 'react-router-dom';
-import { fetchItemDetails, fetchPriceHistory, updateItemBarcode } from '../services/inventoryService';
+import { fetchItemDetails, fetchPriceHistory } from '../services/inventoryService';
 import { PriceHistoryEntry, StockItem, Brand } from '../types';
-import { ArrowLeft, Loader2, TrendingUp, TrendingDown, Clock, Tag, Box, Hash, ScanBarcode, X, Keyboard } from 'lucide-react';
+import { ArrowLeft, Loader2, TrendingUp, TrendingDown, Clock, Tag, Box, Hash } from 'lucide-react';
 import TharLoader from '../components/TharLoader';
 
 const ItemDetail: React.FC = () => {
@@ -11,8 +11,6 @@ const ItemDetail: React.FC = () => {
   const [item, setItem] = useState<StockItem | null>(null);
   const [history, setHistory] = useState<PriceHistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showScanner, setShowScanner] = useState(false);
-  const [manualCode, setManualCode] = useState('');
 
   useEffect(() => {
     loadData();
@@ -29,85 +27,6 @@ const ItemDetail: React.FC = () => {
     setHistory(historyData);
     setLoading(false);
   };
-
-  const handleBarcodeLink = async (decodedText: string) => {
-     if (item && partNumber) {
-        const result = await updateItemBarcode(partNumber, decodedText);
-        if (result.success) {
-            alert(`Barcode ${decodedText} linked to ${partNumber}`);
-            setShowScanner(false);
-            setManualCode('');
-            loadData(); // Refresh to show new barcode
-        } else {
-            alert("Failed to link: " + result.message);
-        }
-    }
-  };
-
-  // --- SCANNER LOGIC ---
-  useEffect(() => {
-    let html5QrCode: any;
-    let isActive = true;
-
-    const startScanner = async () => {
-        if (showScanner && typeof window !== 'undefined') {
-            try {
-                const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import('html5-qrcode');
-                if (!isActive) return;
-
-                html5QrCode = new Html5Qrcode("item-reader");
-                const config = { 
-                    fps: 15,
-                    // No qrbox = scan full frame
-                    // videoConstraints: Force high resolution
-                    videoConstraints: {
-                       facingMode: "environment",
-                       width: { min: 1280, ideal: 1920 },
-                       height: { min: 720, ideal: 1080 },
-                       focusMode: "continuous"
-                    },
-                    formatsToSupport: [
-                        Html5QrcodeSupportedFormats.CODE_128,
-                        Html5QrcodeSupportedFormats.CODE_39,
-                        Html5QrcodeSupportedFormats.EAN_13,
-                        Html5QrcodeSupportedFormats.EAN_8,
-                        Html5QrcodeSupportedFormats.UPC_A,
-                        Html5QrcodeSupportedFormats.UPC_E,
-                        Html5QrcodeSupportedFormats.ITF,
-                        Html5QrcodeSupportedFormats.QR_CODE,
-                        Html5QrcodeSupportedFormats.DATA_MATRIX
-                    ],
-                    experimentalFeatures: {
-                        useBarCodeDetectorIfSupported: true // Use Native if available
-                    }
-                };
-
-                const onScanSuccess = async (decodedText: string) => {
-                    if (isActive) {
-                        handleBarcodeLink(decodedText);
-                        // Stop after first success
-                        isActive = false; 
-                        await html5QrCode.stop();
-                    }
-                };
-
-                await html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess, (err:any) => {});
-            } catch (err) {
-                console.error("Scanner Error", err);
-                setShowScanner(false);
-            }
-        }
-    };
-
-    startScanner();
-
-    return () => {
-        isActive = false;
-        if (html5QrCode && html5QrCode.isScanning) {
-            html5QrCode.stop().catch(console.error);
-        }
-    };
-  }, [showScanner]);
 
   if (loading) {
     return <TharLoader />;
@@ -128,52 +47,6 @@ const ItemDetail: React.FC = () => {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       
-      {/* SCANNER MODAL */}
-      {showScanner && (
-        <div className="fixed inset-0 z-50 bg-black flex flex-col">
-            <div className="flex items-center justify-between p-4 bg-black text-white">
-                <h3 className="font-bold flex items-center gap-2">Scan to Link</h3>
-                <button onClick={() => setShowScanner(false)} className="p-2 bg-white/20 rounded-full">
-                    <X size={24} />
-                </button>
-            </div>
-            <div className="flex-1 bg-black flex items-center justify-center relative overflow-hidden">
-                 <div id="item-reader" className="w-full h-full"></div>
-                 {/* Visual Guide (Does not crop scan area) */}
-                 <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
-                   <div className="w-[85%] h-32 border-2 border-white/50 rounded-lg shadow-[0_0_0_9999px_rgba(0,0,0,0.7)] relative">
-                      <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-red-500/80 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]"></div>
-                   </div>
-                   <div className="mt-8 text-white/90 text-sm font-medium bg-black/50 px-4 py-2 rounded-full backdrop-blur-sm">
-                      Align barcode within box
-                   </div>
-                </div>
-            </div>
-            
-            {/* Manual Fallback */}
-            <div className="p-4 bg-slate-900 border-t border-white/10 space-y-3 pb-safe-bottom">
-                 <p className="text-white/60 text-center text-xs">Enter digits manually to link:</p>
-                 <div className="flex gap-2">
-                    <input
-                        type="text"
-                        className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder:text-slate-500 outline-none focus:border-blue-500 text-sm font-mono"
-                        placeholder="Barcode digits..."
-                        value={manualCode}
-                        onChange={(e) => setManualCode(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleBarcodeLink(manualCode)}
-                    />
-                    <button
-                        onClick={() => handleBarcodeLink(manualCode)}
-                        disabled={!manualCode}
-                        className="bg-blue-600 text-white font-bold px-6 rounded-lg text-sm disabled:opacity-50"
-                    >
-                        LINK
-                    </button>
-                </div>
-            </div>
-        </div>
-      )}
-
       {/* Header with Back Button */}
       <div className="flex items-center gap-4">
         <Link to="/" className="p-2 bg-white rounded-full border border-gray-200 hover:bg-gray-50 text-gray-600 transition-colors">
@@ -184,14 +57,6 @@ const ItemDetail: React.FC = () => {
           <p className="text-gray-500">{item.name}</p>
         </div>
         <div className="ml-auto flex gap-2">
-             {/* Mobile Only Scan Button */}
-             <button 
-                onClick={() => setShowScanner(true)}
-                className="md:hidden flex items-center gap-2 bg-slate-900 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm active:scale-95"
-             >
-                <ScanBarcode size={16} /> Link Barcode
-             </button>
-
              <span className={`px-3 py-1 rounded-full text-sm font-bold flex items-center ${
                 item.brand === Brand.HYUNDAI ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'
              }`}>
@@ -236,14 +101,6 @@ const ItemDetail: React.FC = () => {
                 </span>
                 <span className="font-medium">{item.hsnCode}</span>
              </div>
-             {item.barcode && (
-               <div className="flex justify-between items-center">
-                  <span className="flex items-center gap-2 text-gray-500 text-sm">
-                     <ScanBarcode size={16} /> Barcode
-                  </span>
-                  <span className="font-mono bg-slate-100 px-2 rounded text-xs py-0.5">{item.barcode}</span>
-               </div>
-             )}
              <div className="flex justify-between items-center">
                 <span className="flex items-center gap-2 text-gray-500 text-sm">
                    <Clock size={16} /> Last Updated

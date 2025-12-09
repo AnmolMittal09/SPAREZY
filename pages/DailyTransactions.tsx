@@ -16,9 +16,7 @@ import {
   PackagePlus,
   ArrowLeft,
   X,
-  AlertCircle,
-  ScanBarcode,
-  Keyboard
+  AlertCircle
 } from 'lucide-react';
 
 interface Props {
@@ -56,11 +54,6 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
   // Mobile UI States
   const [showMobileSearch, setShowMobileSearch] = useState(false);
   
-  // Barcode Scanning State
-  const [showScanner, setShowScanner] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [manualCode, setManualCode] = useState('');
-
   useEffect(() => {
     fetchInventory().then(setInventory);
     
@@ -84,137 +77,6 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
   useEffect(() => {
     if (forcedMode) setMode(forcedMode);
   }, [forcedMode]);
-
-  const showToast = (msg: string) => {
-      setToastMessage(msg);
-      setTimeout(() => setToastMessage(null), 3000);
-  };
-
-  const playBeep = () => {
-    try {
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioCtx.createOscillator();
-      const gainNode = audioCtx.createGain();
-      oscillator.connect(gainNode);
-      gainNode.connect(audioCtx.destination);
-      oscillator.type = "sine";
-      oscillator.frequency.value = 1500; 
-      gainNode.gain.value = 0.1;
-      oscillator.start();
-      setTimeout(() => oscillator.stop(), 100);
-    } catch (e) {
-      console.error("Audio play failed", e);
-    }
-  };
-
-  const normalizePartCode = (code: string) => {
-    // Remove non-alphanumeric and take first 10-12 characters
-    const cleaned = code.replace(/[^A-Za-z0-9]/g, "");
-    return cleaned.toUpperCase(); 
-  };
-
-  const handleScannedCode = (decodedText: string) => {
-    if (!decodedText) return;
-
-    const partCode = normalizePartCode(decodedText);
-
-    // 1. Check for EXACT MATCH in 'barcode' field first
-    const barcodeMatch = inventory.find(i => i.barcode === decodedText || i.barcode === partCode);
-    
-    if (barcodeMatch) {
-        addToCart(barcodeMatch);
-        showToast(`Found: ${barcodeMatch.partNumber}`);
-        setManualCode('');
-        return;
-    }
-
-    // 2. Search inventory part_number (ignoring dashes)
-    // Matches "54660B4000" against "54660-B4000"
-    const match = inventory.find(i => {
-        const normalizedInv = i.partNumber.toUpperCase().replace(/[^A-Z0-9]/g, '');
-        // Compare first 10 chars to handle potential suffix variations
-        return normalizedInv.startsWith(partCode.slice(0, 10));
-    });
-
-    if (match) {
-        addToCart(match);
-        showToast(`Added: ${match.partNumber}`);
-        setManualCode('');
-    } else {
-        showToast(`No match: ${decodedText}`);
-    }
-  };
-
-  // --- BARCODE SCANNER LOGIC ---
-  useEffect(() => {
-    if (!showScanner) return;
-
-    let html5QrCode: any = null;
-    let isActive = true;
-
-    const startScanner = async () => {
-       try {
-          const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import('html5-qrcode');
-          if (!isActive) return;
-
-          // Use the verbose ID to ensure we target the specific element
-          html5QrCode = new Html5Qrcode("reader");
-          
-          const config = {
-             fps: 10,
-             // videoConstraints: Force high resolution and back camera
-             videoConstraints: {
-                facingMode: "environment",
-                width: { min: 1280, ideal: 1920, max: 3840 },
-                height: { min: 720, ideal: 1080, max: 2160 },
-                focusMode: "continuous"
-             },
-             // IMPORTANT: We do NOT pass 'qrbox' here. 
-             // Omitting qrbox causes the scanner to process the FULL FRAME.
-             // This is critical for long 1D barcodes that might be clipped by a square box.
-             formatsToSupport: [
-               Html5QrcodeSupportedFormats.CODE_128,
-               Html5QrcodeSupportedFormats.CODE_39,
-               Html5QrcodeSupportedFormats.EAN_13,
-               Html5QrcodeSupportedFormats.UPC_A,
-               Html5QrcodeSupportedFormats.QR_CODE,
-               Html5QrcodeSupportedFormats.DATA_MATRIX
-             ],
-             experimentalFeatures: {
-               useBarCodeDetectorIfSupported: true // Use Native Android API if available (faster)
-             }
-          };
-
-          await html5QrCode.start(
-             { facingMode: "environment" },
-             config,
-             (decodedText: string) => {
-               if(isActive) {
-                 playBeep();
-                 handleScannedCode(decodedText);
-                 // Optional: Close scanner immediately on success
-                 setShowScanner(false); 
-               }
-             },
-             (errorMessage: string) => {
-               // ignore errors
-             }
-          );
-       } catch (err) {
-          console.error("HTML5 Scanner Error", err);
-          showToast("Camera failed. Try manual entry.");
-       }
-    };
-
-    startScanner();
-
-    return () => {
-       isActive = false;
-       if (html5QrCode && html5QrCode.isScanning) {
-          html5QrCode.stop().then(() => html5QrCode.clear()).catch(console.error);
-       }
-    };
-  }, [showScanner, inventory]); 
 
   const handleSearch = (val: string) => {
     setSearch(val);
@@ -368,66 +230,6 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
   return (
     <div className="flex-1 h-full min-h-0 relative flex flex-col bg-slate-50 md:bg-transparent">
        
-       {/* --- MOBILE: SCANNER MODAL --- */}
-       {showScanner && (
-         <div className="fixed inset-0 z-[200] bg-black flex flex-col">
-            <div className="flex items-center justify-between p-4 bg-black text-white">
-                <h3 className="font-bold flex items-center gap-2"><ScanBarcode /> Scan Part Label</h3>
-                <button onClick={() => setShowScanner(false)} className="p-2 bg-white/20 rounded-full">
-                    <X size={24} />
-                </button>
-            </div>
-            
-            <div className="flex-1 flex items-center justify-center relative overflow-hidden bg-black">
-                {/* Scanner container - Full width/height */}
-                <div id="reader" className="w-full h-full"></div>
-                
-                {/* Visual Guide Overlay (Does not affect scan area) */}
-                <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
-                   {/* Rectangular Guide for 1D Barcodes */}
-                   <div className="w-[85%] h-32 border-2 border-red-500/80 rounded-lg shadow-[0_0_0_9999px_rgba(0,0,0,0.7)] relative">
-                      {/* Scanning Line */}
-                      <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-red-500 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.8)]"></div>
-                   </div>
-                   <div className="mt-8 text-white/90 text-sm font-medium bg-black/50 px-4 py-2 rounded-full backdrop-blur-sm">
-                      Align barcode within box
-                   </div>
-                </div>
-
-                {/* Toast Overlay */}
-                {toastMessage && (
-                  <div className="absolute bottom-40 left-1/2 -translate-x-1/2 bg-white text-black px-6 py-3 rounded-full text-sm font-bold shadow-xl z-20 whitespace-nowrap animate-in fade-in slide-in-from-bottom-4">
-                     {toastMessage}
-                  </div>
-                )}
-            </div>
-            
-            {/* Manual Entry Fallback */}
-            <div className="p-4 bg-slate-900 pb-safe-bottom space-y-3 border-t border-white/10">
-                <p className="text-white/60 text-center text-xs flex items-center justify-center gap-2">
-                   <Keyboard size={14} /> Camera issue? Type code manually:
-                </p>
-                <div className="flex gap-2">
-                    <input
-                        type="text"
-                        className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder:text-slate-500 outline-none focus:border-blue-500 text-sm font-mono uppercase"
-                        placeholder="e.g. 54660B4000"
-                        value={manualCode}
-                        onChange={(e) => setManualCode(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleScannedCode(manualCode)}
-                    />
-                    <button
-                        onClick={() => handleScannedCode(manualCode)}
-                        disabled={!manualCode}
-                        className="bg-blue-600 text-white font-bold px-6 rounded-lg text-sm disabled:opacity-50"
-                    >
-                        ADD
-                    </button>
-                </div>
-            </div>
-         </div>
-       )}
-
        {/* --- MOBILE: FULL SCREEN SEARCH MODAL (POS ITEM PICKER) --- */}
        {showMobileSearch && (
          <div className="fixed inset-0 z-[100] bg-white flex flex-col animate-in slide-in-from-bottom-5 duration-200">
@@ -453,7 +255,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
                {/* Sticky Header Group (Search + Chips) */}
                <div className="sticky top-0 z-20 bg-white shadow-sm border-b border-slate-100">
                    
-                   {/* Search Bar & Scan Button */}
+                   {/* Search Bar */}
                    <div className="px-3 pb-2 pt-3 flex gap-2">
                       <div className="relative bg-slate-100 rounded-xl flex items-center overflow-hidden border border-slate-200 flex-1">
                          <div className="pl-3 text-slate-400">
@@ -468,15 +270,6 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
                             onChange={e => handleSearch(e.target.value)}
                          />
                       </div>
-                      
-                      {/* Barcode Scan Button */}
-                      <button 
-                        onClick={() => setShowScanner(true)}
-                        className="bg-slate-900 text-white w-12 rounded-xl flex items-center justify-center active:bg-slate-800"
-                        title="Scan Barcode"
-                      >
-                         <ScanBarcode size={22} />
-                      </button>
                    </div>
 
                    {/* Filter Chips */}
@@ -523,7 +316,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
                             ) : (
                                <>
                                  <Search size={48} className="mb-4 opacity-20" />
-                                 <div className="text-center font-medium">Type to search or Scan</div>
+                                 <div className="text-center font-medium">Type to search inventory</div>
                                </>
                             )}
                         </div>

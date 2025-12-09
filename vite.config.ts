@@ -50,11 +50,6 @@ export default defineConfig(({ mode }) => {
         }
       })
     ],
-    build: {
-      rollupOptions: {
-        external: ['html5-qrcode']
-      }
-    },
     define: {
       'process.env.API_KEY': JSON.stringify(env.API_KEY)
     }

@@ -32,7 +32,6 @@ export interface StockItem {
   rackLocation?: string;
   vehicleModels?: string[];
   category?: string;
-  barcode?: string; // New field for scanning
 }
 
 export interface StockStats {
