@@ -57,7 +57,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
   useEffect(() => {
     fetchInventory().then(setInventory);
     
-    // Load customers for suggestions
+    // Load customers for suggestions if in Sales mode
     if (forcedMode === 'SALES' || !forcedMode) {
       getCustomers().then(data => {
          // Safety check to ensure data is an array
@@ -96,7 +96,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
 
   const handleCustomerType = (val: string) => {
     setCustomerName(val);
-    if (mode === 'SALES' && val.length > 0) {
+    if ((mode === 'SALES' || !mode) && val.length > 0 && savedCustomers.length > 0) {
       const matches = savedCustomers.filter(c => 
         (c.name && c.name.toLowerCase().includes(val.toLowerCase())) || 
         (c.phone && c.phone.includes(val))
@@ -411,7 +411,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
                     
                     {/* Customer Suggestion Dropdown */}
                     {showCustomerList && customerSuggestions.length > 0 && (
-                      <div className="absolute top-full left-4 right-4 z-50 bg-white border border-slate-200 rounded-lg shadow-xl mt-1 overflow-hidden animate-fade-in">
+                      <div className="absolute top-full left-0 right-0 z-50 bg-white border border-slate-200 rounded-lg shadow-xl mt-1 overflow-hidden animate-fade-in mx-1">
                          <div className="text-[10px] font-bold bg-slate-50 text-slate-400 px-3 py-1 uppercase tracking-wider">Suggestions</div>
                          {customerSuggestions.map(c => (
                             <button
