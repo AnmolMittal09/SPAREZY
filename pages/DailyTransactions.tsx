@@ -1,5 +1,4 @@
 
-
 import React, { useEffect, useState, useRef } from 'react';
 import { Role, TransactionType, User, StockItem, Customer } from '../types';
 import { createBulkTransactions } from '../services/transactionService';
@@ -97,11 +96,36 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
       setTimeout(() => setToastMessage(null), 3000);
   };
 
+  const playBeep = () => {
+    try {
+      // Simple short beep data URI
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      
+      oscillator.type = "sine";
+      oscillator.frequency.value = 1500; // Hz
+      gainNode.gain.value = 0.1; // Volume
+      
+      oscillator.start();
+      setTimeout(() => oscillator.stop(), 100); // 100ms beep
+    } catch (e) {
+      console.error("Audio play failed", e);
+    }
+  };
+
   const handleScannedCode = (decodedText: string) => {
     if (!decodedText) return;
 
-    // 1. First, check for EXACT MATCH in 'barcode' field
-    const barcodeMatch = inventory.find(i => i.barcode === decodedText);
+    // 1. Normalization Logic (Requested)
+    const cleaned = decodedText.replace(/[^A-Za-z0-9]/g, "");
+    const partCode = cleaned.slice(0, 10).toUpperCase(); // e.g. "54660B4000"
+
+    // 2. Check for EXACT MATCH in 'barcode' field first (legacy support)
+    const barcodeMatch = inventory.find(i => i.barcode === decodedText || i.barcode === partCode);
     
     if (barcodeMatch) {
         addToCart(barcodeMatch);
@@ -110,13 +134,9 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
         return;
     }
 
-    // 2. Fallback: Parse Part Number from text (Original Logic)
-    const cleaned = decodedText.replace(/[^a-zA-Z0-9]/g, '');
-    const partCode = cleaned.substring(0, 10).toUpperCase();
-
-    // Normalize inventory items: Remove dashes, uppercase
+    // 3. Search inventory part_number (ignoring dashes)
     const match = inventory.find(i => {
-        const normalizedInv = i.partNumber.toUpperCase().replace(/[^a-zA-Z0-9]/g, '');
+        const normalizedInv = i.partNumber.toUpperCase().replace(/[^A-Z0-9]/g, '');
         return normalizedInv === partCode;
     });
 
@@ -137,16 +157,42 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
     const startScanner = async () => {
       if (showScanner && typeof window !== 'undefined') {
         try {
-            // Dynamic Import for Client-Side Only
-            const { Html5Qrcode } = await import('html5-qrcode');
+            // Dynamic Import
+            const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import('html5-qrcode');
             
             if (!isActive) return;
 
-            html5QrCode = new Html5Qrcode("reader");
-            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+            // 1. Configure the Instance (Formats)
+            html5QrCode = new Html5Qrcode("reader", {
+                formatsToSupport: [
+                    Html5QrcodeSupportedFormats.CODE_128,
+                    Html5QrcodeSupportedFormats.CODE_39,
+                    Html5QrcodeSupportedFormats.EAN_13,
+                    Html5QrcodeSupportedFormats.UPC_A
+                ],
+                experimentalFeatures: {
+                    useBarCodeDetectorIfSupported: true
+                },
+                verbose: false
+            });
+
+            // 2. Configure the Scan (Dimensions)
+            const config = { 
+                fps: 10, 
+                qrbox: { width: 250, height: 120 }, // Rectangular for barcodes
+                aspectRatio: 1.0
+            };
             
-            const onScanSuccess = (decodedText: string) => {
+            const onScanSuccess = async (decodedText: string) => {
+                if (!isActive) return;
+                
+                // Stop scanning immediately
+                await html5QrCode.stop();
+                html5QrCode.clear();
+                
+                playBeep();
                 handleScannedCode(decodedText);
+                setShowScanner(false);
             };
 
             const onScanFailure = (error: any) => {
@@ -156,7 +202,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
             await html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess, onScanFailure);
         } catch (err: any) {
             console.error("Error starting scanner", err);
-            showToast("Failed to start camera");
+            showToast("Camera error: " + err);
         }
       }
     };
@@ -165,8 +211,8 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
 
     return () => {
         isActive = false;
-        if (html5QrCode) {
-            html5QrCode.stop().catch((err: any) => console.error("Failed to stop scanner", err));
+        if (html5QrCode && html5QrCode.isScanning) {
+            html5QrCode.stop().then(() => html5QrCode.clear()).catch((err: any) => console.error("Failed to stop scanner", err));
         }
     };
   }, [showScanner, inventory]); // Re-run if inventory updates
