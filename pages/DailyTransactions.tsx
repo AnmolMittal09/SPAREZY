@@ -1,9 +1,10 @@
-
 import React, { useEffect, useState, useRef } from 'react';
 import { Role, TransactionType, User, StockItem, Customer } from '../types';
 import { createBulkTransactions } from '../services/transactionService';
 import { fetchInventory } from '../services/inventoryService';
 import { getCustomers } from '../services/masterService';
+// @ts-ignore
+import { Html5Qrcode } from 'html5-qrcode';
 import { 
   Search,
   Loader2,
@@ -19,7 +20,8 @@ import {
   Truck,
   X,
   CreditCard,
-  AlertCircle
+  AlertCircle,
+  ScanBarcode
 } from 'lucide-react';
 
 interface Props {
@@ -56,6 +58,10 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
   
   // Mobile UI States
   const [showMobileSearch, setShowMobileSearch] = useState(false);
+  
+  // Barcode Scanning State
+  const [showScanner, setShowScanner] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
     fetchInventory().then(setInventory);
@@ -83,6 +89,64 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
   useEffect(() => {
     if (forcedMode) setMode(forcedMode);
   }, [forcedMode]);
+
+  // --- BARCODE SCANNER LOGIC ---
+  useEffect(() => {
+    let html5QrCode: any;
+    
+    if (showScanner) {
+        html5QrCode = new Html5Qrcode("reader");
+        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+        
+        const onScanSuccess = (decodedText: string) => {
+            // Logic: 
+            // 1. Remove non-alphanumeric
+            // 2. Take first 10 chars -> partCode
+            // 3. Match against normalized part numbers
+            
+            const cleaned = decodedText.replace(/[^a-zA-Z0-9]/g, '');
+            const partCode = cleaned.substring(0, 10).toUpperCase();
+
+            // Normalize inventory items: Remove dashes, uppercase
+            const match = inventory.find(i => {
+                const normalizedInv = i.partNumber.toUpperCase().replace(/[^a-zA-Z0-9]/g, '');
+                return normalizedInv === partCode;
+            });
+
+            if (match) {
+                addToCart(match);
+                showToast(`Added: ${match.partNumber}`);
+            } else {
+                showToast(`No part found for code: ${partCode}`);
+            }
+            
+            // Optional: Close scanner on success? Keeping it open for rapid scanning
+            // setShowScanner(false); 
+        };
+
+        const onScanFailure = (error: any) => {
+            // console.warn(`Code scan error = ${error}`);
+        };
+
+        html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess, onScanFailure)
+            .catch((err: any) => {
+                console.error("Error starting scanner", err);
+                showToast("Failed to start camera");
+                setShowScanner(false);
+            });
+    }
+
+    return () => {
+        if (html5QrCode) {
+            html5QrCode.stop().catch((err: any) => console.error("Failed to stop scanner", err));
+        }
+    };
+  }, [showScanner, inventory]); // Re-run if inventory updates (unlikely during scan but safe)
+
+  const showToast = (msg: string) => {
+      setToastMessage(msg);
+      setTimeout(() => setToastMessage(null), 3000);
+  };
 
   const handleSearch = (val: string) => {
     setSearch(val);
@@ -145,7 +209,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
           customerName: customerName,
           stockError: false
       };
-      setCart([...cart, newItem]);
+      setCart(prev => [...prev, newItem]);
       setSearch('');
       setSuggestions([]);
       setShowMobileSearch(false);
@@ -219,7 +283,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
   const getButtonText = () => {
      if (user.role === Role.MANAGER) return 'Submit';
      if (mode === 'RETURN') return 'Refund';
-     if (mode === 'PURCHASE') return 'Confirm';
+     if (mode === 'PURCHASE') return 'Save Purchase';
      return 'Checkout';
   };
 
@@ -238,6 +302,30 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
   return (
     <div className="flex-1 h-full min-h-0 relative flex flex-col bg-slate-50 md:bg-transparent">
        
+       {/* --- MOBILE: SCANNER MODAL --- */}
+       {showScanner && (
+         <div className="fixed inset-0 z-[200] bg-black flex flex-col">
+            <div className="flex items-center justify-between p-4 bg-black text-white">
+                <h3 className="font-bold flex items-center gap-2"><ScanBarcode /> Scan Part Label</h3>
+                <button onClick={() => setShowScanner(false)} className="p-2 bg-white/20 rounded-full">
+                    <X size={24} />
+                </button>
+            </div>
+            <div className="flex-1 flex items-center justify-center relative overflow-hidden bg-black">
+                <div id="reader" className="w-full h-full max-w-sm"></div>
+                {/* Toast Overlay inside Scanner */}
+                {toastMessage && (
+                  <div className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-white/90 text-black px-4 py-2 rounded-full text-sm font-bold shadow-lg animate-in fade-in slide-in-from-bottom-2">
+                     {toastMessage}
+                  </div>
+                )}
+            </div>
+            <div className="p-4 bg-black text-center text-white/60 text-xs">
+                Point camera at barcode. Auto-adds to cart.
+            </div>
+         </div>
+       )}
+
        {/* --- MOBILE: FULL SCREEN SEARCH MODAL (POS ITEM PICKER) --- */}
        {showMobileSearch && (
          <div className="fixed inset-0 z-[100] bg-white flex flex-col animate-in slide-in-from-bottom-5 duration-200">
@@ -263,9 +351,9 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
                {/* Sticky Header Group (Search + Chips) */}
                <div className="sticky top-0 z-20 bg-white shadow-sm border-b border-slate-100">
                    
-                   {/* Search Bar */}
-                   <div className="px-3 pb-2 pt-3">
-                      <div className="relative bg-slate-100 rounded-xl flex items-center overflow-hidden border border-slate-200">
+                   {/* Search Bar & Scan Button */}
+                   <div className="px-3 pb-2 pt-3 flex gap-2">
+                      <div className="relative bg-slate-100 rounded-xl flex items-center overflow-hidden border border-slate-200 flex-1">
                          <div className="pl-3 text-slate-400">
                             <Search size={18} />
                          </div>
@@ -278,6 +366,15 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
                             onChange={e => handleSearch(e.target.value)}
                          />
                       </div>
+                      
+                      {/* Barcode Scan Button */}
+                      <button 
+                        onClick={() => setShowScanner(true)}
+                        className="bg-slate-900 text-white w-12 rounded-xl flex items-center justify-center active:bg-slate-800"
+                        title="Scan Barcode"
+                      >
+                         <ScanBarcode size={22} />
+                      </button>
                    </div>
 
                    {/* Filter Chips */}
@@ -324,7 +421,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
                             ) : (
                                <>
                                  <Search size={48} className="mb-4 opacity-20" />
-                                 <div className="text-center font-medium">Type to search inventory</div>
+                                 <div className="text-center font-medium">Type to search or Scan</div>
                                </>
                             )}
                         </div>

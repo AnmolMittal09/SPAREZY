@@ -1,5 +1,7 @@
 {
   "name": "Sparezy",
   "description": "The Smart Inventory Management System. Efficiently track stock, sales, and purchases for auto parts businesses.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "camera"
+  ]
 }
