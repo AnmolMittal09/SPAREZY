@@ -225,7 +225,7 @@ const StockTable: React.FC<StockTableProps> = ({
         </>
       )}
 
-      {/* --- DESKTOP TABLE VIEW --- */}
+      {/* --- DESKTOP TABLE VIEW (Visible on md and up) --- */}
       <div className="hidden md:block flex-1 overflow-auto">
         <table className="w-full text-left text-sm border-collapse">
             <thead className="bg-slate-50 sticky top-0 z-10 shadow-sm">
@@ -236,7 +236,7 @@ const StockTable: React.FC<StockTableProps> = ({
                               type="checkbox" 
                               checked={isAllPageSelected}
                               onChange={toggleSelectAllPage} 
-                              className="rounded border-slate-300 text-primary-600 focus:ring-primary-500" 
+                              className="rounded border-slate-300 text-primary-600 focus:ring-primary-500 cursor-pointer" 
                             />
                         </th>
                     )}
@@ -273,7 +273,7 @@ const StockTable: React.FC<StockTableProps> = ({
                                             type="checkbox" 
                                             checked={isSelected} 
                                             onChange={() => toggleSelect(item.partNumber)}
-                                            className="rounded border-slate-300 text-primary-600 focus:ring-primary-500" 
+                                            className="rounded border-slate-300 text-primary-600 focus:ring-primary-500 cursor-pointer" 
                                         />
                                     </td>
                                 )}
@@ -310,10 +310,10 @@ const StockTable: React.FC<StockTableProps> = ({
         </table>
       </div>
 
-      {/* --- MOBILE CARD VIEW --- */}
-      <div className="md:hidden flex-1 overflow-y-auto bg-slate-50 p-2 space-y-3">
+      {/* --- MOBILE CARD VIEW (Visible below md) --- */}
+      <div className="md:hidden flex-1 overflow-y-auto bg-slate-50 p-3 space-y-3">
          {currentItems.length === 0 ? (
-             <div className="p-8 text-center text-slate-500 bg-white rounded-lg border border-slate-200">No parts found.</div>
+             <div className="p-8 text-center text-slate-500 bg-white rounded-lg border border-slate-200">No parts found matching filters.</div>
          ) : (
              currentItems.map((item) => {
                 const isLow = item.quantity > 0 && item.quantity <= item.minStockThreshold;
@@ -332,41 +332,42 @@ const StockTable: React.FC<StockTableProps> = ({
                                     onChange={() => toggleSelect(item.partNumber)}
                                     className="hidden" 
                                 />
-                                {isSelected ? <CheckSquare size={18} /> : <div className="w-[18px] h-[18px] rounded border border-slate-400"></div>}
+                                {isSelected ? <CheckSquare size={20} /> : <div className="w-5 h-5 rounded border border-slate-400 bg-white/50"></div>}
                              </label>
                           </div>
                       )}
 
-                      <div className="flex justify-between items-start mb-2 pr-8">
+                      <div className="flex justify-between items-start mb-2 pr-10">
                           <div>
-                              <div className="flex items-center gap-2">
-                                  <Link to={`/item/${encodeURIComponent(item.partNumber)}`} className="text-lg font-bold text-slate-900 hover:text-blue-600">
+                              <div className="flex items-center gap-2 mb-1">
+                                  <Link to={`/item/${encodeURIComponent(item.partNumber)}`} className="text-lg font-bold text-slate-900 hover:text-blue-600 break-all">
                                       {item.partNumber}
                                   </Link>
                                   <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${item.brand === Brand.HYUNDAI ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'}`}>
                                       {item.brand.substring(0, 1)}
                                   </span>
                               </div>
-                              <div className="text-sm text-slate-500 line-clamp-1">{item.name}</div>
+                              <div className="text-sm text-slate-500 line-clamp-2">{item.name}</div>
                           </div>
                       </div>
 
-                      <div className="flex items-end justify-between mt-3">
-                          <div className="flex items-center gap-3">
-                              <div className={`flex flex-col items-center px-3 py-1 rounded-lg ${isZero ? 'bg-red-50 text-red-700' : isLow ? 'bg-yellow-50 text-yellow-700' : 'bg-slate-100 text-slate-700'}`}>
-                                  <span className="text-[10px] font-bold uppercase">Stock</span>
-                                  <span className="text-lg font-bold leading-none">{item.quantity}</span>
+                      <div className="flex items-end justify-between mt-4">
+                          <div className="flex items-center gap-4">
+                              <div className={`flex flex-col items-center px-3 py-1.5 rounded-lg border ${isZero ? 'bg-red-50 border-red-100 text-red-700' : isLow ? 'bg-yellow-50 border-yellow-100 text-yellow-700' : 'bg-slate-50 border-slate-100 text-slate-700'}`}>
+                                  <span className="text-[10px] font-bold uppercase opacity-70">Stock</span>
+                                  <span className="text-xl font-bold leading-none">{item.quantity}</span>
                               </div>
                               <div className="flex flex-col">
                                   <span className="text-[10px] text-slate-400 font-bold uppercase">Price</span>
-                                  <span className="text-lg font-bold text-slate-900">₹{item.price}</span>
+                                  <span className="text-xl font-bold text-slate-900">₹{item.price.toLocaleString()}</span>
                               </div>
                           </div>
                           
                           {enableActions && (
                              <Link 
                                 to={`/item/${encodeURIComponent(item.partNumber)}`} 
-                                className="bg-slate-900 text-white p-2 rounded-lg shadow-sm active:bg-slate-800"
+                                className="bg-slate-900 text-white p-3 rounded-lg shadow-sm active:bg-slate-800 flex items-center justify-center"
+                                aria-label="View Details"
                              >
                                 <ChevronRight size={20} />
                              </Link>
@@ -376,8 +377,8 @@ const StockTable: React.FC<StockTableProps> = ({
                 );
              })
          )}
-         {/* Bottom Spacer for FAB */}
-         <div className="h-16"></div>
+         {/* Bottom Spacer for FAB and Navigation */}
+         <div className="h-24 md:h-0"></div>
       </div>
 
       {/* Pagination (Common) */}

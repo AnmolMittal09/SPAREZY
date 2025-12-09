@@ -147,9 +147,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
       </div>
 
       {/* Floating Action Button (Mobile Only) */}
+      {/* Positioned higher (bottom-28) to clear the bottom navigation bar and safe areas */}
       <button 
         onClick={() => navigate('/billing')}
-        className="md:hidden fixed bottom-20 right-4 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg shadow-blue-600/30 flex items-center justify-center z-40 active:scale-90 transition-transform"
+        className="md:hidden fixed bottom-28 right-5 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg shadow-blue-600/30 flex items-center justify-center z-[60] active:scale-90 transition-transform"
       >
          <Plus size={28} />
       </button>
