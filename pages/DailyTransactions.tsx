@@ -18,7 +18,8 @@ import {
   ArrowLeft,
   Truck,
   X,
-  CreditCard
+  CreditCard,
+  AlertCircle
 } from 'lucide-react';
 
 interface Props {
@@ -98,10 +99,13 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
   const handleCustomerType = (val: string) => {
     setCustomerName(val);
     if ((mode === 'SALES' || !mode) && val.length > 0 && savedCustomers.length > 0) {
-      const matches = savedCustomers.filter(c => 
-        (c.name && c.name.toLowerCase().includes(val.toLowerCase())) || 
-        (c.phone && c.phone.includes(val))
-      ).slice(0, 5);
+      const lowerVal = val.toLowerCase();
+      const matches = savedCustomers.filter(c => {
+        const nameMatch = c.name ? c.name.toLowerCase().includes(lowerVal) : false;
+        const phoneMatch = c.phone ? c.phone.includes(val) : false;
+        return nameMatch || phoneMatch;
+      }).slice(0, 5);
+      
       setCustomerSuggestions(matches);
       setShowCustomerList(true);
     } else {
@@ -176,7 +180,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
       
       // Mandatory Customer Name Check for Sales
       if (mode === 'SALES' && !customerName.trim()) {
-        alert("Customer Name is mandatory for sales.");
+        alert("Customer Name is mandatory for sales. Please select a customer or enter a name.");
         return;
       }
 
@@ -393,7 +397,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
                         <input 
                            type="text" 
                            className={`w-full px-4 py-3 border rounded-xl text-base outline-none focus:ring-2 focus:ring-primary-500 bg-white ${
-                             mode === 'SALES' && !customerName ? 'border-red-300' : 'border-slate-300'
+                             mode === 'SALES' && !customerName ? 'border-red-300 ring-1 ring-red-100' : 'border-slate-300'
                            }`}
                            placeholder={mode === 'PURCHASE' ? "Enter Supplier" : "Enter Customer Name"}
                            value={customerName}
@@ -404,9 +408,9 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
                         />
                         {/* Validation Indicator */}
                         {mode === 'SALES' && !customerName && (
-                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-red-400 text-xs font-bold pointer-events-none">
-                             Required
-                          </span>
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 pointer-events-none">
+                             <AlertCircle size={16} className="text-red-400" />
+                          </div>
                         )}
                     </div>
                     
@@ -421,7 +425,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
                                className="w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-slate-50 last:border-0 flex justify-between items-center"
                             >
                                <span className="font-bold text-slate-800 text-sm">{c.name}</span>
-                               <span className="text-xs text-slate-500">{c.phone}</span>
+                               <span className="text-xs text-slate-500">{c.phone || ''}</span>
                             </button>
                          ))}
                       </div>
@@ -474,7 +478,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
                 <label className="text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-1">
                     {mode === 'PURCHASE' ? "Supplier" : "Customer"} Details
                 </label>
-                <div className="flex items-center gap-3 bg-slate-50 p-2.5 rounded-xl border border-slate-200 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent transition-all">
+                <div className={`flex items-center gap-3 bg-slate-50 p-2.5 rounded-xl border focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent transition-all ${mode === 'SALES' && !customerName ? 'border-red-300 ring-1 ring-red-100' : 'border-slate-200'}`}>
                     {mode === 'PURCHASE' ? (
                        <Truck size={20} className="text-blue-500" />
                     ) : (
@@ -505,7 +509,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
                                className="w-full text-left px-4 py-3.5 hover:bg-blue-50 border-b border-slate-50 last:border-0 flex justify-between items-center active:bg-blue-50"
                             >
                                <span className="font-bold text-slate-800 text-sm">{c.name}</span>
-                               <span className="text-xs text-slate-500 font-medium">{c.phone}</span>
+                               <span className="text-xs text-slate-500 font-medium">{c.phone || ''}</span>
                             </button>
                          ))}
                     </div>

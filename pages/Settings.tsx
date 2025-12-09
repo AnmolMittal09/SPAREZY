@@ -1,7 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import { ShopSettings, User } from '../types';
 import UserManagement from './UserManagement';
+import CustomerManager from '../components/CustomerManager';
+import SupplierManager from '../components/SupplierManager';
 import { getShopSettings, saveShopSettings } from '../services/masterService';
 import { Users, Building2, Truck, Contact, Layers, Save, Loader2 } from 'lucide-react';
 import TharLoader from '../components/TharLoader';
@@ -78,6 +79,10 @@ const Settings: React.FC<Props> = ({ user }) => {
 
        <div className="min-h-[500px]">
           {activeTab === 'TEAM' && <UserManagement />}
+          
+          {activeTab === 'CUSTOMERS' && <CustomerManager />}
+
+          {activeTab === 'SUPPLIERS' && <SupplierManager />}
           
           {activeTab === 'SHOP' && (
              <div className="max-w-3xl mx-auto">
@@ -162,11 +167,10 @@ const Settings: React.FC<Props> = ({ user }) => {
              </div>
           )}
 
-          {activeTab !== 'TEAM' && activeTab !== 'SHOP' && (
+          {activeTab === 'BRANDS' && (
              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center text-slate-400">
-                <p className="text-lg font-medium text-slate-600 mb-2">Master Data Module</p>
-                <p>The {activeTab.toLowerCase().replace('_', ' ')} management interface is implemented in the mock service layer.</p>
-                <p className="text-sm mt-2">Connecting UI forms to `masterService.ts` is the next step.</p>
+                <p className="text-lg font-medium text-slate-600 mb-2">Brands & Models</p>
+                <p>Advanced vehicle model mapping is coming soon.</p>
              </div>
           )}
        </div>
