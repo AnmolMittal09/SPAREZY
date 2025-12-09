@@ -1,4 +1,3 @@
-
 import { supabase } from './supabase';
 import { Invoice, Role, Transaction, TransactionStatus, TransactionType } from '../types';
 
@@ -243,6 +242,7 @@ export const fetchAnalytics = async (startDate: Date, endDate: Date): Promise<An
 export const fetchUninvoicedSales = async (): Promise<Transaction[]> => {
   if (!supabase) return [];
 
+  // 1. Fetch Sales
   const { data, error } = await supabase
     .from('transactions')
     .select('*')
@@ -255,7 +255,34 @@ export const fetchUninvoicedSales = async (): Promise<Transaction[]> => {
     console.error("Fetch uninvoiced sales error:", error);
     return [];
   }
-  return data ? data.map(mapDBToTransaction) : [];
+  
+  if (!data || data.length === 0) return [];
+
+  // 2. Filter out items that have been fully returned
+  const saleIds = data.map(s => s.id);
+  
+  const { data: returns } = await supabase
+      .from('transactions')
+      .select('related_transaction_id, quantity')
+      .eq('type', 'RETURN')
+      .eq('status', 'APPROVED')
+      .in('related_transaction_id', saleIds);
+
+  const returnMap = new Map<string, number>();
+  if (returns) {
+      returns.forEach((r: any) => {
+          const current = returnMap.get(r.related_transaction_id) || 0;
+          returnMap.set(r.related_transaction_id, current + r.quantity);
+      });
+  }
+
+  // Filter: Keep only sales where quantity > returned quantity
+  const validData = data.filter((s: any) => {
+      const returned = returnMap.get(s.id) || 0;
+      return s.quantity > returned;
+  });
+
+  return validData.map(mapDBToTransaction);
 };
 
 export const fetchInvoices = async (): Promise<Invoice[]> => {
