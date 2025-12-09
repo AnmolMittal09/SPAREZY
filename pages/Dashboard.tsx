@@ -1,19 +1,15 @@
 
 import React, { useEffect, useState } from 'react';
 import { User, Brand, Role, StockItem } from '../types';
-import { fetchInventory, getStats } from '../services/inventoryService';
+import { fetchInventory } from '../services/inventoryService';
 import StockTable from '../components/StockTable';
-import StatCard from '../components/StatCard';
 import { 
   Search, 
   Plus, 
   Truck, 
   PackagePlus,
   X,
-  Layers,
-  Package,
-  AlertTriangle,
-  AlertCircle
+  Layers
 } from 'lucide-react';
 // @ts-ignore
 import { Link, useNavigate } from 'react-router-dom';
@@ -40,8 +36,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
     };
     loadData();
   }, []);
-
-  const stats = getStats(inventory);
 
   if (loading) return <TharLoader />;
 
@@ -138,31 +132,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                 </button>
              </div>
          </div>
-      </div>
-
-      {/* Quick Stats Grid (Mobile 2 cols, Desktop 4 cols) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-        <StatCard 
-            title="Total Parts" 
-            value={stats.totalItems} 
-            icon={Package} 
-        />
-        <StatCard 
-            title="Low Stock" 
-            value={stats.lowStockCount} 
-            icon={AlertTriangle} 
-            colorClass={stats.lowStockCount > 0 ? "bg-yellow-50 border-l-4 border-yellow-400" : "bg-white"}
-        />
-        <StatCard 
-            title="Out of Stock" 
-            value={stats.zeroStockCount} 
-            icon={AlertCircle} 
-            colorClass={stats.zeroStockCount > 0 ? "bg-red-50 border-l-4 border-red-500" : "bg-white"}
-        />
-        <div className="bg-blue-50 rounded-xl p-4 flex flex-col justify-center items-center text-center border border-blue-100 shadow-sm cursor-pointer hover:bg-blue-100" onClick={() => navigate('/reports')}>
-            <span className="text-blue-600 text-xs font-bold uppercase mb-1">Stock Value</span>
-            <span className="text-lg font-bold text-blue-900">₹{(stats.totalValue / 100000).toFixed(2)}L</span>
-        </div>
       </div>
 
       <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col min-h-0">
