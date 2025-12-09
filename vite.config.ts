@@ -14,9 +14,9 @@ export default defineConfig(({ mode }) => {
         },
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
         manifest: {
-          name: 'Sparezy - Stock Management',
+          name: 'Sparezy - Smart Inventory',
           short_name: 'Sparezy',
-          description: 'A modern stock management web app for car spare parts (Hyundai & Mahindra).',
+          description: 'The Smart Inventory Management System for auto parts businesses.',
           theme_color: '#ffffff',
           background_color: '#ffffff',
           display: 'standalone',

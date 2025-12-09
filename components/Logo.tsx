@@ -6,136 +6,75 @@ interface LogoProps {
 }
 
 const Logo: React.FC<LogoProps> = ({ className = "h-16 w-auto", variant = 'default' }) => {
-  // Brand Colors
-  const HYUNDAI_BLUE = "#002c5f";
-  const MAHINDRA_RED = "#d9232d"; // Slightly brighter for logo
+  // SaaS Brand Colors (Teal & Deep Slate)
+  const PRIMARY_COLOR = "#0d9488"; // Teal 600
+  const SECONDARY_COLOR = "#334155"; // Slate 700
   
   // Text Colors based on variant
-  const titleColor = variant === 'white' ? '#ffffff' : '#002c5f';
-  const subtitleColor = variant === 'white' ? '#d1d5db' : '#374151';
+  const titleColor = variant === 'white' ? '#ffffff' : '#0f172a'; // Slate 900
+  const subtitleColor = variant === 'white' ? '#cbd5e1' : '#64748b'; // Slate 500
+  const iconPrimary = variant === 'white' ? '#2dd4bf' : PRIMARY_COLOR; // Teal 400 vs 600
+  const iconSecondary = variant === 'white' ? '#94a3b8' : SECONDARY_COLOR;
 
   return (
     <svg 
       xmlns="http://www.w3.org/2000/svg" 
-      viewBox="0 0 300 200" 
+      viewBox="0 0 300 80" 
       className={className} 
       role="img" 
       aria-label="Sparezy Logo"
     >
-      {/* --- ICON GRAPHIC (Top) --- */}
-      {/* Shifted down to y=90 to provide ample top padding */}
-      <g transform="translate(150, 90)">
-        {/* Gear Outline (Half Circle) */}
+      {/* --- LOGO ICON (Left Aligned) --- */}
+      <g transform="translate(40, 40)">
+        {/* Abstract Hexagon/Box 'S' Shape */}
         <path 
-          d="M-55,10 A60,60 0 1,1 55,10" 
+          d="M-20,-10 L-10,-25 L15,-25 L25,-10 L15,5 L-10,5 Z" 
           fill="none" 
-          stroke={HYUNDAI_BLUE} 
-          strokeWidth="8" 
+          stroke={iconPrimary} 
+          strokeWidth="6" 
           strokeLinecap="round"
-        />
-        {/* Gear Teeth */}
-        <g fill={HYUNDAI_BLUE}>
-             {[...Array(7)].map((_, i) => (
-                <rect 
-                    key={i} 
-                    x="-6" 
-                    y="-68" 
-                    width="12" 
-                    height="12" 
-                    rx="2"
-                    transform={`rotate(${(i - 3) * 25})`} 
-                />
-             ))}
-        </g>
-
-        {/* Inner Parts (Piston & Spark Plug) */}
-        <g transform="scale(0.8) translate(0, -10)">
-            {/* Piston (Left) */}
-            <path 
-                d="M-25,-20 L-25,20 L-10,20 L-10,-20 Z" 
-                fill="none" 
-                stroke={titleColor} 
-                strokeWidth="3"
-                transform="rotate(-20)"
-            />
-            <circle cx="-17" cy="-25" r="8" fill="none" stroke={titleColor} strokeWidth="3" transform="rotate(-20)" />
-            
-            {/* Shock/Spring (Center) */}
-            <path 
-                d="M-5,-15 Q5,-15 5,-10 Q-5,-5 -5,0 Q5,5 5,10 Q-5,15 -5,20" 
-                fill="none" 
-                stroke={MAHINDRA_RED} 
-                strokeWidth="3"
-            />
-            
-            {/* Brake Disc (Right) */}
-            <path 
-                d="M20,0 A15,15 0 1,1 20,-1 A15,15 0 0,1 20,0" 
-                fill="none" 
-                stroke={titleColor} 
-                strokeWidth="3"
-                transform="rotate(20)"
-            />
-        </g>
-
-        {/* Swooshes (Underneath Graphic) */}
-        <path 
-           d="M-70,25 Q0,5 70,25" 
-           fill="none" 
-           stroke={HYUNDAI_BLUE} 
-           strokeWidth="4" 
-           strokeLinecap="round"
+          strokeLinejoin="round"
         />
         <path 
-           d="M-60,32 Q0,12 60,32" 
-           fill="none" 
-           stroke={MAHINDRA_RED} 
-           strokeWidth="4" 
-           strokeLinecap="round"
+          d="M20,10 L10,25 L-15,25 L-25,10 L-15,-5 L10,-5 Z" 
+          fill="none" 
+          stroke={iconSecondary} 
+          strokeWidth="6" 
+          strokeLinecap="round"
+          strokeLinejoin="round"
         />
+        
+        {/* Center Connecting Dot */}
+        <circle cx="0" cy="0" r="4" fill={iconPrimary} />
       </g>
 
-      {/* --- TEXT (Bottom) --- */}
-      {/* Shifted down relative to graphic */}
-      <text 
-        x="150" 
-        y="155" 
-        textAnchor="middle" 
-        fill={titleColor} 
-        fontFamily="sans-serif" 
-        fontWeight="900" 
-        fontSize="42"
-        letterSpacing="1"
-      >
-        SPAREZY
-      </text>
-      
-      <g transform="translate(150, 175)">
-        <line x1="-90" y1="-5" x2="-80" y2="-5" stroke={subtitleColor} strokeWidth="1" />
+      {/* --- TEXT (Right Aligned) --- */}
+      <g transform="translate(80, 0)">
         <text 
-            x="0" 
-            y="0" 
-            textAnchor="middle" 
+          x="0" 
+          y="48" 
+          textAnchor="start" 
+          fill={titleColor} 
+          fontFamily="sans-serif" 
+          fontWeight="800" 
+          fontSize="42"
+          letterSpacing="-1"
+        >
+          Sparezy
+        </text>
+        
+        <text 
+            x="2" 
+            y="68" 
+            textAnchor="start" 
             fill={subtitleColor} 
             fontFamily="sans-serif" 
             fontWeight="600" 
-            fontSize="10" 
-            letterSpacing="1"
+            fontSize="9" 
+            letterSpacing="2.5"
+            className="uppercase"
         >
-            MAHINDRA &amp; HYUNDAI
-        </text>
-        <line x1="80" y1="-5" x2="90" y2="-5" stroke={subtitleColor} strokeWidth="1" />
-        <text 
-            x="0" 
-            y="12" 
-            textAnchor="middle" 
-            fill={subtitleColor} 
-            fontFamily="sans-serif" 
-            fontWeight="500" 
-            fontSize="8" 
-            letterSpacing="2"
-        >
-            GENUINE SPARE PARTS
+            Smart Inventory System
         </text>
       </g>
     </svg>

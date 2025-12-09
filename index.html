@@ -1,31 +1,34 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="theme-color" content="#ffffff" />
-    <title>Sparezy - Stock Management</title>
-    <!-- Favicon using Base64 encoded SVG Data URI for reliability -->
-    <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMDAgMjAwIiByb2xlPSJpbWciIGFyaWEtbGFiZWw9IlNwYXJZX3kgTG9nbyI+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTUwLCA5MCkiPjxwYXRoIGQ9Ik0tNTUsMTAgQTYwLDYwIDAgMSwxIDU1LDEwIiBmaWxsPSJub25lIiBzdHJva2U9IiMwMDJjNWYiIHN0cm9rZS13aWR0aD0iOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PGcgZmlsbD0iIzAwMmM1ZiI+PHJlY3QgeD0iLTYiIHk9Ii02OCIgd2lkdGg9IjEyIiBoZWlnaHQ9IjEyIiByeD0iMiIgdHJhbnNmb3JtPSJyb3RhdGUoLTc1KSIvPjxyZWN0IHg9Ii02IiB5PSItNjgiIHdpZHRoPSIxMiIgaGVpZ2h0PSIxMiIgcng9IjIiIHRyYW5zZm9ybT0icm90YXRlKC01MCkiLz48cmVjdCB4PSItNiIgeT0iLTY4IiB3aWR0aD0iMTIiIGhlaWdodD0iMTIiIHJ4PSIyIiB0cmFuc2Zvcm09InJvdGF0ZSgtMjUpIi8+PHJlY3QgeD0iLTYiIHk9Ii02OCIgd2lkdGg9IjEyIiBoZWlnaHQ9IjEyIiByeD0iMiIgdHJhbnNmb3JtPSJyb3RhdGUoMCkiLz48cmVjdCB4PSItNiIgeT0iLTY4IiB3aWR0aD0iMTIiIGhlaWdodD0iMTIiIHJ4PSIyIiB0cmFuc2Zvcm09InJvdGF0ZSgyNSkiLz48cmVjdCB4PSItNiIgeT0iLTY4IiB3aWR0aD0iMTIiIGhlaWdodD0iMTIiIHJ4PSIyIiB0cmFuc2Zvcm09InJvdGF0ZSg1MCkiLz48cmVjdCB4PSItNiIgeT0iLTY4IiB3aWR0aD0iMTIiIGhlaWdodD0iMTIiIHJ4PSIyIiB0cmFuc2Zvcm09InJvdGF0ZSg3NSkiLz48L2c+PGcgdHJhbnNmb3JtPSJzY2FsZSgwLjgpIHRyYW5zbGF0ZSgwLCAtMTApIj48cGF0aCBkPSJNLTI1LC0yMCBMLTI1LDIwIEwtMTAsMjAgTC0xMCwtMjAgWiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMDAyYzVmIiBzdHJva2Utd2lkdGg9IjMiIHRyYW5zZm9ybT0icm90YXRlKC0yMCkiLz48Y2lyY2xlIGN4PSItMTciIGN5PSItMjUiIHI9IjgiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzAwMmM1ZiIgc3Ryb2tlLXdpZHRoPSIzIiB0cmFuc2Zvcm09InJvdGF0ZSgtMjApIi8+PHBhdGggZD0iTS01LC0xNSBRNSwtMTUgNSwtMTAgUS01LC01IC01LDAgUTUsNSA1LDEwIFEtNSwxNSAtNSwyMCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZDkyMzJkIiBzdHJva2Utd2lkdGg9IjMiLz48cGF0aCBkPSJNMjAsMCBBMTUsMTUgMCAxLDEgMjAsLTEgQTE1LDE1IDAgMCwxIDIwLDAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzAwMmM1ZiIgc3Ryb2tlLXdpZHRoPSIzIiB0cmFuc2Zvcm09InJvdGF0ZSgyMCkiLz48L2c+PHBhdGggZD0iTS03MCwyNSBRMCw1IDcwLDI1IiBmaWxsPSJub25lIiBzdHJva2U9IiMwMDJjNWYiIHN0cm9rZS13aWR0aD0iNCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PHBhdGggZD0iTS02MCwzMiBRMCwxMiA2MCwzMiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZDkyMzJkIiBzdHJva2Utd2lkdGg9IjQiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjwvZz48dGV4dCB4PSIxNTAiIHk9IjE1NSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzAwMmM1ZiIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtd2VpZ2h0PSI5MDAiIGZvbnQtc2l6ZT0iNDIiIGxldHRlci1zcGFjaW5nPSIxIj5TUEFSRVpZPC90ZXh0PjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE1MCwgMTc1KSI+PGxpbmUgeDE9Ii05MCIgeTE9Ii01IiB4Mj0iLTgwIiB5Mj0iLTUiIHN0cm9rZT0iIzM3NDE1MSIgc3Ryb2tlLXdpZHRoPSIxIi8+PHRleHQgeD0iMCIgeT0iMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzM3NDE1MSIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtd2VpZ2h0PSI2MDAiIGZvbnQtc2l6ZT0iMTAiIGxldHRlci1zcGFjaW5nPSIxIj5NQUhJTkRSQSAmYW1wOyBIWVVuREFJPC90ZXh0PjxsaW5lIHgxPSI4MCIgeTE9Ii01IiB4Mj0iOTAiIHkyPSItNSIgc3Ryb2tlPSIjMzc0MTUxIiBzdHJva2Utd2lkdGg9IjEiLz48dGV4dCB4PSIwIiB5PSIxMiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzM3NDE1MSIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtd2VpZ2h0PSI1MDAiIGZvbnQtc2l6ZT0iOCIgbGV0dGVyLXNwYWNpbmc9IjIiPkdFTlVJTkUgU1BBUkUgUEFSVFM8L3RleHQ+PC9nPjwvc3ZnPg==" />
+    <title>Sparezy - Smart Inventory System</title>
+    <!-- Favicon: Modern Abstract Box Icon (Teal) -->
+    <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA4MCA4MCI+PGcgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMGQ5NDg4IiBzdHJva2Utd2lkdGg9IjgiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTIwLDMwIEwzMCwxNSBMNTUsMTUgTjY1LDMwIEw1NSw0NSBMMzAsNDUgWiIvPjxwYXRoIGQ9Ik02MCw1MCBMNTAsNjUgTDI1LDY1IEwxNSw1MCBMMjUsMzUgTDUwLDM1IFoiIHN0cm9rZT0iIzMzNDE1NSIvPjwvZz48L3N2Zz4=" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
         theme: {
           extend: {
             colors: {
-              hyundai: '#002c5f',
-              mahindra: '#e31837',
+              // Legacy brand keys kept for compatibility with existing logic
+              hyundai: '#334155', // Muted Slate (Neutral)
+              mahindra: '#475569', // Muted Slate (Neutral)
+              
+              // New SaaS Palette
               slate: {
                 850: '#1e293b',
+                950: '#020617',
               },
               primary: {
-                50: '#eff6ff',
-                100: '#dbeafe',
-                500: '#3b82f6',
-                600: '#2563eb',
-                700: '#1d4ed8',
-                900: '#1e3a8a',
+                50: '#f0fdfa',
+                100: '#ccfbf1',
+                500: '#14b8a6',
+                600: '#0d9488', // Teal
+                700: '#0f766e',
+                900: '#134e4a',
               }
             },
             padding: {
