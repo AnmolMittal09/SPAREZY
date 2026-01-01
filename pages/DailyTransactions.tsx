@@ -16,7 +16,11 @@ import {
   PackagePlus,
   ArrowLeft,
   X,
-  AlertCircle
+  AlertCircle,
+  Zap,
+  ShoppingBag,
+  // Added missing ArrowRight import
+  ArrowRight
 } from 'lucide-react';
 
 interface Props {
@@ -37,80 +41,51 @@ interface CartItem {
 
 const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
   const [mode, setMode] = useState<'SALES' | 'PURCHASE' | 'RETURN'>(forcedMode || 'SALES');
-  
   const [inventory, setInventory] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [search, setSearch] = useState('');
   const [suggestions, setSuggestions] = useState<StockItem[]>([]);
   const [customerName, setCustomerName] = useState('');
-  
-  // Customer Suggestions State
   const [savedCustomers, setSavedCustomers] = useState<Customer[]>([]);
   const [customerSuggestions, setCustomerSuggestions] = useState<Customer[]>([]);
   const [showCustomerList, setShowCustomerList] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  
-  // Mobile UI States
   const [showMobileSearch, setShowMobileSearch] = useState(false);
   
   useEffect(() => {
     fetchInventory().then(setInventory);
-    
-    if (forcedMode === 'SALES' || !forcedMode) {
-      getCustomers().then(data => {
-         if (Array.isArray(data)) {
-            setSavedCustomers(data);
-         }
-      });
+    if (mode === 'SALES') {
+      getCustomers().then(data => Array.isArray(data) && setSavedCustomers(data));
     }
-    
-    function handleClickOutside(event: MouseEvent) {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
-        setShowCustomerList(false);
-      }
-    }
+    const handleClickOutside = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) setShowCustomerList(false);
+    };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [forcedMode]);
+  }, [mode]);
 
-  useEffect(() => {
-    if (forcedMode) setMode(forcedMode);
-  }, [forcedMode]);
+  useEffect(() => { if (forcedMode) setMode(forcedMode); }, [forcedMode]);
 
   const handleSearch = (val: string) => {
     setSearch(val);
     if (val.length > 1) {
-       const matches = inventory.filter(i => 
+       setSuggestions(inventory.filter(i => 
          i.partNumber.toLowerCase().includes(val.toLowerCase()) || 
          i.name.toLowerCase().includes(val.toLowerCase())
-       ).slice(0, 30); 
-       setSuggestions(matches);
-    } else {
-       setSuggestions([]);
-    }
+       ).slice(0, 30));
+    } else setSuggestions([]);
   };
 
   const handleCustomerType = (val: string) => {
     setCustomerName(val);
-    if ((mode === 'SALES' || !mode) && val.length > 0 && savedCustomers.length > 0) {
+    if (mode === 'SALES' && val.length > 0) {
       const lowerVal = val.toLowerCase();
-      const matches = savedCustomers.filter(c => {
-        const nameMatch = c.name ? c.name.toLowerCase().includes(lowerVal) : false;
-        const phoneMatch = c.phone ? c.phone.includes(val) : false;
-        return nameMatch || phoneMatch;
-      }).slice(0, 5);
-      
-      setCustomerSuggestions(matches);
+      setCustomerSuggestions(savedCustomers.filter(c => 
+        (c.name?.toLowerCase().includes(lowerVal)) || (c.phone?.includes(val))
+      ).slice(0, 5));
       setShowCustomerList(true);
-    } else {
-      setShowCustomerList(false);
-    }
-  };
-
-  const selectCustomer = (customer: Customer) => {
-    setCustomerName(customer.name);
-    setShowCustomerList(false);
+    } else setShowCustomerList(false);
   };
 
   const addToCart = (item: StockItem) => {
@@ -122,11 +97,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
           setShowMobileSearch(false);
           return;
       }
-      
-      if (mode === 'SALES' && item.quantity === 0) {
-          alert("Item is out of stock!");
-          return;
-      }
+      if (mode === 'SALES' && item.quantity === 0) return alert("Item out of stock!");
 
       const newItem: CartItem = {
           tempId: Math.random().toString(36),
@@ -149,16 +120,9 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
           if (item.tempId === id) {
               let newQty = item.quantity + delta;
               if (newQty < 1) newQty = 1;
-
               if (mode === 'SALES') {
                   const stockItem = inventory.find(i => i.partNumber === item.partNumber);
-                  const maxStock = stockItem ? stockItem.quantity : 0;
-                  
-                  if (newQty > maxStock) {
-                      newQty = maxStock;
-                  }
-                  
-                  return { ...item, quantity: newQty, stockError: false };
+                  if (stockItem && newQty > stockItem.quantity) newQty = stockItem.quantity;
               }
               return { ...item, quantity: newQty };
           }
@@ -166,25 +130,18 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
       }));
   };
 
+  // Added removeItem function to handle item removal from cart
   const removeItem = (id: string) => {
-      setCart(prev => prev.filter(i => i.tempId !== id));
+    setCart(prev => prev.filter(item => item.tempId !== id));
   };
 
   const handleSubmit = async () => {
       if (cart.length === 0) return;
-      
-      if (mode === 'SALES' && !customerName.trim()) {
-        alert("Customer Name is mandatory for sales.");
-        return;
-      }
+      if (mode === 'SALES' && !customerName.trim()) return alert("Customer Name is required.");
 
-      if (mode === 'SALES' && cart.some(i => i.stockError)) {
-          alert("Fix stock errors.");
-          return;
-      }
       const payload = cart.map(c => ({
           ...c,
-          customerName: customerName || (mode === 'PURCHASE' ? 'Unknown Supplier' : 'Walk-in'),
+          customerName: customerName || (mode === 'PURCHASE' ? 'Bulk Supplier' : 'Walk-in'),
           createdByRole: user.role
       }));
       setLoading(true);
@@ -192,133 +149,66 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
       setLoading(false);
       
       if (res.success) {
-          if (user.role === Role.MANAGER) {
-            alert("Requests successfully submitted to Admin for approval.");
-          } else {
-            alert(`Transaction successful.`);
-          }
-
+          alert(user.role === Role.MANAGER ? "Sent for approval." : "Transaction successful.");
           setCart([]);
           setCustomerName('');
           fetchInventory().then(setInventory);
-      } else {
-          alert("Error: " + res.message);
-      }
+      } else alert("Error: " + res.message);
   };
 
   const totalAmount = cart.reduce((sum, item) => sum + (item.quantity * item.price), 0);
-  
-  const getButtonText = () => {
-     if (user.role === Role.MANAGER) return 'Submit';
-     if (mode === 'RETURN') return 'Refund';
-     if (mode === 'PURCHASE') return 'Save Purchase';
-     return 'Checkout';
-  };
-
-  const getThemeColor = () => {
-      if (mode === 'RETURN') return 'text-red-900 border-red-200 bg-red-50';
-      if (mode === 'PURCHASE') return 'text-blue-900 border-blue-200 bg-blue-50';
-      return 'text-slate-800 border-slate-200 bg-white';
-  };
-
-  const getAccentColor = () => {
-    if (mode === 'RETURN') return 'bg-red-600';
-    if (mode === 'PURCHASE') return 'bg-blue-800';
-    return 'bg-slate-900';
-  };
+  const accentColor = mode === 'RETURN' ? 'bg-rose-600' : mode === 'PURCHASE' ? 'bg-slate-900' : 'bg-brand-600';
 
   return (
-    <div className="flex-1 h-full min-h-0 relative flex flex-col bg-slate-50 md:bg-transparent">
+    <div className="flex-1 h-full flex flex-col animate-fade-in relative">
        
-       {/* --- MOBILE: FULL SCREEN SEARCH MODAL (POS ITEM PICKER) --- */}
+       {/* MOBILE SEARCH MODAL */}
        {showMobileSearch && (
-         <div className="fixed inset-0 z-[100] bg-white flex flex-col animate-in slide-in-from-bottom-5 duration-200">
-            
-            {/* 1. Top App Bar (Fixed) */}
-            <div className="flex-none h-14 flex items-center px-2 gap-3 border-b border-slate-100 bg-white z-30 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
-               <button onClick={() => setShowMobileSearch(false)} className="p-2 rounded-full hover:bg-slate-50 text-slate-600">
+         <div className="fixed inset-0 z-[100] bg-white flex flex-col animate-slide-up">
+            <div className="flex-none h-20 flex items-center px-6 gap-4 border-b border-slate-50">
+               <button onClick={() => setShowMobileSearch(false)} className="p-2.5 bg-slate-50 rounded-2xl text-slate-600">
                   <ArrowLeft size={24} />
                </button>
-               <h3 className="font-bold text-lg text-slate-900 flex-1 leading-none pt-0.5">
-                  Add Item
-               </h3>
-               {search && (
-                  <button onClick={() => {setSearch(''); setSuggestions([]);}} className="p-2 text-slate-400">
-                     <X size={20} />
-                  </button>
-               )}
+               <h3 className="font-black text-xl text-slate-900 tracking-tight">Select Part</h3>
             </div>
-
-            {/* 2. Scrollable Container */}
-            <div className="flex-1 overflow-y-auto bg-slate-50 relative">
-               
-               {/* Sticky Header Group (Search + Chips) */}
-               <div className="sticky top-0 z-20 bg-white shadow-sm border-b border-slate-100">
-                   
-                   {/* Search Bar */}
-                   <div className="px-3 pb-2 pt-3 flex gap-2">
-                      <div className="relative bg-slate-100 rounded-xl flex items-center overflow-hidden border border-slate-200 flex-1">
-                         <div className="pl-3 text-slate-400">
-                            <Search size={18} />
-                         </div>
-                         <input 
-                            autoFocus
-                            type="text" 
-                            placeholder="Search Part No / Name..."
-                            className="w-full bg-transparent p-3 pl-2 text-base font-medium text-slate-900 placeholder:text-slate-400 outline-none"
-                            value={search}
-                            onChange={e => handleSearch(e.target.value)}
-                         />
-                      </div>
-                   </div>
-
-                   {/* Filter Chips */}
-                   <div className="px-3 pb-3 flex gap-2 overflow-x-auto no-scrollbar">
-                      <button className="px-4 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-full whitespace-nowrap shadow-sm">All Parts</button>
-                      <button className="px-4 py-1.5 bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded-full whitespace-nowrap">Hyundai</button>
-                      <button className="px-4 py-1.5 bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded-full whitespace-nowrap">Mahindra</button>
+            <div className="flex-1 overflow-y-auto bg-slate-50 p-6 no-scrollbar">
+               <div className="sticky top-0 z-20 bg-slate-50/80 backdrop-blur-md pb-6">
+                   <div className="relative">
+                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
+                      <input 
+                         autoFocus
+                         type="text" 
+                         className="w-full bg-white p-4 pl-12 rounded-3xl border border-slate-200 text-lg font-bold shadow-soft outline-none focus:ring-2 focus:ring-brand-500/10"
+                         placeholder="Start typing Part No..."
+                         value={search}
+                         onChange={e => handleSearch(e.target.value)}
+                      />
                    </div>
                </div>
-               
-               {/* 3. List Content */}
-               <div className="p-3 space-y-2 pb-32">
+               <div className="space-y-3">
                     {suggestions.map(item => (
-                        <div 
+                        <button 
                           key={item.id}
-                          className="w-full flex items-center justify-between bg-white p-4 rounded-xl border border-slate-100 shadow-sm active:scale-[0.99] transition-transform"
+                          onClick={() => addToCart(item)}
+                          className="w-full flex items-center justify-between bg-white p-5 rounded-[2rem] border border-slate-100 shadow-soft active:scale-95 transition-all text-left"
                         >
-                            <div className="flex-1 min-w-0 pr-3">
-                                <div className="font-bold text-base text-slate-900 tracking-tight">{item.partNumber}</div>
-                                <div className="text-xs text-slate-500 line-clamp-1 mt-0.5">{item.name}</div>
-                                <div className={`text-[10px] mt-1.5 inline-block px-2 py-0.5 rounded font-bold uppercase tracking-wider ${item.quantity > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                                    Stock: {item.quantity}
+                            <div className="flex-1 min-w-0 pr-4">
+                                <div className="font-black text-[17px] text-slate-900 leading-tight">{item.partNumber}</div>
+                                <div className="text-[13px] text-slate-400 font-medium truncate mt-1">{item.name}</div>
+                                <div className={`text-[10px] mt-2 inline-block px-2 py-0.5 rounded font-black uppercase tracking-widest ${item.quantity > 0 ? 'bg-teal-50 text-teal-700' : 'bg-rose-50 text-rose-700'}`}>
+                                    In Stock: {item.quantity}
                                 </div>
                             </div>
-                            <div className="flex flex-col items-end gap-2">
-                                 <div className="font-bold text-slate-900 text-lg">₹{item.price}</div>
-                                 <button 
-                                   onClick={() => addToCart(item)}
-                                   className="bg-blue-600 active:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-sm"
-                                 >
-                                    ADD +
-                                 </button>
+                            <div className="text-right">
+                                 <div className="font-black text-slate-900 text-lg mb-2">₹{item.price.toLocaleString()}</div>
+                                 <div className="bg-brand-600 text-white text-[11px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest">Select</div>
                             </div>
-                        </div>
+                        </button>
                     ))}
-                    
                     {suggestions.length === 0 && (
-                        <div className="flex flex-col items-center justify-center pt-24 text-slate-400">
-                            {search.length > 1 ? (
-                               <>
-                                 <PackagePlus size={48} className="mb-4 opacity-20" />
-                                 <div className="text-center font-medium">No items found</div>
-                               </>
-                            ) : (
-                               <>
-                                 <Search size={48} className="mb-4 opacity-20" />
-                                 <div className="text-center font-medium">Type to search inventory</div>
-                               </>
-                            )}
+                        <div className="flex flex-col items-center justify-center pt-20 text-slate-300">
+                            <Search size={64} className="mb-4 opacity-20" />
+                            <p className="font-bold text-slate-400 uppercase tracking-widest text-xs">Type part number or description</p>
                         </div>
                     )}
                </div>
@@ -326,272 +216,223 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
          </div>
        )}
 
-       {/* --- DESKTOP LAYOUT (Grid) --- */}
-       <div className="hidden lg:grid grid-cols-3 gap-6 h-full">
-           {/* Left: Search & Suggestions */}
-           <div className="col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
-               <div className={`p-4 border-b flex items-center gap-2 ${getThemeColor()}`}>
-                   <div className="relative flex-1">
-                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+       {/* DESKTOP LAYOUT */}
+       <div className="hidden lg:grid grid-cols-12 gap-8 h-full">
+           <div className="col-span-8 bg-white rounded-[2.5rem] shadow-premium border border-slate-50 flex flex-col overflow-hidden">
+               <div className="p-8 border-b border-slate-50 bg-slate-50/50">
+                   <div className="relative">
+                       <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={22} />
                        <input 
                          type="text" 
-                         placeholder={mode === 'RETURN' ? "Search item to return..." : "Search item..."}
-                         className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 shadow-sm text-lg bg-white"
+                         className="w-full pl-14 pr-4 py-5 bg-white border border-slate-100 rounded-[2rem] text-xl font-bold placeholder:text-slate-300 focus:ring-2 focus:ring-brand-500/10 shadow-inner outline-none transition-all"
+                         placeholder="Enter Part Number to Add..."
                          value={search}
                          onChange={e => handleSearch(e.target.value)}
                          autoFocus
                        />
                    </div>
                </div>
-               <div className="flex-1 overflow-y-auto p-4">
+               <div className="flex-1 overflow-y-auto p-8 no-scrollbar">
                   {suggestions.length > 0 ? (
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-2 gap-4">
                          {suggestions.map(item => (
                             <button 
                               key={item.id}
                               onClick={() => addToCart(item)}
-                              className="text-left p-4 rounded-lg border bg-white border-slate-200 hover:border-primary-300 transition-all hover:shadow-md"
+                              className="group text-left p-6 rounded-[2rem] border-2 border-slate-50 bg-white hover:border-brand-200 hover:shadow-xl transition-all active:scale-95"
                             >
-                               <div className="flex justify-between items-start mb-2">
-                                   <span className="font-bold text-slate-800">{item.partNumber}</span>
-                                   <span className={`text-xs px-2 py-0.5 rounded ${item.quantity > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                       Stock: {item.quantity}
+                               <div className="flex justify-between items-start mb-3">
+                                   <span className="font-black text-lg text-slate-900 group-hover:text-brand-600 transition-colors">{item.partNumber}</span>
+                                   <span className={`text-[10px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest ${item.quantity > 0 ? 'bg-teal-50 text-teal-600' : 'bg-rose-50 text-rose-600'}`}>
+                                       {item.quantity} Stock
                                    </span>
                                </div>
-                               <div className="text-sm text-slate-600 truncate mb-2">{item.name}</div>
-                               <div className="font-bold text-primary-700">₹{item.price}</div>
+                               <div className="text-[14px] text-slate-500 font-medium truncate mb-4">{item.name}</div>
+                               <div className="font-black text-xl text-slate-900">₹{item.price.toLocaleString()}</div>
                             </button>
                          ))}
                       </div>
                   ) : (
-                      <div className="flex flex-col items-center justify-center h-full text-slate-400">
-                          <Search size={48} className="mb-4 opacity-20" />
-                          <p>Start typing to search inventory</p>
+                      <div className="flex flex-col items-center justify-center h-full text-slate-300">
+                          <PackagePlus size={80} className="mb-6 opacity-10" />
+                          <p className="font-bold text-slate-400 uppercase tracking-[0.2em] text-xs">Scan or Search for Parts</p>
                       </div>
                   )}
                </div>
            </div>
 
-           {/* Right: Cart */}
-           <div className="col-span-1 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-full overflow-hidden">
-                <div className={`p-4 border-b justify-between items-center bg-white border-slate-100 flex`}>
-                    <h2 className="font-bold text-lg flex items-center gap-2">
-                        <ShoppingCart size={20} className="text-slate-400" />
-                        {mode === 'SALES' ? 'Current Sale' : mode === 'RETURN' ? 'Returns' : 'Purchase Order'}
+           <div className="col-span-4 bg-white rounded-[2.5rem] shadow-premium border border-slate-50 flex flex-col overflow-hidden">
+                <div className="p-8 border-b border-slate-50 flex justify-between items-center">
+                    <h2 className="font-black text-xl text-slate-900 tracking-tight flex items-center gap-2">
+                        <ShoppingCart size={22} className="text-brand-600" /> Cart
                     </h2>
-                    {cart.length > 0 && <button onClick={() => setCart([])} className="text-sm font-bold text-red-500 hover:bg-red-50 px-3 py-1 rounded-lg">Clear</button>}
-                </div>
-                
-                {/* Customer Input Section */}
-                <div className="p-4 border-b border-slate-100 bg-slate-50 relative" ref={wrapperRef}>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">
-                       {mode === 'PURCHASE' ? "Supplier Name" : mode === 'RETURN' ? "Customer" : "Customer Name *"}
-                    </label>
-                    <div className="relative">
-                        <input 
-                           type="text" 
-                           className={`w-full px-4 py-3 border rounded-xl text-base outline-none focus:ring-2 focus:ring-primary-500 bg-white ${
-                             mode === 'SALES' && !customerName ? 'border-red-300 ring-1 ring-red-100' : 'border-slate-300'
-                           }`}
-                           placeholder={mode === 'PURCHASE' ? "Enter Supplier" : "Enter Customer Name"}
-                           value={customerName}
-                           onChange={e => handleCustomerType(e.target.value)}
-                           onFocus={() => {
-                             if(mode === 'SALES' && customerName) setShowCustomerList(true);
-                           }}
-                        />
-                        {/* Validation Indicator */}
-                        {mode === 'SALES' && !customerName && (
-                          <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 pointer-events-none">
-                             <AlertCircle size={16} className="text-red-400" />
-                          </div>
-                        )}
-                    </div>
-                    
-                    {/* Customer Suggestion Dropdown */}
-                    {showCustomerList && customerSuggestions.length > 0 && (
-                      <div className="absolute top-full left-0 right-0 z-50 bg-white border border-slate-200 rounded-lg shadow-xl mt-1 overflow-hidden animate-fade-in mx-1">
-                         <div className="text-[10px] font-bold bg-slate-50 text-slate-400 px-3 py-1 uppercase tracking-wider">Suggestions</div>
-                         {customerSuggestions.map(c => (
-                            <button
-                               key={c.id}
-                               onClick={() => selectCustomer(c)}
-                               className="w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-slate-50 last:border-0 flex justify-between items-center"
-                            >
-                               <span className="font-bold text-slate-800 text-sm">{c.name}</span>
-                               <span className="text-xs text-slate-500">{c.phone || ''}</span>
-                            </button>
-                         ))}
-                      </div>
+                    {cart.length > 0 && (
+                      <button onClick={() => setCart([])} className="text-xs font-black text-rose-600 uppercase tracking-widest hover:underline">Clear</button>
                     )}
                 </div>
+                
+                <div className="p-8 pb-4 space-y-4" ref={wrapperRef}>
+                    <div>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-2 block ml-1">Bill To Customer</span>
+                        <div className="relative group">
+                            <input 
+                               type="text" 
+                               className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[15px] font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-inner"
+                               placeholder="Customer Name"
+                               value={customerName}
+                               onChange={e => handleCustomerType(e.target.value)}
+                            />
+                            {showCustomerList && customerSuggestions.length > 0 && (
+                              <div className="absolute top-full left-0 right-0 z-50 bg-white border border-slate-100 rounded-2xl shadow-premium mt-2 overflow-hidden animate-slide-up">
+                                 {customerSuggestions.map(c => (
+                                    <button
+                                       key={c.id}
+                                       onClick={() => { setCustomerName(c.name); setShowCustomerList(false); }}
+                                       className="w-full text-left px-5 py-3.5 hover:bg-slate-50 border-b border-slate-50 last:border-0 flex justify-between items-center transition-colors"
+                                    >
+                                       <span className="font-bold text-slate-800">{c.name}</span>
+                                       <span className="text-xs text-slate-400 font-bold">{c.phone}</span>
+                                    </button>
+                                 ))}
+                              </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
 
-                <div className="flex-1 overflow-y-auto p-4 space-y-3 pb-4">
-                    {cart.length === 0 && <div className="text-center text-slate-400 py-10 text-sm italic">Cart is empty.</div>}
+                <div className="flex-1 overflow-y-auto p-8 pt-0 space-y-4 no-scrollbar">
+                    {cart.length === 0 && (
+                      <div className="text-center text-slate-300 py-10 font-bold uppercase tracking-widest text-[11px]">Cart is empty</div>
+                    )}
                     {cart.map(item => (
-                        <div key={item.tempId} className="p-3 rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col gap-2">
+                        <div key={item.tempId} className="p-5 rounded-[1.5rem] border border-slate-100 bg-slate-50/50 flex flex-col gap-4 group">
                             <div className="flex justify-between items-start">
                                 <div>
-                                    <div className="font-bold text-slate-900">{item.partNumber}</div>
-                                    <div className="text-xs text-slate-500">{item.name || 'Part Name'}</div>
-                                    <div className="text-xs text-slate-500">₹{item.price} x {item.quantity}</div>
+                                    <div className="font-bold text-slate-900 text-[15px]">{item.partNumber}</div>
+                                    <div className="text-xs text-slate-500 font-medium line-clamp-1">{item.name}</div>
                                 </div>
-                                <div className={`font-bold ${mode === 'RETURN' ? 'text-red-600' : 'text-slate-900'}`}>
-                                    {mode === 'RETURN' ? '-' : ''}₹{item.price * item.quantity}
-                                </div>
+                                <div className="font-black text-slate-900 text-[15px]">₹{(item.price * item.quantity).toLocaleString()}</div>
                             </div>
-                            <div className="flex justify-between items-center pt-2 border-t border-slate-100">
-                                <button onClick={() => removeItem(item.tempId)} className="text-red-400 hover:text-red-600 p-2 rounded-lg hover:bg-red-50"><Trash2 size={16}/></button>
-                                <div className="flex items-center gap-2 bg-slate-100 rounded-lg p-1">
-                                    <button onClick={() => updateQty(item.tempId, -1)} className="w-8 h-8 bg-white rounded-md shadow-sm flex items-center justify-center text-slate-700 active:scale-90"><Minus size={16}/></button>
-                                    <span className="font-bold w-6 text-center text-sm">{item.quantity}</span>
-                                    <button onClick={() => updateQty(item.tempId, 1)} className="w-8 h-8 bg-white rounded-md shadow-sm flex items-center justify-center text-slate-700 active:scale-90"><Plus size={16}/></button>
+                            <div className="flex justify-between items-center">
+                                <button onClick={() => removeItem(item.tempId)} className="text-slate-300 hover:text-rose-500 p-2 rounded-xl hover:bg-white transition-all"><Trash2 size={18}/></button>
+                                <div className="flex items-center gap-3 bg-white px-2 py-1.5 rounded-xl shadow-soft border border-slate-100">
+                                    <button onClick={() => updateQty(item.tempId, -1)} className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-900 active:scale-90 transition-all"><Minus size={18}/></button>
+                                    <span className="font-black w-6 text-center text-sm">{item.quantity}</span>
+                                    <button onClick={() => updateQty(item.tempId, 1)} className="w-8 h-8 bg-slate-900 text-white rounded-lg flex items-center justify-center active:scale-90 transition-all"><Plus size={18}/></button>
                                 </div>
                             </div>
                         </div>
                     ))}
                 </div>
-                <div className="p-4 bg-white border-t border-slate-200">
-                    <div className="flex justify-between items-center mb-3">
-                        <span className="text-slate-500 font-medium text-sm">Total Amount</span>
-                        <span className={`text-xl font-black ${mode === 'RETURN' ? 'text-red-600' : 'text-slate-900'}`}>{mode === 'RETURN' ? '-' : ''}₹{totalAmount.toLocaleString()}</span>
+
+                <div className="p-8 border-t border-slate-50">
+                    <div className="flex justify-between items-center mb-6">
+                        <span className="text-slate-400 font-bold uppercase tracking-widest text-[11px]">Total Due</span>
+                        <span className="text-3xl font-black text-slate-900 tracking-tight">₹{totalAmount.toLocaleString()}</span>
                     </div>
-                    <button onClick={handleSubmit} disabled={loading || cart.length === 0} className={`w-full py-3.5 rounded-xl font-bold text-white text-base flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 ${getAccentColor()}`}>
-                       {loading ? <Loader2 className="animate-spin" size={20} /> : (mode === 'RETURN' ? <Undo2 size={20}/> : <CheckCircle2 size={20}/>)}
-                       {getButtonText()}
+                    <button 
+                       onClick={handleSubmit} 
+                       disabled={loading || cart.length === 0} 
+                       className={`w-full py-5 rounded-[1.5rem] font-black text-white text-[17px] shadow-xl transition-all active:scale-[0.98] disabled:opacity-30 flex items-center justify-center gap-3 ${accentColor}`}
+                    >
+                       {loading ? <Loader2 className="animate-spin" size={24} /> : (
+                         <>Checkout <ArrowRight size={22} /></>
+                       )}
                     </button>
                 </div>
            </div>
        </div>
 
-       {/* --- MOBILE LAYOUT (Redesigned POS) --- */}
-       <div className="lg:hidden flex flex-col h-full bg-slate-50 relative">
-
-          {/* SCROLLABLE CONTENT */}
-          <div className="flex-1 overflow-y-auto px-4 pt-4 pb-48">
-              
-              {/* 1. Customer Card */}
-              <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-4 relative" ref={wrapperRef}>
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">
-                    {mode === 'PURCHASE' ? "Supplier Details" : "Customer Details"}
-                  </label>
-                  <div className={`flex items-center gap-3 bg-slate-50 p-3 rounded-xl border focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent transition-all ${
-                       mode === 'SALES' && !customerName ? 'border-red-300 ring-1 ring-red-100' : 'border-slate-200'
-                  }`}>
-                       <UserIcon className="text-slate-400" size={20} />
+       {/* MOBILE POINT OF SALE */}
+       <div className="lg:hidden flex flex-col h-full bg-slate-50">
+          <div className="flex-1 overflow-y-auto px-6 pt-6 pb-48 no-scrollbar">
+              <div className="bg-white p-6 rounded-[2rem] shadow-soft border border-slate-100 mb-6 relative" ref={wrapperRef}>
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block ml-1">Customer Selection</span>
+                  <div className="flex items-center gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-100 focus-within:ring-2 focus-within:ring-brand-500/10 transition-all">
+                       <UserIcon className="text-slate-300" size={20} />
                        <input 
                           type="text"
-                          className="flex-1 bg-transparent outline-none font-semibold text-slate-900 placeholder:text-slate-400"
-                          placeholder={mode === 'PURCHASE' ? "Select Supplier" : "Enter Name"}
+                          className="flex-1 bg-transparent outline-none font-bold text-slate-900 placeholder:text-slate-300"
+                          placeholder="Search or Enter Name"
                           value={customerName}
                           onChange={e => handleCustomerType(e.target.value)}
-                          onFocus={() => {
-                             if(mode === 'SALES' && customerName) setShowCustomerList(true);
-                          }}
                        />
-                       {mode === 'SALES' && !customerName && <AlertCircle size={18} className="text-red-400" />}
+                       {mode === 'SALES' && !customerName && <AlertCircle size={18} className="text-rose-400" />}
                   </div>
-                  
-                  {/* Customer Dropdown */}
                   {showCustomerList && customerSuggestions.length > 0 && (
-                      <div className="absolute top-full left-0 right-0 z-50 bg-white border border-slate-200 rounded-xl shadow-xl mt-2 overflow-hidden animate-fade-in mx-1">
+                      <div className="absolute top-full left-0 right-0 z-50 bg-white border border-slate-100 rounded-3xl shadow-premium mt-3 overflow-hidden animate-slide-up mx-2">
                          {customerSuggestions.map(c => (
                             <button
                                key={c.id}
-                               onClick={() => selectCustomer(c)}
-                               className="w-full text-left px-4 py-3.5 hover:bg-blue-50 border-b border-slate-50 last:border-0 flex justify-between items-center active:bg-blue-50"
+                               onClick={() => { setCustomerName(c.name); setShowCustomerList(false); }}
+                               className="w-full text-left px-5 py-4 hover:bg-slate-50 border-b border-slate-50 last:border-0 flex justify-between items-center"
                             >
-                               <span className="font-bold text-slate-800 text-sm">{c.name}</span>
-                               <span className="text-xs text-slate-500 font-medium">{c.phone || ''}</span>
+                               <span className="font-bold text-slate-800">{c.name}</span>
+                               <span className="text-xs text-slate-400 font-bold">{c.phone}</span>
                             </button>
                          ))}
                       </div>
                   )}
               </div>
 
-              {/* 2. Cart List */}
               <div className="space-y-3">
                   {cart.length === 0 ? (
-                      <div className="text-center py-10 opacity-60">
-                         <div className="w-16 h-16 bg-slate-200 rounded-full flex items-center justify-center mx-auto mb-3">
-                            <ShoppingCart size={32} className="text-slate-400" />
+                      <div className="text-center py-20">
+                         <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Zap size={36} className="text-slate-300" />
                          </div>
-                         <p className="font-bold text-slate-600">Cart is Empty</p>
-                         <p className="text-xs text-slate-400 mt-1">Tap the "Add Item" button below.</p>
+                         <p className="font-black text-slate-400 uppercase tracking-widest text-[11px]">Cart is Empty</p>
                       </div>
                   ) : (
                      cart.map(item => (
-                        <div key={item.tempId} className="bg-white p-3 rounded-xl shadow-sm border border-slate-100 flex flex-col gap-3">
-                           {/* Top: Info */}
-                           <div className="flex justify-between">
-                               <div>
-                                  <div className="font-bold text-slate-900">{item.partNumber}</div>
-                                  <div className="text-xs text-slate-500">{item.name || 'Part Name'}</div>
-                                  <div className="text-sm font-bold text-blue-600 mt-0.5">₹{item.price.toLocaleString()}</div>
+                        <div key={item.tempId} className="bg-white p-5 rounded-[2rem] shadow-soft border border-slate-100 flex flex-col gap-4">
+                           <div className="flex justify-between items-start">
+                               <div className="flex-1 min-w-0 pr-4">
+                                  <div className="font-black text-slate-900 text-[16px] tracking-tight">{item.partNumber}</div>
+                                  <div className="text-[13px] text-slate-500 font-medium truncate mt-1">{item.name}</div>
+                                  <div className="text-[15px] font-black text-brand-600 mt-2">₹{item.price.toLocaleString()}</div>
                                </div>
-                               <div className="text-right">
-                                  <div className="font-bold text-slate-900">₹{(item.price * item.quantity).toLocaleString()}</div>
-                                  {mode === 'RETURN' && <div className="text-[10px] text-red-500 font-bold uppercase">Return</div>}
+                               <div className="text-right font-black text-slate-900 text-[17px]">
+                                  ₹{(item.price * item.quantity).toLocaleString()}
                                </div>
                            </div>
-                           {/* Bottom: Controls */}
-                           <div className="flex items-center justify-between border-t border-slate-50 pt-2">
-                               <button onClick={() => removeItem(item.tempId)} className="text-red-400 p-2 rounded-lg hover:bg-red-50"><Trash2 size={18} /></button>
-                               <div className="flex items-center gap-3 bg-slate-50 rounded-lg p-1 border border-slate-100">
-                                   <button 
-                                      onClick={() => updateQty(item.tempId, -1)} 
-                                      className="w-8 h-8 bg-white shadow-sm rounded border border-slate-200 flex items-center justify-center active:scale-95"
-                                   >
-                                      <Minus size={16} className="text-slate-600"/>
-                                   </button>
-                                   <span className="w-8 text-center font-bold text-slate-800">{item.quantity}</span>
-                                   <button 
-                                      onClick={() => updateQty(item.tempId, 1)} 
-                                      className="w-8 h-8 bg-slate-800 shadow-sm text-white rounded flex items-center justify-center active:scale-95"
-                                   >
-                                      <Plus size={16}/>
-                                   </button>
+                           <div className="flex items-center justify-between border-t border-slate-50 pt-4">
+                               <button onClick={() => removeItem(item.tempId)} className="text-rose-400 p-2.5 rounded-xl hover:bg-rose-50 transition-colors"><Trash2 size={20} /></button>
+                               <div className="flex items-center gap-4 bg-slate-50 px-2 py-1.5 rounded-2xl border border-slate-100 shadow-inner">
+                                   <button onClick={() => updateQty(item.tempId, -1)} className="w-10 h-10 bg-white shadow-soft rounded-xl flex items-center justify-center text-slate-400 active:scale-90 transition-all"><Minus size={18}/></button>
+                                   <span className="w-8 text-center font-black text-[16px] text-slate-800">{item.quantity}</span>
+                                   <button onClick={() => updateQty(item.tempId, 1)} className="w-10 h-10 bg-slate-900 text-white rounded-xl flex items-center justify-center active:scale-90 transition-all shadow-lg"><Plus size={18}/></button>
                                </div>
                            </div>
                         </div>
                      ))
                   )}
               </div>
-
           </div>
 
-          {/* FIXED BOTTOM AREA */}
-          <div className="fixed bottom-[60px] lg:bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-40 pb-safe-bottom">
-              
-              {/* Add Item Button */}
+          <div className="fixed bottom-[70px] left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-slate-100 p-6 shadow-premium z-40 pb-safe-bottom">
               <button 
                  onClick={() => setShowMobileSearch(true)}
-                 className="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold py-3.5 rounded-xl border border-blue-200 flex items-center justify-center gap-2 mb-4 active:scale-95 transition-transform"
+                 className="w-full bg-slate-100 hover:bg-slate-200 text-slate-900 font-black py-4 rounded-[1.5rem] flex items-center justify-center gap-3 mb-6 transition-all active:scale-95 text-[15px] uppercase tracking-widest"
               >
-                  <PackagePlus size={20} /> Add Item
+                  <PackagePlus size={22} /> Add Spare Part
               </button>
 
-              {/* Checkout Bar */}
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-6">
                   <div className="flex-1">
-                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Total Amount</p>
-                     <p className={`text-2xl font-black ${mode === 'RETURN' ? 'text-red-600' : 'text-slate-900'}`}>
-                        {mode === 'RETURN' ? '-' : ''}₹{totalAmount.toLocaleString()}
-                     </p>
+                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Grand Total</p>
+                     <p className="text-3xl font-black text-slate-900 tracking-tight">₹{totalAmount.toLocaleString()}</p>
                   </div>
                   <button 
                      onClick={handleSubmit}
                      disabled={loading || cart.length === 0}
-                     className={`flex-[1.5] text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-transform disabled:opacity-50 disabled:shadow-none ${getAccentColor()}`}
+                     className={`flex-[1.5] text-white font-black py-5 rounded-[1.5rem] shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-30 text-[17px] ${accentColor}`}
                   >
-                     {loading ? <Loader2 className="animate-spin" size={20} /> : (
-                        <>
-                           {getButtonText()} <CheckCircle2 size={20} />
-                        </>
+                     {loading ? <Loader2 className="animate-spin" size={24} /> : (
+                        <>Checkout <ArrowRight size={22} /></>
                      )}
                   </button>
               </div>
-
           </div>
        </div>
     </div>

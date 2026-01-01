@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { LucideIcon } from 'lucide-react';
 
@@ -15,15 +14,21 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, trend, co
   return (
     <div 
       onClick={onClick}
-      className={`${colorClass} p-4 md:p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow cursor-pointer`}
+      className={`${colorClass} p-8 rounded-[2rem] shadow-soft hover:shadow-premium transition-all duration-300 cursor-pointer group active:scale-[0.99]`}
     >
-      <div className="flex items-center justify-between mb-2 md:mb-4">
-        <h3 className="text-gray-500 font-medium text-xs md:text-sm truncate">{title}</h3>
-        <Icon className="text-gray-400 shrink-0" size={18} />
+      <div className="flex items-center justify-between mb-6">
+        <span className="text-slate-400 font-bold text-[11px] uppercase tracking-[0.15em]">{title}</span>
+        <div className="p-2.5 bg-slate-50 rounded-xl group-hover:bg-brand-50 group-hover:text-brand-600 transition-colors">
+          <Icon size={18} strokeWidth={2.5} className="text-slate-300 group-hover:text-brand-600" />
+        </div>
       </div>
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-1">
-        <span className="text-xl md:text-2xl font-bold text-gray-900 truncate">{value}</span>
-        {trend && <span className="text-[10px] md:text-xs text-green-600 font-medium bg-green-50 px-2 py-0.5 rounded-full w-fit">{trend}</span>}
+      <div className="flex flex-col gap-1">
+        <h4 className="text-3xl font-black text-slate-900 tracking-tight">{value}</h4>
+        {trend && (
+          <p className="text-[11px] text-teal-600 font-black uppercase tracking-wider flex items-center gap-1 mt-1">
+            {trend}
+          </p>
+        )}
       </div>
     </div>
   );
