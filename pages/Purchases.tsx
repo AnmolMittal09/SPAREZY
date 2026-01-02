@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { User, Transaction, TransactionStatus, TransactionType } from '../types';
 import DailyTransactions from './DailyTransactions';
 import { 
@@ -28,7 +28,12 @@ import {
   ShieldCheck,
   AlertTriangle,
   Percent,
-  Building2
+  Building2,
+  Layers,
+  List,
+  ArrowLeft,
+  Package,
+  ArrowUpDown
 } from 'lucide-react';
 import { fetchTransactions, createBulkTransactions } from '../services/transactionService';
 import { extractInvoiceData } from '../services/geminiService';
@@ -52,11 +57,24 @@ interface ExtractedItem {
   diff: number;
 }
 
+interface GroupedInbound {
+  id: string;
+  createdAt: string;
+  customerName: string; // Dealer name
+  items: Transaction[];
+  totalValue: number;
+}
+
 const Purchases: React.FC<Props> = ({ user }) => {
   const [activeTab, setActiveTab] = useState<'NEW' | 'IMPORT' | 'HISTORY'>('NEW');
+  const [viewMode, setViewMode] = useState<'STACKED' | 'LIST'>('STACKED');
   const [history, setHistory] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [isSearchingOnMobile, setIsSearchingOnMobile] = useState(false);
+  
+  // Sort for History
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [selectedInbound, setSelectedInbound] = useState<GroupedInbound | null>(null);
 
   // Bulk Import State
   const [importing, setImporting] = useState(false);
@@ -79,6 +97,43 @@ const Purchases: React.FC<Props> = ({ user }) => {
     setHistory(data);
     setLoading(false);
   };
+
+  // --- GROUPING FOR STACKED HISTORY ---
+  const stackedHistory = useMemo(() => {
+    const groups: Record<string, GroupedInbound> = {};
+    history.forEach(tx => {
+       const key = `${tx.createdAt}_${tx.customerName}`;
+       if (!groups[key]) {
+         groups[key] = {
+           id: tx.id,
+           createdAt: tx.createdAt,
+           customerName: tx.customerName,
+           items: [],
+           totalValue: 0
+         };
+       }
+       groups[key].items.push(tx);
+       groups[key].totalValue += (tx.price * tx.quantity);
+    });
+
+    const result = Object.values(groups);
+    result.sort((a, b) => {
+       const timeA = new Date(a.createdAt).getTime();
+       const timeB = new Date(b.createdAt).getTime();
+       return sortOrder === 'desc' ? timeB - timeA : timeA - timeB;
+    });
+    return result;
+  }, [history, sortOrder]);
+
+  const sortedListHistory = useMemo(() => {
+    const res = [...history];
+    res.sort((a, b) => {
+       const timeA = new Date(a.createdAt).getTime();
+       const timeB = new Date(b.createdAt).getTime();
+       return sortOrder === 'desc' ? timeB - timeA : timeA - timeB;
+    });
+    return res;
+  }, [history, sortOrder]);
 
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -253,7 +308,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
          <div className="md:hidden bg-white p-4 border-b border-slate-100 z-20 sticky top-0 shadow-sm animate-fade-in">
             <div className="flex bg-slate-100 p-1.5 rounded-2xl">
                <button onClick={() => { setActiveTab('NEW'); setErrorMsg(null); }} className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'NEW' ? 'bg-white text-slate-900 shadow-md' : 'text-slate-400'}`}>Entry</button>
-               <button onClick={() => { setActiveTab('IMPORT'); setErrorMsg(null); }} className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'IMPORT' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400'}`}>Bill Scan</button>
+               <button onClick={() => { setActiveTab('IMPORT'); setErrorMsg(null); }} className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'IMPORT' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400'}`}>Scan</button>
                <button onClick={() => { setActiveTab('HISTORY'); setErrorMsg(null); }} className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'HISTORY' ? 'bg-white text-slate-900 shadow-md' : 'text-slate-400'}`}>Log</button>
             </div>
          </div>
@@ -424,20 +479,73 @@ const Purchases: React.FC<Props> = ({ user }) => {
 
           {activeTab === 'HISTORY' && (
              <div className="bg-[#F8FAFC] md:bg-white md:rounded-[3rem] shadow-soft border border-slate-100 flex flex-col h-full overflow-hidden">
-                <div className="p-8 border-b border-slate-100 bg-white flex items-center justify-between">
+                <div className="p-6 border-b border-slate-100 bg-white flex flex-col lg:flex-row items-center justify-between gap-4">
                    <div className="flex items-center gap-4">
                       <div className="p-3 bg-blue-600 text-white rounded-2xl shadow-lg shadow-blue-100"><Truck size={24} /></div>
                       <div>
                          <span className="font-black text-slate-900 text-xl tracking-tight block">Inbound Log</span>
-                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Verified Purchase History</span>
+                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Stock Acquisition History</span>
+                      </div>
+                      <div className="ml-4 flex bg-slate-100 p-1 rounded-xl">
+                          <button onClick={() => setViewMode('STACKED')} className={`p-2 rounded-lg transition-all ${viewMode === 'STACKED' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`} title="Bill Stack View"><Layers size={16} /></button>
+                          <button onClick={() => setViewMode('LIST')} className={`p-2 rounded-lg transition-all ${viewMode === 'LIST' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`} title="Item List View"><List size={16} /></button>
                       </div>
                    </div>
-                   <button onClick={loadHistory} className="p-3 bg-slate-50 text-slate-400 rounded-2xl hover:bg-slate-100 active:scale-95 transition-all"><Clock size={20} /></button>
+                   <div className="flex items-center gap-3">
+                      <button onClick={() => setSortOrder(s => s === 'asc' ? 'desc' : 'asc')} className="p-3 bg-slate-50 text-slate-500 rounded-2xl hover:bg-slate-100 active:scale-95 transition-all"><ArrowUpDown size={20} /></button>
+                      <button onClick={loadHistory} className="p-3 bg-slate-50 text-slate-500 rounded-2xl hover:bg-slate-100 active:scale-95 transition-all"><Clock size={20} /></button>
+                   </div>
                 </div>
+
                 <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 no-scrollbar pb-32">
                   {loading ? <div className="flex justify-center p-20"><TharLoader /></div> : history.length === 0 ? <div className="flex flex-col items-center justify-center py-32 text-slate-300"><div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mb-8 shadow-soft"><History size={48} className="opacity-10" /></div><p className="font-black text-xs uppercase tracking-[0.3em]">No history found</p></div> : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {history.map(tx => (
+                        {viewMode === 'STACKED' ? (
+                          stackedHistory.map(stack => (
+                            <div 
+                              key={stack.id} 
+                              onClick={() => setSelectedInbound(stack)}
+                              className="p-6 bg-white rounded-[2.5rem] border-2 border-slate-100 shadow-premium hover:border-blue-200 hover:shadow-xl transition-all cursor-pointer group relative animate-fade-in"
+                            >
+                                <div className="absolute -bottom-2 left-8 right-8 h-2 bg-blue-100 rounded-b-3xl -z-10 group-hover:-bottom-3 transition-all opacity-40"></div>
+                                <div className="flex justify-between items-start mb-6">
+                                    <div className="space-y-1.5">
+                                        <div className="flex items-center gap-2">
+                                            <div className="p-1.5 rounded-lg bg-blue-50 text-blue-600"><FileText size={16}/></div>
+                                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600">INBOUND BILL</span>
+                                        </div>
+                                        <div className="text-[11px] font-bold text-slate-400 flex items-center gap-2">
+                                            <Calendar size={12}/> {new Date(stack.createdAt).toLocaleDateString()}
+                                            <span className="text-slate-200">•</span>
+                                            <Clock size={12}/> {new Date(stack.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                        </div>
+                                    </div>
+                                    <div className="bg-blue-600 text-white w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg active:scale-90 transition-all">
+                                        <ChevronRight size={20} />
+                                    </div>
+                                </div>
+                                <div className="mb-6">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Dealer / Source</p>
+                                    <div className="font-black text-lg text-slate-900 leading-tight truncate group-hover:text-blue-600 transition-colors">
+                                        {stack.customerName || 'Manual Bulk Inbound'}
+                                    </div>
+                                </div>
+                                <div className="flex justify-between items-end border-t border-slate-50 pt-5 mt-auto">
+                                    <div className="bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100 flex items-center gap-2">
+                                        <Package size={14} className="text-slate-400"/>
+                                        <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">{stack.items.length} SKUs</span>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Stock Value</p>
+                                        <p className="text-2xl font-black text-slate-900 tracking-tighter">
+                                            ₹{stack.totalValue.toLocaleString()}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                          ))
+                        ) : (
+                          sortedListHistory.map(tx => (
                             <div key={tx.id} className="p-6 bg-white rounded-[2.5rem] border border-slate-100 shadow-premium animate-fade-in relative group overflow-hidden">
                                 <div className="absolute top-0 right-0 w-3 h-full bg-blue-600/10 group-hover:bg-blue-600/20 transition-all"></div>
                                 <div className="flex justify-between items-start mb-5">
@@ -452,13 +560,79 @@ const Purchases: React.FC<Props> = ({ user }) => {
                                     <div className="text-right"><p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1.5">Net Rate</p><p className="text-xl font-black text-slate-900 tracking-tighter">₹{tx.price.toLocaleString()}</p></div>
                                 </div>
                             </div>
-                        ))}
+                          ))
+                        )}
                     </div>
                   )}
                 </div>
              </div>
           )}
        </div>
+
+       {/* INBOUND DETAIL MODAL */}
+       {selectedInbound && (
+          <div className="fixed inset-0 z-[200] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 lg:p-8 animate-fade-in">
+              <div className="bg-white w-full max-w-4xl rounded-[3rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-slide-up">
+                  <div className="p-8 md:p-10 border-b border-slate-100 flex justify-between items-center bg-slate-50/40">
+                      <div className="flex items-center gap-5">
+                          <button onClick={() => setSelectedInbound(null)} className="p-3 bg-white text-slate-400 hover:text-slate-900 rounded-2xl shadow-sm border border-slate-100 transition-all active:scale-90"><ArrowLeft size={24}/></button>
+                          <div>
+                              <h3 className="font-black text-slate-900 text-2xl tracking-tight leading-none mb-2">{selectedInbound.customerName || 'Bulk Inbound'}</h3>
+                              <div className="flex items-center gap-3 text-slate-400 text-sm font-bold uppercase tracking-widest">
+                                  <Calendar size={14}/> {new Date(selectedInbound.createdAt).toLocaleDateString()}
+                                  <span className="text-slate-200">|</span>
+                                  <Clock size={14}/> {new Date(selectedInbound.createdAt).toLocaleTimeString()}
+                              </div>
+                          </div>
+                      </div>
+                      <div className="hidden md:block px-5 py-2.5 rounded-2xl text-sm font-black uppercase tracking-widest bg-blue-50 text-blue-600">
+                          INVENTORY SCAN
+                      </div>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto p-6 md:p-10 no-scrollbar space-y-4">
+                      <div className="flex items-center gap-3 mb-4">
+                         <div className="w-1.5 h-6 bg-blue-600 rounded-full"></div>
+                         <h4 className="font-black text-slate-900 uppercase tracking-widest text-sm">Line Items ({selectedInbound.items.length})</h4>
+                      </div>
+                      <div className="space-y-3">
+                          {selectedInbound.items.map((item, idx) => (
+                              <div key={item.id} className="p-6 bg-slate-50/50 rounded-3xl border border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4 group hover:bg-white hover:border-blue-100 hover:shadow-md transition-all">
+                                  <div className="flex items-center gap-5">
+                                      <div className="w-12 h-12 bg-white rounded-2xl border border-slate-100 flex items-center justify-center font-black text-slate-300 text-sm">{idx + 1}</div>
+                                      <div className="min-w-0">
+                                          <div className="font-black text-slate-900 text-lg leading-tight tracking-tight group-hover:text-blue-600 transition-colors">{item.partNumber}</div>
+                                          <p className="text-[13px] text-slate-400 font-bold uppercase tracking-widest mt-1">Purchase Rate: ₹{item.price.toLocaleString()}</p>
+                                      </div>
+                                  </div>
+                                  <div className="flex items-center justify-between md:justify-end gap-12 border-t md:border-t-0 border-slate-100 pt-4 md:pt-0">
+                                      <div className="text-center md:text-right">
+                                          <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-0.5">Quantity</p>
+                                          <p className="text-xl font-black text-slate-900">{item.quantity}</p>
+                                      </div>
+                                      <div className="text-right">
+                                          <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-0.5">Subtotal</p>
+                                          <p className="text-xl font-black text-slate-900 tracking-tight">₹{(item.price * item.quantity).toLocaleString()}</p>
+                                      </div>
+                                  </div>
+                              </div>
+                          ))}
+                      </div>
+                  </div>
+
+                  <div className="p-8 md:p-10 border-t border-slate-100 bg-white flex flex-col md:flex-row justify-between items-center gap-6">
+                      <div className="flex items-center gap-5">
+                          <div className="p-4 bg-blue-600 text-white rounded-3xl shadow-xl"><Database size={32} /></div>
+                          <div>
+                              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Total Inbound Value</p>
+                              <p className="text-4xl font-black text-slate-900 tracking-tighter">₹{selectedInbound.totalValue.toLocaleString()}</p>
+                          </div>
+                      </div>
+                      <button onClick={() => setSelectedInbound(null)} className="w-full md:w-auto bg-slate-100 hover:bg-slate-200 text-slate-600 font-black px-12 py-5 rounded-[2rem] transition-all active:scale-95 uppercase text-xs tracking-widest">Close Log View</button>
+                  </div>
+              </div>
+          </div>
+       )}
     </div>
   );
 };
