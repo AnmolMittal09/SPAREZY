@@ -1,9 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 // @ts-ignore
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { User, Role } from '../types';
 import { 
+  LayoutDashboard, 
   Package, 
   Receipt, 
   ShoppingBag, 
@@ -53,11 +53,10 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
 
   const navGroups = [
     {
-      title: 'Inventory',
+      title: 'Navigation',
       items: [
-        { label: 'Item Catalog', path: '/', icon: Package },
-        { label: 'Stock Alerts', path: '/low-stock', icon: AlertTriangle },
-        { label: 'Stock History', path: '/movements', icon: ArrowRightLeft },
+        { label: 'Dashboard', path: '/', icon: LayoutDashboard },
+        { label: 'Inventory', path: '/parts', icon: Package },
       ]
     },
     {
@@ -65,6 +64,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
       items: [
         { label: 'Point of Sale', path: '/billing', icon: Zap },
         { label: 'Tax Invoices', path: '/invoices', icon: FileText, requiredRole: Role.OWNER },
+        { label: 'Stock Returns', path: '/billing?tab=return', icon: ArrowRightLeft },
       ]
     },
     {
@@ -78,6 +78,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
     {
       title: 'Management',
       items: [
+        { label: 'Stock Alerts', path: '/low-stock', icon: AlertTriangle },
         { label: 'Bulk Update', path: '/import-export', icon: FileUp, requiredRole: Role.OWNER },
         { label: 'Analytics', path: '/reports', icon: BarChart3, requiredRole: Role.OWNER },
         { label: 'Admin Settings', path: '/settings', icon: Settings, requiredRole: Role.OWNER },
@@ -184,7 +185,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
       {/* MAIN SECTION */}
       <div className="flex-1 flex flex-col min-w-0 h-full relative">
         
-        {/* Mobile Menu Toggle */}
+        {/* Mobile Menu Toggle - Absolute to avoid shifting layout */}
         <button 
           onClick={() => setIsSidebarOpen(true)}
           className="lg:hidden fixed top-6 left-6 z-[60] p-2.5 bg-white shadow-premium border border-slate-100 rounded-2xl text-slate-600 active:scale-90 transition-all hover:bg-slate-50"
@@ -192,7 +193,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
           <Menu size={24} />
         </button>
 
-        {/* MAIN CONTENT Area */}
+        {/* MAIN CONTENT Area - Now occupies the full height from the top */}
         <main className="flex-1 overflow-y-auto px-6 lg:px-10 py-8 lg:py-8 pt-20 lg:pt-8 scroll-smooth no-scrollbar">
            <div className="max-w-7xl mx-auto">
               {children}

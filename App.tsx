@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { User, Role } from './types';
 import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
 import Layout from './components/Layout';
 import PartsList from './pages/PartsList';
 import Billing from './pages/Billing';
@@ -59,9 +60,9 @@ const App: React.FC = () => {
     <HashRouter>
       <Layout user={user} onLogout={handleLogout}>
         <Routes>
-          {/* MAIN - Inventory is now the Home Page */}
-          <Route path="/" element={<PartsList user={user} />} />
-          <Route path="/parts" element={<Navigate to="/" replace />} />
+          {/* MAIN */}
+          <Route path="/" element={<Dashboard user={user} />} />
+          <Route path="/parts" element={<PartsList user={user} />} />
           
           {/* TRANSACTIONS */}
           <Route path="/billing" element={<Billing user={user} />} />
