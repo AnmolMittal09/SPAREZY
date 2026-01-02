@@ -1,12 +1,16 @@
+
 import React, { useEffect, useState, useRef } from 'react';
-import { User, StockItem, Role } from '../types';
+import { User, StockItem, Role, Brand } from '../types';
 import { fetchInventory, getStats } from '../services/inventoryService';
 import StockTable from '../components/StockTable';
 import { 
   Search,
   AlertCircle,
   Eye,
-  PackageCheck
+  PackageCheck,
+  Zap,
+  Filter,
+  ArrowRight
 } from 'lucide-react';
 // @ts-ignore
 import { useNavigate } from 'react-router-dom';
@@ -20,6 +24,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   const [inventory, setInventory] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedBrand, setSelectedBrand] = useState<Brand | 'ALL'>('ALL');
   const navigate = useNavigate();
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -32,7 +37,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
     };
     loadData();
     
-    // Auto-focus search on desktop
     if (!('ontouchstart' in window)) {
         setTimeout(() => searchInputRef.current?.focus(), 500);
     }
@@ -43,97 +47,131 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   const stats = getStats(inventory);
 
   return (
-    <div className="space-y-6 md:space-y-8 animate-fade-in h-full flex flex-col">
+    <div className="space-y-6 md:space-y-10 animate-fade-in h-full flex flex-col max-w-5xl mx-auto">
       
-      {/* HEADER - Responsive */}
+      {/* MOBILE HEADER - Clean & Focused */}
       <div className="flex justify-between items-center no-print px-1">
-         <div className="hidden md:block">
-            <h1 className="text-3xl font-black text-slate-900 tracking-tight leading-none mb-1">
-               Store Overview
+         <div>
+            <h1 className="text-3xl font-black text-slate-900 tracking-tighter leading-none mb-1">
+               Dashboard
             </h1>
-            <p className="text-slate-500 font-medium text-sm">Real-time inventory and pricing at your fingertips.</p>
+            <div className="flex items-center gap-2">
+               <div className={`w-2 h-2 rounded-full ${user.role === Role.OWNER ? 'bg-indigo-500' : 'bg-teal-500'} animate-pulse`}></div>
+               <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">{user.role} ACCESS</p>
+            </div>
          </div>
          
-         <div className="md:hidden flex items-center gap-3">
-            <div className="w-10 h-10 bg-brand-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-brand-200">
-               <PackageCheck size={20} />
-            </div>
-            <div>
-               <h1 className="text-xl font-black text-slate-900 leading-none">Dashboard</h1>
-               <div className="flex items-center gap-1.5 mt-1">
-                  <div className={`w-1.5 h-1.5 rounded-full ${user.role === Role.OWNER ? 'bg-indigo-500' : 'bg-teal-500'}`}></div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{user.role} Access</p>
-               </div>
-            </div>
+         <div className="bg-white p-2 rounded-2xl shadow-soft border border-slate-100 flex items-center gap-3">
+             <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center text-white shadow-lg">
+                <PackageCheck size={20} />
+             </div>
          </div>
       </div>
 
-      {/* SEARCH FIRST SECTION - High Visibility */}
+      {/* PRIMARY SEARCH HERO SECTION */}
       <div className="relative group no-print">
-         <div className="absolute -inset-1 bg-gradient-to-r from-brand-600 to-indigo-600 rounded-3xl lg:rounded-[2.5rem] blur opacity-10 group-hover:opacity-20 transition duration-500"></div>
-         <div className="relative bg-white rounded-3xl lg:rounded-[2.5rem] p-5 lg:p-8 shadow-premium border border-slate-100">
-            <div className="flex flex-col gap-5 lg:gap-6">
-                <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 lg:w-12 lg:h-12 bg-brand-50 text-brand-600 rounded-xl lg:rounded-2xl flex items-center justify-center shadow-inner">
-                        <Search size={20} strokeWidth={3} className="lg:size-[24px]" />
-                    </div>
-                    <div>
-                        <h2 className="text-lg lg:text-xl font-black text-slate-900 tracking-tight">Stock & Price Check</h2>
-                        <p className="text-[10px] lg:text-xs text-slate-400 font-bold uppercase tracking-widest">Instant Part Identification</p>
+         <div className="relative bg-white rounded-[3rem] p-8 shadow-premium border border-slate-50 overflow-hidden">
+            {/* Background Glow */}
+            <div className="absolute top-0 right-0 -mt-16 -mr-16 w-64 h-64 bg-brand-500/5 rounded-full blur-3xl"></div>
+            
+            <div className="flex flex-col gap-8 relative z-10">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className="w-14 h-14 bg-brand-600 text-white rounded-[1.5rem] flex items-center justify-center shadow-xl shadow-brand-100">
+                            <Zap size={24} strokeWidth={3} />
+                        </div>
+                        <div>
+                            <h2 className="text-2xl font-black text-slate-900 tracking-tight leading-none">Price Check</h2>
+                            <p className="text-[11px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-2">Part Lookup Terminal</p>
+                        </div>
                     </div>
                 </div>
 
                 <div className="relative">
-                    <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
+                    <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300" size={24} />
                     <input 
                         ref={searchInputRef}
                         type="text" 
                         inputMode="search"
-                        className="block w-full pl-12 pr-6 py-4 lg:py-5 rounded-2xl lg:rounded-[2rem] bg-slate-50 border-2 border-transparent text-lg lg:text-xl font-bold text-slate-900 placeholder:text-slate-300 focus:bg-white focus:border-brand-500/20 focus:ring-4 focus:ring-brand-500/5 transition-all outline-none shadow-inner"
-                        placeholder="Type Part Number..."
+                        className="block w-full pl-16 pr-6 py-6 rounded-3xl bg-slate-100 border-2 border-transparent text-xl font-bold text-slate-900 placeholder:text-slate-300 focus:bg-white focus:border-brand-500/20 focus:ring-[10px] focus:ring-brand-500/5 transition-all outline-none shadow-inner"
+                        placeholder="Scan Part Number..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
                     {searchQuery && (
                         <button 
                             onClick={() => setSearchQuery('')}
-                            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 font-black text-[10px] bg-slate-200/50 px-2.5 py-1 rounded-lg"
+                            className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-900 font-black text-[11px] bg-white px-3 py-1.5 rounded-xl shadow-sm transition-all"
                         >
                             CLEAR
                         </button>
                     )}
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2 lg:gap-3">
-                    <span className="text-[9px] lg:text-[10px] font-black text-slate-300 uppercase tracking-widest mr-1">Brands:</span>
-                    <button onClick={() => setSearchQuery('HY-')} className="text-[10px] lg:text-[11px] font-black px-3 py-1.5 bg-blue-50 text-blue-700 rounded-xl active:bg-blue-600 active:text-white transition-all">HYUNDAI</button>
-                    <button onClick={() => setSearchQuery('MH-')} className="text-[10px] lg:text-[11px] font-black px-3 py-1.5 bg-red-50 text-red-700 rounded-xl active:bg-red-600 active:text-white transition-all">MAHINDRA</button>
-                    <div className="h-4 w-px bg-slate-100 mx-1"></div>
-                    <button onClick={() => navigate('/low-stock')} className="text-[10px] lg:text-[11px] font-black px-3 py-1.5 bg-amber-50 text-amber-700 rounded-xl active:bg-amber-600 active:text-white transition-all flex items-center gap-1.5">
-                        <AlertCircle size={12} /> LOW STOCK ({stats.lowStockCount})
-                    </button>
+                <div className="flex flex-col gap-5">
+                    <div className="flex items-center gap-3">
+                       <Filter size={14} className="text-slate-300" />
+                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Brand Selection</span>
+                    </div>
+                    <div className="flex gap-3">
+                        {(['ALL', Brand.HYUNDAI, Brand.MAHINDRA] as const).map(b => (
+                           <button 
+                             key={b}
+                             onClick={() => setSelectedBrand(b)}
+                             className={`flex-1 py-4 rounded-2xl text-[12px] font-black uppercase tracking-widest transition-all active:scale-95 border-2 ${
+                               selectedBrand === b 
+                                 ? 'bg-slate-900 text-white border-slate-900 shadow-xl' 
+                                 : 'bg-white text-slate-500 border-slate-100 hover:border-slate-200'
+                             }`}
+                           >
+                             {b}
+                           </button>
+                        ))}
+                    </div>
                 </div>
             </div>
          </div>
       </div>
 
-      {/* LIVE SEARCH RESULTS / DATA TABLE */}
-      <div className="bg-white rounded-3xl lg:rounded-[2.5rem] shadow-premium border border-slate-50 overflow-hidden flex flex-col flex-1 min-h-[300px] mb-4">
-         <div className="p-4 lg:p-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/20">
-            <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 bg-brand-500 rounded-full animate-pulse"></div>
-                <span className="text-[9px] lg:text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">
-                    {searchQuery ? `FOUND RESULTS FOR "${searchQuery}"` : "LIVE CATALOG VIEW"}
-                </span>
+      {/* QUICK STATUS INDICATOR */}
+      <div className="px-2">
+         <button 
+           onClick={() => navigate('/low-stock')}
+           className="w-full bg-amber-50 border border-amber-100 p-5 rounded-[2rem] flex items-center justify-between group active:scale-[0.98] transition-all"
+         >
+            <div className="flex items-center gap-4">
+               <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-amber-500 shadow-sm">
+                  <AlertCircle size={22} strokeWidth={2.5} />
+               </div>
+               <div className="text-left">
+                  <p className="text-[11px] font-black text-amber-700/60 uppercase tracking-widest leading-none mb-1.5">Attention Items</p>
+                  <p className="text-lg font-black text-amber-900 tracking-tight">{stats.lowStockCount} SKUs are Low on Stock</p>
+               </div>
             </div>
-            <div className="flex items-center gap-1.5 text-[9px] font-black text-brand-600 uppercase tracking-widest italic bg-brand-50 px-2 py-1 rounded-lg">
-                <Eye size={12} /> Click to Reveal MRP
+            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity">
+               <ArrowRight size={20} />
+            </div>
+         </button>
+      </div>
+
+      {/* CATALOG RESULTS AREA */}
+      <div className="bg-white rounded-[3rem] shadow-premium border border-slate-50 overflow-hidden flex flex-col flex-1 min-h-[400px]">
+         <div className="p-6 md:p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/10">
+            <div className="flex items-center gap-3">
+                <div className="w-2 h-2 bg-brand-500 rounded-full animate-pulse"></div>
+                <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.25em]">
+                    {searchQuery ? `FOUND FOR "${searchQuery}"` : "Master Catalog View"}
+                </h3>
+            </div>
+            <div className="flex items-center gap-2 text-[10px] font-black text-brand-600 uppercase tracking-widest px-3 py-1.5 bg-brand-50 rounded-xl">
+                <Eye size={12} strokeWidth={3} /> Reveal MRP
             </div>
          </div>
          <div className="flex-1 min-h-0">
             <StockTable 
                items={inventory} 
                userRole={user.role}
+               brandFilter={selectedBrand === 'ALL' ? undefined : selectedBrand}
                enableActions={true}
                hideToolbar={true}
                externalSearch={searchQuery}
