@@ -18,7 +18,9 @@ import {
   Zap,
   ArrowRight,
   ChevronRight,
-  Filter
+  Filter,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 
 interface Props {
@@ -52,6 +54,10 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [showMobileSearch, setShowMobileSearch] = useState(false);
   
+  // Mobile search UI states
+  const [hideFilters, setHideFilters] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     fetchInventory().then(setInventory);
     if (mode === 'SALES') {
@@ -68,7 +74,10 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
 
   const handleSearch = (val: string) => {
     setSearch(val);
-    if (val.length > 1) {
+    if (val.length > 0) {
+       // Auto-hide filters when user starts typing to focus on results
+       if (val.length > 1) setHideFilters(true);
+       
        let filtered = inventory.filter(i => 
          i.partNumber.toLowerCase().includes(val.toLowerCase()) || 
          i.name.toLowerCase().includes(val.toLowerCase())
@@ -77,7 +86,10 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
          filtered = filtered.filter(i => i.brand === selectedBrand);
        }
        setSuggestions(filtered.slice(0, 30));
-    } else setSuggestions([]);
+    } else {
+       setSuggestions([]);
+       setHideFilters(false);
+    }
   };
 
   const handleCustomerType = (val: string) => {
@@ -95,9 +107,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
       const existing = cart.find(c => c.partNumber === item.partNumber);
       if (existing) {
           updateQty(existing.tempId, 1);
-          setSearch('');
-          setSuggestions([]);
-          setShowMobileSearch(false);
+          resetSearch();
           return;
       }
       if (mode === 'SALES' && item.quantity === 0) return alert("Item out of stock!");
@@ -113,9 +123,14 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
           stockError: false
       };
       setCart(prev => [...prev, newItem]);
-      setSearch('');
-      setSuggestions([]);
-      setShowMobileSearch(false);
+      resetSearch();
+  };
+
+  const resetSearch = () => {
+    setSearch('');
+    setSuggestions([]);
+    setShowMobileSearch(false);
+    setHideFilters(false);
   };
 
   const updateQty = (id: string, delta: number) => {
@@ -158,6 +173,15 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
       } else alert("Error: " + res.message);
   };
 
+  const handleMobileScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const scrollTop = e.currentTarget.scrollTop;
+    if (scrollTop > 50 && !hideFilters && suggestions.length > 0) {
+      setHideFilters(true);
+    } else if (scrollTop < 10 && hideFilters && search.length === 0) {
+      setHideFilters(false);
+    }
+  };
+
   const totalAmount = cart.reduce((sum, item) => sum + (item.quantity * item.price), 0);
   const accentColor = mode === 'RETURN' ? 'bg-rose-600' : mode === 'PURCHASE' ? 'bg-slate-900' : 'bg-brand-600';
 
@@ -168,39 +192,61 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
        {showMobileSearch && (
          <div className="fixed inset-0 z-[100] bg-[#F8FAFC] flex flex-col animate-slide-up">
             <div className="flex-none h-16 flex items-center px-4 gap-4 bg-white border-b border-slate-100 shadow-sm">
-               <button onClick={() => setShowMobileSearch(false)} className="p-2 text-slate-400">
+               <button onClick={() => { setShowMobileSearch(false); setHideFilters(false); }} className="p-2 text-slate-400">
                   <ArrowLeft size={24} />
                </button>
-               <h3 className="font-bold text-lg text-slate-800">Select Part</h3>
+               <h3 className="font-bold text-lg text-slate-800">Part Search</h3>
+               <button 
+                  onClick={() => setHideFilters(!hideFilters)} 
+                  className="ml-auto p-2 text-slate-400 hover:text-brand-600"
+               >
+                  {hideFilters ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
+               </button>
             </div>
             
-            {/* Search Input Area */}
-            <div className="p-4 bg-white space-y-4">
-                <div className="relative">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
-                    <input 
-                        autoFocus
-                        type="text" 
-                        className="w-full bg-slate-50 p-3.5 pl-11 rounded-2xl border-none text-base font-bold shadow-inner outline-none ring-1 ring-slate-100 focus:ring-brand-500/20"
-                        placeholder="Type Part No. or Name..."
-                        value={search}
-                        onChange={e => handleSearch(e.target.value)}
-                    />
-                </div>
-                <div className="flex gap-2 overflow-x-auto no-scrollbar py-1">
-                    {(['ALL', Brand.HYUNDAI, Brand.MAHINDRA] as const).map(b => (
-                        <button
-                            key={b}
-                            onClick={() => { setSelectedBrand(b); handleSearch(search); }}
-                            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap border transition-all ${selectedBrand === b ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white text-slate-400 border-slate-200'}`}
-                        >
-                            {b}
-                        </button>
-                    ))}
+            {/* SEARCH SECTION - DYNAMICALLY COLLAPSIBLE */}
+            <div className={`flex-none bg-white shadow-sm transition-all duration-300 overflow-hidden ${hideFilters ? 'max-h-20' : 'max-h-48'}`}>
+                <div className="p-4 space-y-4">
+                    <div className="relative">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+                        <input 
+                            autoFocus
+                            type="text" 
+                            className="w-full bg-slate-50 p-3.5 pl-11 rounded-2xl border-none text-base font-bold shadow-inner outline-none ring-1 ring-slate-100 focus:ring-brand-500/20"
+                            placeholder="Part Number..."
+                            value={search}
+                            onChange={e => handleSearch(e.target.value)}
+                        />
+                        {search && (
+                          <button onClick={() => handleSearch('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300">
+                            <X size={18} />
+                          </button>
+                        )}
+                    </div>
+                    
+                    {/* Brand Buttons - Hidden when hideFilters is true */}
+                    {!hideFilters && (
+                      <div className="flex gap-2 overflow-x-auto no-scrollbar py-1 animate-fade-in">
+                          {(['ALL', Brand.HYUNDAI, Brand.MAHINDRA] as const).map(b => (
+                              <button
+                                  key={b}
+                                  onClick={() => { setSelectedBrand(b); handleSearch(search); }}
+                                  className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap border transition-all ${selectedBrand === b ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white text-slate-400 border-slate-200'}`}
+                              >
+                                  {b}
+                              </button>
+                          ))}
+                      </div>
+                    )}
                 </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar">
+            {/* RESULTS AREA */}
+            <div 
+              ref={scrollRef}
+              onScroll={handleMobileScroll}
+              className="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar"
+            >
                 {suggestions.map(item => (
                     <button 
                         key={item.id}
@@ -217,15 +263,25 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
                             <div className="text-[12px] text-slate-400 font-medium truncate mb-2">{item.name}</div>
                             <div className={`text-[10px] font-black uppercase inline-flex items-center gap-1.5 ${item.quantity > 0 ? 'text-teal-600' : 'text-rose-500'}`}>
                                 <div className={`w-1.5 h-1.5 rounded-full ${item.quantity > 0 ? 'bg-teal-500' : 'bg-rose-500'} animate-pulse`}></div>
-                                Stock: {item.quantity} units
+                                Stock: {item.quantity}
                             </div>
                         </div>
                         <div className="text-right flex flex-col items-end">
                             <div className="font-black text-slate-900 text-lg">₹{item.price.toLocaleString()}</div>
-                            <ChevronRight size={18} className="text-slate-200 mt-1" />
+                            <div className="bg-brand-50 text-brand-600 p-1 rounded-lg mt-1">
+                                <Plus size={16} strokeWidth={3} />
+                            </div>
                         </div>
                     </button>
                 ))}
+                
+                {search.length === 0 && (
+                   <div className="flex flex-col items-center justify-center py-20 text-slate-300">
+                      <Search size={48} className="mb-4 opacity-10" />
+                      <p className="font-bold text-xs uppercase tracking-[0.2em]">Start typing to find parts</p>
+                   </div>
+                )}
+
                 {search.length > 1 && suggestions.length === 0 && (
                     <div className="text-center py-12">
                         <X className="mx-auto text-slate-200 mb-2" size={40} />
@@ -236,7 +292,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
          </div>
        )}
 
-       {/* DESKTOP LAYOUT (Retained for Desktop Users) */}
+       {/* DESKTOP LAYOUT */}
        <div className="hidden lg:grid grid-cols-12 gap-8 h-full">
            <div className="col-span-8 bg-white rounded-[2.5rem] shadow-premium border border-slate-50 flex flex-col overflow-hidden">
                <div className="p-8 border-b border-slate-50 bg-slate-50/50">
