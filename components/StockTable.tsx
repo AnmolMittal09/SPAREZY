@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { StockItem, Brand, Role } from '../types';
 import { bulkArchiveItems } from '../services/inventoryService';
-import { Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, Archive, ArchiveRestore, Loader2, Edit, Eye, Trash2, CheckSquare } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, Archive, ArchiveRestore, Loader2, Eye, EyeOff } from 'lucide-react';
 
 interface StockTableProps {
   items: StockItem[];
@@ -14,7 +14,35 @@ interface StockTableProps {
   externalSearch?: string;
   hideToolbar?: boolean;
   stockStatusFilter?: 'ALL' | 'LOW' | 'OUT';
+  hidePriceByDefault?: boolean;
 }
+
+const PriceCell: React.FC<{ price: number }> = ({ price }) => {
+  const [visible, setVisible] = useState(false);
+
+  return (
+    <div 
+      onClick={(e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        setVisible(!visible);
+      }}
+      className={`cursor-pointer select-none font-black text-[15px] transition-all duration-200 flex items-center justify-end gap-2 group/price ${visible ? 'text-slate-900' : 'text-slate-300 hover:text-slate-400'}`}
+    >
+      {visible ? (
+        <>
+          <span>₹{price.toLocaleString()}</span>
+          <EyeOff size={14} className="opacity-40 group-hover/price:opacity-100" />
+        </>
+      ) : (
+        <>
+          <span className="blur-[3px]">₹8,888</span>
+          <Eye size={14} className="opacity-60" />
+        </>
+      )}
+    </div>
+  );
+};
 
 const StockTable: React.FC<StockTableProps> = ({ 
     items, 
@@ -24,7 +52,8 @@ const StockTable: React.FC<StockTableProps> = ({
     enableActions = true,
     externalSearch,
     hideToolbar = false,
-    stockStatusFilter = 'ALL'
+    stockStatusFilter = 'ALL',
+    hidePriceByDefault = false
 }) => {
   const [internalSearch, setInternalSearch] = useState('');
   const [showArchived, setShowArchived] = useState(false);
@@ -83,8 +112,8 @@ const StockTable: React.FC<StockTableProps> = ({
 
     if (sortConfig) {
         result.sort((a, b) => {
-            const aVal = a[sortConfig.key];
-            const bVal = b[sortConfig.key];
+            const aVal = a[sortConfig.key] ?? 0;
+            const bVal = b[sortConfig.key] ?? 0;
             if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
             if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
             return 0;
@@ -99,7 +128,6 @@ const StockTable: React.FC<StockTableProps> = ({
   const currentItems = filteredItems.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const isAllPageSelected = currentItems.length > 0 && currentItems.every(i => selectedParts.has(i.partNumber));
-  const areAllSelected = filteredItems.length > 0 && selectedParts.size === filteredItems.length;
 
   const toggleSelectAllPage = () => {
     const newSet = new Set(selectedParts);
@@ -199,7 +227,7 @@ const StockTable: React.FC<StockTableProps> = ({
                          <div className="flex items-center justify-center gap-1">Qty <SortIcon col="quantity"/></div>
                     </th>
                     <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-widest text-[10px] text-right cursor-pointer" onClick={() => requestSort('price')}>
-                         <div className="flex items-center justify-end gap-1">Price <SortIcon col="price"/></div>
+                         <div className="flex items-center justify-end gap-1">MRP <SortIcon col="price"/></div>
                     </th>
                     {enableActions && <th className="px-6 py-4 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] w-20">Link</th>}
                 </tr>
@@ -208,7 +236,7 @@ const StockTable: React.FC<StockTableProps> = ({
                 {currentItems.length === 0 ? (
                     <tr><td colSpan={7} className="p-20 text-center text-slate-400 font-medium">No inventory items found.</td></tr>
                 ) : (
-                    currentItems.map((item, idx) => {
+                    currentItems.map((item) => {
                         const isLow = item.quantity > 0 && item.quantity <= item.minStockThreshold;
                         const isZero = item.quantity === 0;
                         const isSelected = selectedParts.has(item.partNumber);
@@ -242,7 +270,9 @@ const StockTable: React.FC<StockTableProps> = ({
                                         {item.quantity}
                                     </span>
                                 </td>
-                                <td className="px-6 py-5 text-right font-black text-slate-900 text-[15px]">₹{item.price.toLocaleString()}</td>
+                                <td className="px-6 py-5 text-right">
+                                  {hidePriceByDefault ? <PriceCell price={item.price} /> : <div className="font-black text-slate-900 text-[15px]">₹{item.price.toLocaleString()}</div>}
+                                </td>
                                 {enableActions && (
                                     <td className="px-6 py-5 text-center">
                                          <Link to={`/item/${encodeURIComponent(item.partNumber)}`} className="text-slate-300 group-hover:text-brand-600 transition-all p-2 hover:bg-brand-50 rounded-xl inline-block">
@@ -277,9 +307,8 @@ const StockTable: React.FC<StockTableProps> = ({
              <div className="p-20 text-center text-slate-400 font-medium">No items found.</div>
          ) : (
              mobileItems.map((item) => (
-                <Link 
+                <div 
                    key={item.id}
-                   to={`/item/${encodeURIComponent(item.partNumber)}`}
                    className="block bg-slate-50/50 border border-slate-100 p-5 rounded-[2rem] active:scale-[0.98] transition-all"
                 >
                    <div className="flex justify-between items-start">
@@ -294,13 +323,20 @@ const StockTable: React.FC<StockTableProps> = ({
                       </div>
                       
                       <div className="text-right">
-                         <div className="font-black text-slate-900 text-[17px]">₹{item.price.toLocaleString()}</div>
-                         <div className={`text-[11px] font-bold px-2 py-0.5 rounded-lg mt-1 inline-block ${item.quantity === 0 ? 'bg-rose-100 text-rose-700' : 'bg-teal-50 text-teal-700'}`}>
+                         <div className="mb-1">
+                           {hidePriceByDefault ? <PriceCell price={item.price} /> : <div className="font-black text-slate-900 text-[17px]">₹{item.price.toLocaleString()}</div>}
+                         </div>
+                         <div className={`text-[11px] font-bold px-2 py-0.5 rounded-lg inline-block ${item.quantity === 0 ? 'bg-rose-100 text-rose-700' : 'bg-teal-50 text-teal-700'}`}>
                             {item.quantity} in stock
                          </div>
                       </div>
                    </div>
-                </Link>
+                   <div className="mt-4 flex justify-end">
+                      <Link to={`/item/${encodeURIComponent(item.partNumber)}`} className="text-xs font-bold text-brand-600 flex items-center gap-1">
+                         View Details <Eye size={14} />
+                      </Link>
+                   </div>
+                </div>
              ))
          )}
          

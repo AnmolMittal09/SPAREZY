@@ -3,8 +3,8 @@ import { StockItem } from "../types";
 
 export const generateInventoryInsights = async (inventory: StockItem[]): Promise<string> => {
   try {
-    // @ts-ignore
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    // Fix: Using correct initialization and model for summarization tasks
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
     
     // Summarize data to send to Gemini to avoid token limits with huge inventories
     const summary = inventory.map(i => 
@@ -28,7 +28,7 @@ export const generateInventoryInsights = async (inventory: StockItem[]): Promise
     `;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: prompt,
     });
 
