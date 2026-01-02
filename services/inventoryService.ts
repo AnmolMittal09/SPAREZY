@@ -1,5 +1,3 @@
-
-
 import { INITIAL_STOCK_DATA } from '../constants';
 import { Brand, PriceHistoryEntry, StockItem, StockStats, UploadHistoryEntry } from '../types';
 import { supabase } from './supabase';
@@ -324,7 +322,7 @@ export const updateOrAddItems = async (
           brand: (newItem.brand || Brand.UNKNOWN) as string,
           hsn_code: newItem.hsnCode || 'N/A',
           quantity: newItem.quantity !== undefined ? newItem.quantity : 0,
-          min_stock_threshold: newItem.minStockThreshold !== undefined ? newItem.minStockThreshold : 5,
+          min_stock_threshold: newItem.minStockThreshold !== undefined ? newItem.minStockThreshold : 3,
           price: newItem.price !== undefined ? newItem.price : 0,
           last_updated: new Date().toISOString(),
           is_archived: false // New items default to active
@@ -412,7 +410,7 @@ export const updateOrAddItems = async (
         brand: newItem.brand as Brand,
         hsnCode: newItem.hsnCode || 'N/A',
         quantity: quantityInput !== undefined ? quantityInput : 0,
-        minStockThreshold: thresholdInput !== undefined ? thresholdInput : 5,
+        minStockThreshold: thresholdInput !== undefined ? thresholdInput : 3,
         price: priceInput !== undefined ? priceInput : 0,
         lastUpdated: new Date().toISOString(),
         isArchived: false

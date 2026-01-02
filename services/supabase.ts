@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 
 // Access environment variables safely
@@ -47,7 +46,7 @@ export const supabase = (supabaseUrl && supabaseKey)
  *   brand text,
  *   hsn_code text,
  *   quantity int default 0,
- *   min_stock_threshold int default 5,
+ *   min_stock_threshold int default 3,
  *   price numeric default 0,
  *   last_updated timestamptz default now(),
  *   is_archived boolean default false
