@@ -5,7 +5,6 @@ import StockTable from '../components/StockTable';
 import { 
   Search,
   AlertCircle,
-  History,
   Eye,
   PackageCheck
 } from 'lucide-react';
@@ -66,16 +65,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{user.role} Access</p>
                </div>
             </div>
-         </div>
-
-         <div className="flex items-center gap-2">
-            <button 
-              onClick={() => navigate('/billing?tab=history')}
-              className="p-2.5 bg-white border border-slate-200 rounded-2xl text-slate-500 hover:text-brand-600 transition-all shadow-soft active:scale-95"
-              title="Transaction History"
-            >
-               <History size={22} />
-            </button>
          </div>
       </div>
 

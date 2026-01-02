@@ -15,7 +15,6 @@ import {
   Settings, 
   LogOut, 
   Menu, 
-  Bell, 
   ChevronDown, 
   CheckSquare, 
   FileText, 
@@ -38,8 +37,6 @@ interface BeforeInstallPromptEvent extends Event {
 const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const location = useLocation();
-  const navigate = useNavigate();
-
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   // PWA Install State
@@ -56,16 +53,6 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, []);
-
-  const handleInstallClick = async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') {
-      setDeferredPrompt(null);
-      setShowInstallBtn(false);
-    }
-  };
 
   const navGroups = [
     {
@@ -217,25 +204,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
 
       {/* MAIN SECTION */}
       <div className="flex-1 flex flex-col min-w-0 h-full relative">
-        
-        {/* HEADER */}
-        <header className="h-20 bg-white/80 backdrop-blur-md border-b border-slate-100 flex items-center justify-between px-6 lg:px-10 z-40 no-print">
-           <div className="flex items-center gap-4 lg:hidden">
-              <button onClick={() => setIsSidebarOpen(true)} className="p-2.5 text-slate-600 bg-slate-50 rounded-2xl active:scale-95 transition-all">
-                <Menu size={24} />
-              </button>
-              <span className="font-black text-xl tracking-tighter text-slate-900">Sparezy</span>
-           </div>
-
-           <div className="flex items-center gap-3 ml-auto">
-              <button className="p-2.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-2xl relative transition-all active:scale-95">
-                 <Bell size={22} />
-                 <span className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white"></span>
-              </button>
-           </div>
-        </header>
-
-        {/* MAIN CONTENT */}
+        {/* MAIN CONTENT Area - Now occupies the full height from the top */}
         <main className="flex-1 overflow-y-auto px-6 lg:px-10 py-8 scroll-smooth no-scrollbar">
            <div className="max-w-7xl mx-auto pb-24 lg:pb-0">
               {children}
