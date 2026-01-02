@@ -1,3 +1,4 @@
+
 import { supabase } from './supabase';
 import { Invoice, Role, Transaction, TransactionStatus, TransactionType } from '../types';
 
@@ -71,6 +72,7 @@ export const createBulkTransactions = async (
       type: t.type,
       quantity: t.quantity,
       price: t.price,
+      // Fix: Use t.customerName (from Transaction type) instead of t.customer_name
       customer_name: t.customerName,
       status: initialStatus,
       created_by_role: t.createdByRole,
@@ -151,20 +153,44 @@ export const rejectTransaction = async (id: string): Promise<void> => {
 const updateStockForTransaction = async (partNumber: string, type: TransactionType, quantity: number) => {
   if (!supabase) return;
   
-  // Fetch current
-  const { data: items } = await supabase.from('inventory').select('quantity, part_number').ilike('part_number', partNumber).limit(1);
+  // Fetch current state including archive status
+  const { data: items } = await supabase
+    .from('inventory')
+    .select('quantity, part_number, is_archived')
+    .ilike('part_number', partNumber)
+    .limit(1);
+
   if (!items || items.length === 0) return;
 
   const dbItem = items[0];
   const currentQty = dbItem.quantity;
   let newQty = currentQty;
 
-  if (type === TransactionType.SALE) newQty = currentQty - quantity;
-  else if (type === TransactionType.PURCHASE || type === TransactionType.RETURN) newQty = currentQty + quantity;
+  if (type === TransactionType.SALE) {
+    newQty = currentQty - quantity;
+  } else if (type === TransactionType.PURCHASE || type === TransactionType.RETURN) {
+    newQty = currentQty + quantity;
+  }
 
   if (newQty < 0 && type === TransactionType.SALE) newQty = 0;
 
-  await supabase.from('inventory').update({ quantity: newQty, last_updated: new Date().toISOString() }).eq('part_number', dbItem.part_number);
+  // Logic: Unarchive if stock is being added to an archived item
+  // This triggers if type is PURCHASE or RETURN and newQty is positive
+  const shouldUnarchive = dbItem.is_archived && newQty > 0;
+
+  const updatePayload: any = { 
+    quantity: newQty, 
+    last_updated: new Date().toISOString() 
+  };
+
+  if (shouldUnarchive) {
+    updatePayload.is_archived = false;
+  }
+
+  await supabase
+    .from('inventory')
+    .update(updatePayload)
+    .eq('part_number', dbItem.part_number);
 };
 
 // --- ANALYTICS ---
@@ -306,7 +332,7 @@ export const fetchInvoices = async (): Promise<Invoice[]> => {
       totalAmount: i.total_amount,
       taxAmount: i.tax_amount,
       paymentMode: i.payment_mode,
-      itemsCount: i.items_count,
+      items_count: i.items_count,
       generatedBy: i.generated_by
   }));
 };

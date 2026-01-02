@@ -1,9 +1,11 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { StockItem } from "../types";
 
 export const generateInventoryInsights = async (inventory: StockItem[]): Promise<string> => {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+    // Fix: Initialize GoogleGenAI strictly using process.env.API_KEY without fallback
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const summary = inventory.map(i => 
       `- ${i.partNumber} (${i.brand}): ${i.quantity} units (Threshold: ${i.minStockThreshold})`
     ).join('\n');
@@ -29,6 +31,7 @@ export const generateInventoryInsights = async (inventory: StockItem[]): Promise
       contents: prompt,
     });
 
+    // Fix: Directly access the .text property of GenerateContentResponse
     return response.text || "No insights generated.";
   } catch (error) {
     console.error("Gemini API Error:", error);
@@ -38,7 +41,8 @@ export const generateInventoryInsights = async (inventory: StockItem[]): Promise
 
 export const extractInvoiceData = async (base64File: string, mimeType: string) => {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+    // Fix: Initialize GoogleGenAI strictly using process.env.API_KEY without fallback
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
     const filePart = {
       inlineData: {
@@ -84,6 +88,7 @@ export const extractInvoiceData = async (base64File: string, mimeType: string) =
       }
     });
 
+    // Fix: Directly access the .text property of GenerateContentResponse
     return JSON.parse(response.text || "[]");
   } catch (error) {
     console.error("Invoice Extraction Error:", error);
