@@ -48,11 +48,17 @@ export const extractInvoiceData = async (base64File: string, mimeType: string) =
     };
 
     const prompt = `
-      Extract line items from this car spare parts invoice. 
-      Identify the Part Number (often alphanumeric), Description (Name), Quantity, and Unit Price.
-      Exclude taxes and shipping from line items.
-      If a part number is missing but a name exists, try to infer or leave empty.
-      Return the data strictly as a JSON array of objects.
+      Extract line items from this car spare parts invoice (likely Hyundai or Mahindra). 
+      For each item, identify:
+      1. Part Number
+      2. Name/Description
+      3. Quantity (Qty)
+      4. MRP (Maximum Retail Price before any discount)
+      5. B.DC or Basic Discount Percentage (look for "B.DC", "Disc%", or "Discount")
+      6. Printed Net Unit Price (The price shown on the bill AFTER discount)
+
+      Ensure numerical values are clean numbers. If a discount isn't explicitly listed for an item, use 0.
+      Return the data strictly as a JSON array.
     `;
 
     const response = await ai.models.generateContent({
@@ -68,9 +74,11 @@ export const extractInvoiceData = async (base64File: string, mimeType: string) =
               partNumber: { type: Type.STRING },
               name: { type: Type.STRING },
               quantity: { type: Type.NUMBER },
-              price: { type: Type.NUMBER }
+              mrp: { type: Type.NUMBER },
+              discountPercent: { type: Type.NUMBER, description: "B.DC or Discount %" },
+              printedUnitPrice: { type: Type.NUMBER, description: "The unit price shown on the bill after discount" }
             },
-            required: ["partNumber", "quantity", "price"]
+            required: ["partNumber", "quantity", "mrp", "discountPercent", "printedUnitPrice"]
           }
         }
       }
