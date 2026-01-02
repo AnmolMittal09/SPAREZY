@@ -123,15 +123,15 @@ const UploadPage: React.FC = () => {
 
     const payload: Partial<StockItem>[] = aiPreviewItems.map(item => ({
       partNumber: item.partNumber,
-      name: item.name,
+      name: uploadMode !== 'STOCK' ? item.name : undefined,
       brand: targetBrand,
-      quantity: item.quantity,
-      price: item.mrp // Use MRP from AI scan for Master/Price updates
+      quantity: uploadMode !== 'MASTER' ? item.quantity : undefined,
+      price: uploadMode !== 'STOCK' ? item.mrp : undefined
     }));
 
     const result = await updateOrAddItems(payload, { 
       fileName: `AI_SCAN_${new Date().getTime()}`, 
-      mode: 'AI_SMART_UPDATE' 
+      mode: `AI_${uploadMode}_UPDATE` 
     });
 
     setLog(result);
@@ -145,9 +145,6 @@ const UploadPage: React.FC = () => {
     const localWarnings: string[] = [];
     const seenPartNumbers = new Set<string>();
     
-    let validPricesFound = 0;
-    let validQuantitiesFound = 0;
-
     rows.forEach((row, index) => {
         if (!row || row.length === 0) return;
         const firstCell = String(row[0] || '').toLowerCase().trim();
@@ -177,7 +174,6 @@ const UploadPage: React.FC = () => {
                 const parsed = parseFloat(String(rawPrice).replace(/[^0-9.]/g, ''));
                 if (!isNaN(parsed)) {
                     price = parsed;
-                    validPricesFound++;
                 }
             }
         } else {
@@ -193,7 +189,6 @@ const UploadPage: React.FC = () => {
                 const parsed = parseInt(String(quantityRaw).replace(/[^0-9]/g, ''));
                 if (!isNaN(parsed)) {
                     quantity = parsed;
-                    validQuantitiesFound++;
                 }
             }
         }
@@ -269,21 +264,21 @@ const UploadPage: React.FC = () => {
       <div className="bg-white rounded-[2.5rem] shadow-premium border border-slate-100 overflow-hidden flex flex-col min-h-[600px]">
         <div className="border-b border-slate-50 flex overflow-x-auto no-scrollbar bg-slate-50/30">
             <button 
-                onClick={() => { setActiveTab('ai'); setLog(null); setAiPreviewItems([]); }}
+                onClick={() => { setActiveTab('ai'); setLog(null); setAiPreviewItems([]); setUploadMode('AI_SMART'); }}
                 className={`flex-1 min-w-[150px] py-6 text-xs font-black uppercase tracking-[0.2em] text-center transition-all flex flex-col items-center justify-center gap-2 ${activeTab === 'ai' ? 'bg-white text-brand-600 border-b-4 border-brand-600 shadow-inner' : 'text-slate-400 hover:bg-slate-50'}`}
             >
                 <Zap size={22} className={activeTab === 'ai' ? 'animate-pulse' : ''} />
                 AI Smart Scan
             </button>
             <button 
-                onClick={() => { setActiveTab('file'); setLog(null); }}
+                onClick={() => { setActiveTab('file'); setLog(null); setUploadMode('MASTER'); }}
                 className={`flex-1 min-w-[150px] py-6 text-xs font-black uppercase tracking-[0.2em] text-center transition-all flex flex-col items-center justify-center gap-2 ${activeTab === 'file' ? 'bg-white text-slate-900 border-b-4 border-slate-900 shadow-inner' : 'text-slate-400 hover:bg-slate-50'}`}
             >
                 <FileSpreadsheet size={22} />
                 Excel Upload
             </button>
             <button 
-                onClick={() => { setActiveTab('paste'); setLog(null); }}
+                onClick={() => { setActiveTab('paste'); setLog(null); setUploadMode('MASTER'); }}
                 className={`flex-1 min-w-[150px] py-6 text-xs font-black uppercase tracking-[0.2em] text-center transition-all flex flex-col items-center justify-center gap-2 ${activeTab === 'paste' ? 'bg-white text-slate-900 border-b-4 border-slate-900 shadow-inner' : 'text-slate-400 hover:bg-slate-50'}`}
             >
                 <FileText size={22} />
@@ -300,15 +295,27 @@ const UploadPage: React.FC = () => {
 
         <div className="flex-1 p-8 lg:p-12">
             {activeTab === 'ai' && (
-              <div className="h-full flex flex-col">
+              <div className="h-full flex flex-col space-y-10">
                 {!aiPreviewItems.length && !log && (
                   <div className="max-w-2xl mx-auto w-full space-y-10 animate-fade-in">
+                    <div className="flex flex-col md:flex-row gap-4 p-1.5 bg-slate-100 rounded-[2rem] w-full max-w-lg mx-auto">
+                        <button onClick={() => setUploadMode('MASTER')} className={`flex-1 px-4 py-3 rounded-3xl text-[10px] font-black uppercase tracking-[0.1em] transition-all flex items-center justify-center gap-2 ${uploadMode === 'MASTER' ? 'bg-white text-brand-600 shadow-md ring-1 ring-slate-200' : 'text-slate-400 hover:text-slate-600'}`}>
+                          <DollarSign size={14} /> MRP Only
+                        </button>
+                        <button onClick={() => setUploadMode('STOCK')} className={`flex-1 px-4 py-3 rounded-3xl text-[10px] font-black uppercase tracking-[0.1em] transition-all flex items-center justify-center gap-2 ${uploadMode === 'STOCK' ? 'bg-white text-brand-600 shadow-md ring-1 ring-slate-200' : 'text-slate-400 hover:text-slate-600'}`}>
+                          <Package size={14} /> Stock Only
+                        </button>
+                        <button onClick={() => setUploadMode('AI_SMART')} className={`flex-1 px-4 py-3 rounded-3xl text-[10px] font-black uppercase tracking-[0.1em] transition-all flex items-center justify-center gap-2 ${uploadMode === 'AI_SMART' ? 'bg-brand-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}>
+                          <Zap size={14} /> Smart Update
+                        </button>
+                    </div>
+
                     <div className="bg-brand-50 border border-brand-100 rounded-[2rem] p-8 flex gap-6 items-start">
                         <div className="p-4 bg-brand-600 text-white rounded-2xl shadow-xl shadow-brand-100 flex-none"><Zap size={28} /></div>
                         <div>
                             <h3 className="font-black text-brand-900 text-lg uppercase tracking-tight">AI Multi-Update</h3>
                             <p className="text-[14px] text-brand-700/80 mt-2 leading-relaxed font-medium">
-                                Upload any document (Image/PDF). Sparezy will automatically extract <b>Part Numbers</b>, <b>Names</b>, <b>Quantities</b>, and <b>MRP</b> to update everything at once.
+                                Upload any document (Image/PDF). {uploadMode === 'AI_SMART' ? 'Sparezy will extract both MRP and Quantities.' : uploadMode === 'MASTER' ? 'Sparezy will extract MRPs and update the master price list.' : 'Sparezy will extract quantities and update stock levels.'}
                             </p>
                         </div>
                     </div>
@@ -338,7 +345,7 @@ const UploadPage: React.FC = () => {
                             <div className="bg-brand-600 p-3 rounded-2xl shadow-lg"><Zap size={24} /></div>
                             <div>
                                <h3 className="font-black text-xl leading-none">AI Extraction Preview</h3>
-                               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-2">Detected {aiPreviewItems.length} Unique SKUs</p>
+                               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-2">Mode: {uploadMode === 'AI_SMART' ? 'Smart (All)' : uploadMode === 'MASTER' ? 'MRP Only' : 'Stock Only'}</p>
                             </div>
                          </div>
                          <button onClick={() => setAiPreviewItems([])} className="p-2.5 bg-white/10 hover:bg-white/20 rounded-xl transition-all"><X size={20} /></button>
@@ -352,14 +359,18 @@ const UploadPage: React.FC = () => {
                                   <div className="text-xs text-slate-400 font-bold truncate mt-1">{item.name}</div>
                                </div>
                                <div className="flex items-center gap-10">
-                                  <div className="text-right">
-                                     <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">New MRP</p>
-                                     <p className="font-black text-slate-800">₹{item.mrp?.toLocaleString()}</p>
-                                  </div>
-                                  <div className="text-right min-w-[60px]">
-                                     <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">Stock</p>
-                                     <p className="font-black text-brand-600">+{item.quantity} units</p>
-                                  </div>
+                                  {uploadMode !== 'STOCK' && (
+                                    <div className="text-right">
+                                       <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">Scanned MRP</p>
+                                       <p className="font-black text-slate-800">₹{item.mrp?.toLocaleString()}</p>
+                                    </div>
+                                  )}
+                                  {uploadMode !== 'MASTER' && (
+                                    <div className="text-right min-w-[60px]">
+                                       <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">Scanned Qty</p>
+                                       <p className="font-black text-brand-600">+{item.quantity} units</p>
+                                    </div>
+                                  )}
                                </div>
                             </div>
                          ))}
