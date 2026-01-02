@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { StockItem, Brand, Role, PriceHistoryEntry } from '../types';
 import { bulkArchiveItems, fetchPriceHistory, toggleArchiveStatus } from '../services/inventoryService';
-import { Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, Archive, ArchiveRestore, Loader2, Eye, EyeOff, Lock, Info, TrendingUp, TrendingDown, Clock, MoreHorizontal } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, Archive, ArchiveRestore, Loader2, Eye, EyeOff, Lock, Info, TrendingUp, TrendingDown, Clock, MoreHorizontal, ArrowRight } from 'lucide-react';
 
 interface StockTableProps {
   items: StockItem[];
@@ -20,10 +20,24 @@ interface StockTableProps {
 const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role }> = ({ price, partNumber, userRole }) => {
   const [visible, setVisible] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
-  const [history, setHistory] = useState<PriceHistoryEntry | null>(null);
+  const [history, setHistory] = useState<PriceHistoryEntry[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
   const isManager = userRole === Role.MANAGER;
+
+  // Fetch history logic extracted for reuse in hover/click
+  const loadHistory = async () => {
+    if (history.length > 0 || loadingHistory) return;
+    setLoadingHistory(true);
+    try {
+      const data = await fetchPriceHistory(partNumber);
+      setHistory(data || []);
+    } catch (err) {
+      console.error("Failed to load price history", err);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
 
   // Close popover when clicking outside
   useEffect(() => {
@@ -51,20 +65,22 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role }
 
     if (!showHistory) {
       setShowHistory(true);
-      if (!history && !loadingHistory) {
-        setLoadingHistory(true);
-        try {
-          const data = await fetchPriceHistory(partNumber);
-          if (data && data.length > 0) {
-            setHistory(data[0]);
-          }
-        } catch (err) {
-          console.error("Failed to load price history", err);
-        } finally {
-          setLoadingHistory(false);
-        }
-      }
+      await loadHistory();
     } else {
+      setShowHistory(false);
+    }
+  };
+
+  const handleMouseEnter = () => {
+    // Only trigger history popover on hover if price is already revealed and not a touch device
+    if (!('ontouchstart' in window) && visible) {
+      setShowHistory(true);
+      loadHistory();
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (!('ontouchstart' in window)) {
       setShowHistory(false);
     }
   };
@@ -84,13 +100,15 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role }
     <div className="relative flex justify-end items-center">
       <div 
         onClick={handlePriceClick}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
         className={`cursor-pointer select-none font-black text-[15px] transition-all duration-200 flex items-center justify-end gap-2 group/price px-2 py-1 rounded-lg ${visible ? 'text-slate-900 bg-slate-50' : 'text-slate-300 hover:text-slate-400 hover:bg-slate-50/50'}`}
       >
         {visible ? (
           <>
             <span className="flex items-center gap-1">
               ₹{price.toLocaleString()}
-              {history && <div className="w-1 h-1 rounded-full bg-brand-500 animate-pulse" title="History available" />}
+              {history.length > 0 && <div className="w-1 h-1 rounded-full bg-brand-500 animate-pulse" title="History available" />}
             </span>
             <Info size={14} className={`opacity-40 group-hover/price:opacity-100 transition-opacity ${showHistory ? 'text-brand-600 opacity-100' : ''}`} />
           </>
@@ -107,59 +125,77 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role }
       {showHistory && (
         <div 
           ref={popoverRef}
-          className="absolute bottom-full right-0 mb-3 z-[100] w-64 bg-white rounded-2xl shadow-premium border border-slate-100 p-5 animate-slide-up overflow-hidden"
+          className="absolute bottom-full right-0 mb-3 z-[100] w-72 bg-white rounded-2xl shadow-premium border border-slate-100 p-5 animate-slide-up overflow-hidden"
         >
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-500 to-indigo-500"></div>
           
           <div className="flex items-center justify-between mb-4">
-            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">MRP Comparison</h4>
-            <div className="p-1 bg-slate-50 rounded-md">
-              <Clock size={12} className="text-slate-400" />
+            <div className="flex items-center gap-2">
+               <Clock size={14} className="text-slate-400" />
+               <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Price Evolution</h4>
             </div>
+            <span className="text-[9px] font-black bg-slate-100 px-2 py-0.5 rounded text-slate-500">
+               {history.length} UPDATES
+            </span>
           </div>
 
           {loadingHistory ? (
-            <div className="py-4 flex flex-col items-center gap-2">
-              <Loader2 size={18} className="animate-spin text-brand-500" />
-              <span className="text-[10px] font-bold text-slate-400 uppercase">Checking History...</span>
+            <div className="py-6 flex flex-col items-center gap-3">
+              <div className="relative">
+                <Loader2 size={24} className="animate-spin text-brand-500" />
+                <div className="absolute inset-0 m-auto w-1 h-1 bg-brand-200 rounded-full animate-ping"></div>
+              </div>
+              <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Reading Ledger...</span>
             </div>
-          ) : history ? (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Old Price</p>
-                  <p className="text-lg font-bold text-slate-400 line-through decoration-slate-300">₹{history.oldPrice.toLocaleString()}</p>
-                </div>
-                <div className="flex flex-col items-center">
-                   {history.newPrice > history.oldPrice ? (
-                     <div className="bg-rose-50 text-rose-600 p-1.5 rounded-full">
-                       <TrendingUp size={16} />
-                     </div>
-                   ) : (
-                     <div className="bg-teal-50 text-teal-600 p-1.5 rounded-full">
-                       <TrendingDown size={16} />
-                     </div>
-                   )}
-                   <span className={`text-[9px] font-black mt-1 ${history.newPrice > history.oldPrice ? 'text-rose-500' : 'text-teal-500'}`}>
-                     {history.newPrice > history.oldPrice ? '+' : '-'}{Math.abs(((history.newPrice - history.oldPrice) / history.oldPrice) * 100).toFixed(1)}%
-                   </span>
-                </div>
-                <div className="space-y-0.5 text-right">
-                  <p className="text-[10px] font-bold text-brand-500 uppercase tracking-tight">Current Price</p>
-                  <p className="text-lg font-black text-slate-900">₹{history.newPrice.toLocaleString()}</p>
-                </div>
-              </div>
+          ) : history.length > 0 ? (
+            <div className="space-y-4 max-h-64 overflow-y-auto no-scrollbar pr-1">
+              {history.slice(0, 8).map((entry, idx) => {
+                const isIncrease = entry.newPrice > entry.oldPrice;
+                const percentChange = entry.oldPrice > 0 
+                   ? (((entry.newPrice - entry.oldPrice) / entry.oldPrice) * 100).toFixed(1) 
+                   : '0.0';
 
-              <div className="pt-3 border-t border-slate-50 flex items-center justify-between">
-                 <span className="text-[9px] font-bold text-slate-400 uppercase">Last Changed</span>
-                 <span className="text-[10px] font-black text-slate-600 italic">{new Date(history.changeDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric'})}</span>
-              </div>
+                return (
+                  <div key={entry.id} className={`group/item flex flex-col gap-2 ${idx !== history.length - 1 && idx !== 7 ? 'pb-4 border-b border-slate-50' : ''}`}>
+                     <div className="flex justify-between items-center">
+                        <div className="text-[10px] font-bold text-slate-400">
+                           {new Date(entry.changeDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </div>
+                        <div className={`flex items-center gap-1 text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter ${isIncrease ? 'bg-rose-50 text-rose-600' : 'bg-teal-50 text-teal-600'}`}>
+                           {isIncrease ? <TrendingUp size={10}/> : <TrendingDown size={10}/>}
+                           {isIncrease ? '+' : ''}{percentChange}%
+                        </div>
+                     </div>
+                     <div className="flex items-center justify-between bg-slate-50/50 p-2 rounded-xl border border-transparent group-hover/item:border-slate-100 group-hover/item:bg-white transition-all">
+                        <div className="flex flex-col">
+                           <span className="text-[8px] font-black text-slate-300 uppercase">From</span>
+                           <span className="text-xs font-bold text-slate-400 line-through">₹{entry.oldPrice.toLocaleString()}</span>
+                        </div>
+                        <ArrowRight size={14} className="text-slate-200" />
+                        <div className="flex flex-col text-right">
+                           <span className="text-[8px] font-black text-brand-400 uppercase">To</span>
+                           <span className="text-sm font-black text-slate-900">₹{entry.newPrice.toLocaleString()}</span>
+                        </div>
+                     </div>
+                  </div>
+                );
+              })}
+              {history.length > 8 && (
+                <div className="pt-2 text-center">
+                  <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest italic">
+                    + {history.length - 8} more historical records
+                  </p>
+                </div>
+              )}
             </div>
           ) : (
-            <div className="py-4 text-center">
-               <p className="text-sm font-bold text-slate-400">No price changes recorded.</p>
-               <p className="text-[9px] font-medium text-slate-300 uppercase mt-1">Showing first entry</p>
-               <div className="mt-3 font-black text-slate-900 text-lg">₹{price.toLocaleString()}</div>
+            <div className="py-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+               <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm">
+                  <Clock size={16} className="text-slate-300" />
+               </div>
+               <p className="text-xs font-bold text-slate-400">No price changes on record.</p>
+               <div className="mt-4 font-black text-slate-900 text-lg">₹{price.toLocaleString()}</div>
+               <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mt-1">Current Base Price</p>
             </div>
           )}
           
