@@ -21,7 +21,8 @@ import {
   Filter,
   ChevronDown,
   ChevronUp,
-  LayoutGrid
+  LayoutGrid,
+  CreditCard
 } from 'lucide-react';
 
 interface Props {
@@ -56,7 +57,6 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [showMobileSearch, setShowMobileSearch] = useState(false);
   
-  // Mobile search UI states
   const [hideFilters, setHideFilters] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -74,7 +74,6 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
 
   useEffect(() => { if (forcedMode) setMode(forcedMode); }, [forcedMode]);
 
-  // Sync mobile search state to parent
   useEffect(() => {
     if (onSearchToggle) onSearchToggle(showMobileSearch);
   }, [showMobileSearch, onSearchToggle]);
@@ -192,19 +191,18 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
   const accentColor = mode === 'RETURN' ? 'bg-rose-600' : mode === 'PURCHASE' ? 'bg-slate-900' : 'bg-brand-600';
 
   return (
-    <div className="flex-1 h-full flex flex-col animate-fade-in relative">
+    <div className="flex-1 h-full flex flex-col animate-fade-in relative overflow-hidden">
        
-       {/* MOBILE SEARCH MODAL - Ultimate Z-Index to prevent ANY overlap */}
+       {/* MOBILE SEARCH MODAL - Immersive Full Screen */}
        {showMobileSearch && (
-         <div className="fixed inset-0 z-[999] bg-white flex flex-col animate-slide-up h-screen w-screen overflow-hidden">
-            {/* Immersive Modal Header */}
-            <div className="flex-none h-[88px] flex items-end px-5 pb-4 gap-4 bg-white border-b border-slate-100 shadow-sm">
+         <div className="fixed inset-0 z-[999] bg-white flex flex-col animate-slide-up h-[100dvh] w-screen overflow-hidden">
+            <div className="flex-none h-24 flex items-end px-5 pb-4 gap-4 bg-white border-b border-slate-100 shadow-sm">
                <button onClick={() => { setShowMobileSearch(false); setHideFilters(false); }} className="p-3 text-slate-900 bg-slate-100 rounded-2xl active:scale-90 transition-all">
                   <ArrowLeft size={24} strokeWidth={2.5} />
                </button>
                <div className="flex-1">
                   <h3 className="font-black text-xl text-slate-900 tracking-tight leading-none">Find Spare Part</h3>
-                  <p className="text-[10px] font-black text-brand-600 uppercase tracking-[0.2em] mt-1.5">Master Catalog</p>
+                  <p className="text-[10px] font-black text-brand-600 uppercase tracking-[0.2em] mt-1.5">Master Catalog Lookup</p>
                </div>
                <button 
                   onClick={() => setHideFilters(!hideFilters)} 
@@ -214,8 +212,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                </button>
             </div>
             
-            {/* DYNAMIC SEARCH INTERFACE */}
-            <div className={`flex-none bg-white transition-all duration-500 ease-in-out overflow-hidden ${hideFilters ? 'max-h-[80px]' : 'max-h-[160px]'}`}>
+            <div className={`flex-none bg-white transition-all duration-300 ease-in-out overflow-hidden ${hideFilters ? 'max-h-[84px]' : 'max-h-[160px]'}`}>
                 <div className="p-5 space-y-4">
                     <div className="relative group">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-brand-500 transition-colors" size={22} />
@@ -250,7 +247,6 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                 </div>
             </div>
 
-            {/* HIGH-FIDELITY RESULTS AREA */}
             <div 
               ref={scrollRef}
               onScroll={handleMobileScroll}
@@ -307,7 +303,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
          </div>
        )}
 
-       {/* DESKTOP LAYOUT (Unchanged for reliability) */}
+       {/* DESKTOP UI (Shared) */}
        <div className="hidden lg:grid grid-cols-12 gap-8 h-full">
            <div className="col-span-8 bg-white rounded-[2.5rem] shadow-premium border border-slate-50 flex flex-col overflow-hidden">
                <div className="p-8 border-b border-slate-50 bg-slate-50/50">
@@ -431,11 +427,11 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
            </div>
        </div>
 
-       {/* ENHANCED MOBILE POINT OF SALE MAIN SCREEN */}
+       {/* MOBILE POINT OF SALE MAIN SCREEN */}
        <div className="lg:hidden flex flex-col h-full bg-[#F8FAFC]">
-          <div className="flex-1 overflow-y-auto px-4 pt-4 pb-48 no-scrollbar">
+          <div className="flex-1 overflow-y-auto px-4 pt-4 pb-52 no-scrollbar">
               
-              {/* Customer Selection Card */}
+              {/* Customer Selection Mobile */}
               {mode === 'SALES' && (
                 <div className="bg-white p-6 rounded-[2.5rem] shadow-soft border border-slate-100 mb-6 relative" ref={wrapperRef}>
                     <div className="flex items-center justify-between mb-4">
@@ -472,7 +468,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                 </div>
               )}
 
-              {/* Shopping Cart List */}
+              {/* Shopping Cart List Mobile */}
               <div className="space-y-4">
                   <div className="flex items-center justify-between px-3 mb-3">
                      <h4 className="text-[12px] font-black text-slate-400 uppercase tracking-[0.2em]">Current Cart ({cart.length})</h4>
@@ -513,13 +509,13 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
               </div>
           </div>
 
-          {/* Fixed Action Footer */}
-          <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-2xl border-t border-slate-100 p-6 shadow-[0_-15px_40px_rgba(0,0,0,0.08)] z-[80] pb-safe-bottom">
+          {/* Sticky Checkout Bar Mobile */}
+          <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-2xl border-t border-slate-100 p-6 shadow-[0_-15px_40px_rgba(0,0,0,0.08)] z-[80] pb-safe">
               <button 
                  onClick={() => setShowMobileSearch(true)}
                  className="w-full bg-slate-900 hover:bg-black text-white font-black py-5 rounded-2xl flex items-center justify-center gap-4 mb-6 transition-all active:scale-95 text-[15px] uppercase tracking-widest shadow-2xl"
               >
-                  <PackagePlus size={22} /> Add Item from Inventory
+                  <PackagePlus size={22} /> Add Spare Part
               </button>
 
               <div className="flex items-center gap-5">
