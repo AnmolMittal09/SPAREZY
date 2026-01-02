@@ -17,8 +17,12 @@ interface StockTableProps {
   hidePriceByDefault?: boolean;
 }
 
-const PriceCell: React.FC<{ price: number }> = ({ price }) => {
+const PriceCell: React.FC<{ price: number; userRole?: Role }> = ({ price, userRole }) => {
   const [visible, setVisible] = useState(false);
+  
+  // If the user is an owner, we might want them to see it, 
+  // but the user's specific request was "hide mrp if someone click... show"
+  // so we keep it hidden for everyone by default to prevent customers from seeing it over the counter.
 
   return (
     <div 
@@ -36,8 +40,10 @@ const PriceCell: React.FC<{ price: number }> = ({ price }) => {
         </>
       ) : (
         <>
-          <span className="blur-[3px]">₹8,888</span>
-          <Eye size={14} className="opacity-60" />
+          <span className="blur-[4px] tracking-tighter">₹88,888</span>
+          <div className="bg-slate-100 p-1 rounded-md">
+            <Eye size={12} className="text-slate-400" />
+          </div>
         </>
       )}
     </div>
@@ -65,6 +71,10 @@ const StockTable: React.FC<StockTableProps> = ({
 
   const isOwner = userRole === Role.OWNER;
   const effectiveSearch = externalSearch !== undefined ? externalSearch : internalSearch;
+
+  // Logic: MRP is hidden by default for everyone if hidePriceByDefault is true, 
+  // or ALWAYS hidden for Managers on this specific request.
+  const shouldHidePrice = hidePriceByDefault || userRole === Role.MANAGER;
 
   useEffect(() => {
     setCurrentPage(1);
@@ -151,9 +161,9 @@ const StockTable: React.FC<StockTableProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-[2.5rem] shadow-soft border border-slate-50 flex flex-col h-full overflow-hidden">
+    <div className="bg-white rounded-[2rem] lg:rounded-[2.5rem] shadow-soft border border-slate-50 flex flex-col h-full overflow-hidden">
       {!hideToolbar && (
-        <div className="p-6 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="p-4 lg:p-6 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
                <h2 className="font-black text-slate-900 text-lg">{title || 'Items Catalog'}</h2>
                <span className="bg-brand-50 text-brand-600 px-3 py-1 rounded-full text-[11px] font-black">{filteredItems.length} Total</span>
@@ -234,7 +244,7 @@ const StockTable: React.FC<StockTableProps> = ({
             </thead>
             <tbody className="divide-y divide-slate-50">
                 {currentItems.length === 0 ? (
-                    <tr><td colSpan={7} className="p-20 text-center text-slate-400 font-medium">No inventory items found.</td></tr>
+                    <tr><td colSpan={7} className="p-20 text-center text-slate-400 font-medium text-lg italic">No parts matching your search.</td></tr>
                 ) : (
                     currentItems.map((item) => {
                         const isLow = item.quantity > 0 && item.quantity <= item.minStockThreshold;
@@ -271,7 +281,7 @@ const StockTable: React.FC<StockTableProps> = ({
                                     </span>
                                 </td>
                                 <td className="px-6 py-5 text-right">
-                                  {hidePriceByDefault ? <PriceCell price={item.price} /> : <div className="font-black text-slate-900 text-[15px]">₹{item.price.toLocaleString()}</div>}
+                                  {shouldHidePrice ? <PriceCell price={item.price} userRole={userRole} /> : <div className="font-black text-slate-900 text-[15px]">₹{item.price.toLocaleString()}</div>}
                                 </td>
                                 {enableActions && (
                                     <td className="px-6 py-5 text-center">
@@ -302,48 +312,59 @@ const StockTable: React.FC<StockTableProps> = ({
       </div>
 
       {/* MOBILE VIEW */}
-      <div className="md:hidden flex-1 overflow-y-auto bg-white p-4 space-y-3 no-scrollbar">
+      <div className="md:hidden flex-1 overflow-y-auto bg-slate-50/30 p-3 space-y-3 no-scrollbar">
          {mobileItems.length === 0 ? (
-             <div className="p-20 text-center text-slate-400 font-medium">No items found.</div>
+             <div className="p-20 text-center text-slate-400 font-medium italic">No parts found.</div>
          ) : (
-             mobileItems.map((item) => (
-                <div 
-                   key={item.id}
-                   className="block bg-slate-50/50 border border-slate-100 p-5 rounded-[2rem] active:scale-[0.98] transition-all"
-                >
-                   <div className="flex justify-between items-start">
-                      <div className="space-y-1">
-                         <div className="flex items-center gap-2">
-                            <span className="font-black text-slate-900 text-[17px] tracking-tight">{item.partNumber}</span>
-                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-black uppercase tracking-wider ${item.brand === Brand.HYUNDAI ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
-                               {item.brand.substring(0, 3)}
-                            </span>
-                         </div>
-                         <p className="text-[13px] text-slate-500 font-medium line-clamp-1">{item.name}</p>
-                      </div>
-                      
-                      <div className="text-right">
-                         <div className="mb-1">
-                           {hidePriceByDefault ? <PriceCell price={item.price} /> : <div className="font-black text-slate-900 text-[17px]">₹{item.price.toLocaleString()}</div>}
-                         </div>
-                         <div className={`text-[11px] font-bold px-2 py-0.5 rounded-lg inline-block ${item.quantity === 0 ? 'bg-rose-100 text-rose-700' : 'bg-teal-50 text-teal-700'}`}>
-                            {item.quantity} in stock
-                         </div>
-                      </div>
-                   </div>
-                   <div className="mt-4 flex justify-end">
-                      <Link to={`/item/${encodeURIComponent(item.partNumber)}`} className="text-xs font-bold text-brand-600 flex items-center gap-1">
-                         View Details <Eye size={14} />
-                      </Link>
-                   </div>
-                </div>
-             ))
+             mobileItems.map((item) => {
+                const isLow = item.quantity > 0 && item.quantity <= item.minStockThreshold;
+                const isZero = item.quantity === 0;
+                
+                return (
+                  <div 
+                    key={item.id}
+                    className={`block bg-white border border-slate-100 p-4 rounded-3xl shadow-sm active:scale-[0.98] transition-all overflow-hidden relative ${isZero ? 'opacity-70' : ''}`}
+                  >
+                    <div className="flex justify-between items-start">
+                        <div className="space-y-1.5 flex-1 pr-4">
+                            <div className="flex items-center gap-2">
+                                <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-black uppercase tracking-wider ${item.brand === Brand.HYUNDAI ? 'bg-blue-600 text-white' : 'bg-red-600 text-white'}`}>
+                                  {item.brand.substring(0, 3)}
+                                </span>
+                                <span className="font-black text-slate-900 text-lg tracking-tight">{item.partNumber}</span>
+                            </div>
+                            <p className="text-[13px] text-slate-500 font-medium line-clamp-2 leading-tight">{item.name}</p>
+                        </div>
+                        
+                        <div className="text-right flex flex-col items-end gap-1">
+                            <div className={`font-black text-[22px] leading-none mb-1 ${isZero ? 'text-rose-600' : isLow ? 'text-amber-500' : 'text-slate-900'}`}>
+                                {item.quantity}
+                                <span className="text-[10px] uppercase font-bold text-slate-300 ml-1">PCS</span>
+                            </div>
+                            <div className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full ${isZero ? 'bg-rose-50 text-rose-600' : isLow ? 'bg-amber-50 text-amber-600' : 'bg-teal-50 text-teal-600'}`}>
+                                {isZero ? 'Out Stock' : isLow ? 'Low Stock' : 'In Stock'}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-slate-50 flex items-center justify-between">
+                        <div className="flex flex-col">
+                            <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Price (MRP)</span>
+                            {shouldHidePrice ? <PriceCell price={item.price} userRole={userRole} /> : <div className="font-black text-slate-900 text-[15px]">₹{item.price.toLocaleString()}</div>}
+                        </div>
+                        <Link to={`/item/${encodeURIComponent(item.partNumber)}`} className="bg-slate-50 text-slate-500 font-bold text-[11px] px-4 py-2 rounded-xl flex items-center gap-1 active:bg-brand-50 active:text-brand-600 transition-colors">
+                            Details <ChevronRight size={14} />
+                        </Link>
+                    </div>
+                  </div>
+                );
+             })
          )}
          
          {mobileLimit < filteredItems.length && (
             <button 
               onClick={() => setMobileLimit(prev => prev + 20)}
-              className="w-full py-4 text-xs font-black uppercase tracking-widest text-slate-400 border-2 border-dashed border-slate-100 rounded-[2rem] hover:bg-slate-50 transition-all"
+              className="w-full py-4 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 border-2 border-dashed border-slate-200 rounded-3xl hover:bg-white transition-all bg-white/50"
             >
                Load More ({filteredItems.length - mobileLimit} left)
             </button>
