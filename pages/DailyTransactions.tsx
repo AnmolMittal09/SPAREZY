@@ -207,11 +207,11 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                </button>
                <div className="flex-1">
                   <h3 className="font-black text-2xl text-slate-900 tracking-tight leading-none">Select Part</h3>
-                  <p className="text-[11px] font-black text-brand-600 uppercase tracking-[0.25em] mt-2">Master Catalog</p>
+                  <p className="text-[11px] font-black text-brand-600 uppercase tracking-[0.25em] mt-2">Master Catalog Lookup</p>
                </div>
             </div>
             
-            <div className={`flex-none bg-white transition-all duration-500 ease-in-out overflow-hidden ${hideFilters ? 'max-h-[96px]' : 'max-h-[180px]'}`}>
+            <div className={`flex-none bg-white transition-all duration-500 ease-in-out overflow-hidden ${hideFilters ? 'max-h-[96px]' : 'max-h-[190px]'}`}>
                 <div className="p-6 space-y-5">
                     <div className="relative group">
                         <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={24} />
@@ -226,7 +226,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                         />
                         {search && (
                           <button onClick={() => handleSearch('')} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 bg-slate-200/40 p-2 rounded-xl active:scale-90 transition-all">
-                            <Trash2 size={18} />
+                            <X size={18} strokeWidth={3} />
                           </button>
                         )}
                     </div>
@@ -250,13 +250,13 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
             <div 
               ref={scrollRef}
               onScroll={handleMobileScroll}
-              className="flex-1 overflow-y-auto p-6 space-y-5 no-scrollbar bg-[#F8FAFC] pb-20"
+              className="flex-1 overflow-y-auto p-6 space-y-5 no-scrollbar bg-[#F8FAFC] pb-24"
             >
                 {suggestions.map(item => (
                     <button 
                         key={item.id}
                         onClick={() => addToCart(item)}
-                        className="w-full bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-premium flex justify-between items-center text-left active:scale-[0.98] transition-all group"
+                        className="w-full bg-white p-7 rounded-[2.5rem] border border-slate-100 shadow-premium flex justify-between items-center text-left active:scale-[0.98] transition-all group"
                     >
                         <div className="flex-1 min-w-0 pr-6">
                             <div className="flex items-center gap-2.5 mb-2.5">
@@ -275,7 +275,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                         </div>
                         <div className="text-right flex flex-col items-end gap-4">
                             <div className="font-black text-slate-900 text-2xl tracking-tighter">₹{item.price.toLocaleString()}</div>
-                            <div className="w-14 h-14 bg-brand-600 text-white rounded-[1.5rem] shadow-xl shadow-brand-100 flex items-center justify-center group-active:scale-90 transition-all">
+                            <div className="w-14 h-14 bg-slate-900 text-white rounded-[1.5rem] shadow-xl shadow-slate-100 flex items-center justify-center group-active:scale-90 transition-all">
                                 <Plus size={28} strokeWidth={3} />
                             </div>
                         </div>
@@ -288,15 +288,15 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                         <LayoutGrid size={56} className="opacity-10" />
                       </div>
                       <p className="font-black text-[13px] uppercase tracking-[0.4em] text-slate-400">Inventory Feed</p>
-                      <p className="text-[11px] font-bold text-slate-300 mt-3 text-center px-10">Start typing an SKU or part description to find matches.</p>
+                      <p className="text-[11px] font-bold text-slate-300 mt-3 text-center px-10">Scan SKU or type description to begin selection.</p>
                    </div>
                 )}
 
                 {search.length > 1 && suggestions.length === 0 && (
                     <div className="text-center py-24">
                         <AlertCircle className="mx-auto text-slate-200 mb-8" size={72} />
-                        <p className="text-slate-400 font-black uppercase tracking-[0.2em] text-sm">Part Not Found</p>
-                        <button onClick={() => handleSearch('')} className="mt-8 px-8 py-3 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl active:scale-95 transition-all">Clear & Retry</button>
+                        <p className="text-slate-400 font-black uppercase tracking-[0.2em] text-sm">SKU Not Found</p>
+                        <button onClick={() => handleSearch('')} className="mt-8 px-8 py-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl active:scale-95 transition-all">Reset Search</button>
                     </div>
                 )}
             </div>
@@ -304,7 +304,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
        )}
 
        {/* DESKTOP VIEW */}
-       <div className="hidden lg:grid grid-cols-12 gap-8 h-full">
+       <div className="hidden lg:grid grid-cols-12 gap-8 h-full p-1">
            <div className="col-span-8 bg-white rounded-[2.5rem] shadow-premium border border-slate-50 flex flex-col overflow-hidden">
                <div className="p-8 border-b border-slate-50 bg-slate-50/50">
                    <div className="relative">
@@ -312,7 +312,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                        <input 
                          type="text" 
                          className="w-full pl-16 pr-6 py-5.5 bg-white border-2 border-transparent rounded-[2rem] text-xl font-bold placeholder:text-slate-300 focus:border-brand-500/10 focus:ring-[12px] focus:ring-brand-500/5 shadow-inner outline-none transition-all"
-                         placeholder="Start typing Part Number..."
+                         placeholder="Type Part Number or Model..."
                          value={search}
                          onChange={e => handleSearch(e.target.value)}
                          autoFocus
@@ -334,7 +334,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                                       <span className="font-black text-xl text-slate-900 group-hover:text-brand-600 transition-colors">{item.partNumber}</span>
                                    </div>
                                    <span className={`text-[10px] px-2.5 py-1 rounded-xl font-black uppercase tracking-widest ${item.quantity > 0 ? 'bg-teal-50 text-teal-700' : 'bg-rose-50 text-rose-700'}`}>
-                                       {item.quantity} IN STOCK
+                                       {item.quantity} UNIT{item.quantity !== 1 ? 'S' : ''}
                                    </span>
                                </div>
                                <div className="text-[15px] text-slate-500 font-medium truncate mb-5">{item.name}</div>
@@ -348,7 +348,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                   ) : (
                       <div className="flex flex-col items-center justify-center h-full text-slate-300">
                           <PackagePlus size={96} className="mb-8 opacity-10" />
-                          <p className="font-black text-slate-400 uppercase tracking-[0.4em] text-xs">Awaiting Inventory Lookup</p>
+                          <p className="font-black text-slate-400 uppercase tracking-[0.4em] text-xs">Ready for entry</p>
                       </div>
                   )}
                </div>
@@ -357,7 +357,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
            <div className="col-span-4 bg-white rounded-[2.5rem] shadow-premium border border-slate-50 flex flex-col overflow-hidden">
                 <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/10">
                     <div className="flex items-center gap-3">
-                        <div className="bg-brand-600 text-white p-2.5 rounded-2xl shadow-lg shadow-brand-100"><ShoppingCart size={22} /></div>
+                        <div className="bg-slate-900 text-white p-2.5 rounded-2xl shadow-lg shadow-slate-100"><ShoppingCart size={22} /></div>
                         <h2 className="font-black text-2xl text-slate-900 tracking-tight">Checkout</h2>
                     </div>
                     {cart.length > 0 && (
@@ -368,14 +368,14 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                 <div className="p-8 pb-5 space-y-5" ref={wrapperRef}>
                     <div>
                         <div className="flex items-center justify-between mb-2 px-1">
-                           <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Customer Identity</span>
+                           <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Billing To</span>
                            <UserIcon size={12} className="text-slate-300" />
                         </div>
                         <div className="relative group">
                             <input 
                                type="text" 
                                className="w-full px-6 py-4.5 bg-slate-50 border border-slate-100 rounded-2xl text-[16px] font-bold outline-none focus:ring-[10px] focus:ring-brand-500/5 focus:bg-white transition-all shadow-inner"
-                               placeholder="Assign to customer..."
+                               placeholder="Customer name or Phone..."
                                value={customerName}
                                onChange={e => handleCustomerType(e.target.value)}
                             />
@@ -428,9 +428,9 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                     )}
                 </div>
 
-                <div className="p-8 border-t border-slate-100 bg-slate-50/30">
-                    <div className="flex justify-between items-center mb-8">
-                        <span className="text-slate-400 font-black uppercase tracking-[0.25em] text-[12px]">Final Settlement</span>
+                <div className="p-8 border-t border-slate-100 bg-white">
+                    <div className="flex justify-between items-center mb-8 px-1">
+                        <span className="text-slate-400 font-black uppercase tracking-[0.25em] text-[12px]">Bill Amount</span>
                         <span className="text-4xl font-black text-slate-900 tracking-tighter">₹{totalAmount.toLocaleString()}</span>
                     </div>
                     <button 
@@ -439,31 +439,31 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                        className={`w-full py-6 rounded-[2.5rem] font-black text-white text-[18px] shadow-2xl transition-all active:scale-[0.98] disabled:opacity-30 disabled:shadow-none flex items-center justify-center gap-4 uppercase tracking-[0.1em] ${accentColor}`}
                     >
                        {loading ? <Loader2 className="animate-spin" size={28} /> : (
-                         <><span className="hidden lg:inline">{mode === 'PURCHASE' ? 'Verify Entry' : 'Finish Bill'}</span> <ArrowRight size={24} /></>
+                         <><span className="hidden lg:inline">{mode === 'PURCHASE' ? 'Verify' : 'Finalize'}</span> <ArrowRight size={24} /></>
                        )}
                     </button>
                 </div>
            </div>
        </div>
 
-       {/* MOBILE POINT OF SALE REDESIGN */}
+       {/* MOBILE POINT OF SALE UI */}
        <div className="lg:hidden flex flex-col h-full bg-[#F8FAFC]">
           <div className="flex-1 overflow-y-auto px-5 pt-6 pb-64 no-scrollbar">
               
-              {/* Customer Section - Quick Access */}
+              {/* Customer Section */}
               {mode === 'SALES' && (
                 <div className="bg-white p-7 rounded-[3rem] shadow-soft border border-slate-100 mb-8 relative" ref={wrapperRef}>
                     <div className="flex items-center justify-between mb-5 px-1">
-                        <span className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Customer Wallet</span>
-                        {customerName && <button onClick={() => setCustomerName('')} className="p-2 bg-rose-50 text-rose-500 rounded-xl active:scale-90 transition-all"><Trash2 size={16} /></button>}
+                        <span className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Identity</span>
+                        {customerName && <button onClick={() => setCustomerName('')} className="p-2 bg-rose-50 text-rose-500 rounded-xl active:scale-90 transition-all"><X size={14} strokeWidth={3} /></button>}
                     </div>
                     <div className="flex items-center gap-5 bg-slate-100 p-5 rounded-2xl focus-within:bg-white focus-within:ring-[10px] focus-within:ring-brand-500/5 transition-all shadow-inner border-2 border-transparent focus-within:border-brand-500/10">
-                        <UserIcon className="text-slate-300" size={24} />
+                        <UserIcon className="text-slate-300" size={22} />
                         <input 
                             type="text"
                             autoComplete="off"
                             className="flex-1 bg-transparent outline-none font-black text-slate-900 placeholder:text-slate-300 text-xl"
-                            placeholder="Find Customer..."
+                            placeholder="Customer Name..."
                             value={customerName}
                             onChange={e => handleCustomerType(e.target.value)}
                         />
@@ -488,10 +488,10 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                 </div>
               )}
 
-              {/* Shopping Cart Mobile */}
+              {/* Cart Section */}
               <div className="space-y-5">
                   <div className="flex items-center justify-between px-4 mb-4">
-                     <h4 className="text-[13px] font-black text-slate-400 uppercase tracking-[0.3em]">Items In Cart ({cart.length})</h4>
+                     <h4 className="text-[12px] font-black text-slate-400 uppercase tracking-[0.3em]">Items ({cart.length})</h4>
                      {cart.length > 0 && <button onClick={() => setCart([])} className="p-2 bg-rose-50 text-rose-500 rounded-xl"><Trash2 size={16} /></button>}
                   </div>
 
@@ -500,7 +500,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                          <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-8 shadow-premium">
                             <ShoppingCart size={40} className="text-slate-200 opacity-20" />
                          </div>
-                         <p className="font-black text-slate-400 uppercase tracking-[0.3em] text-[11px]">Cart is Empty</p>
+                         <p className="font-black text-slate-400 uppercase tracking-[0.3em] text-[11px]">Ready for selection</p>
                       </div>
                   ) : (
                      cart.map(item => (
@@ -529,27 +529,27 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
               </div>
           </div>
 
-          {/* CHECKOUT BAR MOBILE */}
-          <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-3xl border-t border-slate-100 p-8 shadow-[0_-25px_60px_rgba(0,0,0,0.12)] z-[80] pb-10">
+          {/* CHECKOUT BAR */}
+          <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-3xl border-t border-slate-100 p-7 shadow-[0_-25px_60px_rgba(0,0,0,0.12)] z-[80] pb-10">
               <button 
                  onClick={() => setShowMobileSearch(true)}
                  className="w-full bg-slate-900 text-white font-black py-6 rounded-[2rem] flex items-center justify-center gap-5 mb-8 transition-all active:scale-95 text-[17px] uppercase tracking-[0.2em] shadow-2xl"
               >
-                  <PackagePlus size={26} /> Add Spare
+                  <PackagePlus size={26} /> Add Parts
               </button>
 
               <div className="flex items-center gap-6">
                   <div className="flex-1 min-w-0">
-                     <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] mb-2 px-1">Order Total</p>
+                     <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] mb-2 px-1">Grand Total</p>
                      <p className="text-4xl font-black text-slate-900 tracking-tighter leading-none truncate">₹{totalAmount.toLocaleString()}</p>
                   </div>
                   <button 
                      onClick={handleSubmit}
                      disabled={loading || cart.length === 0}
-                     className={`flex-[1.3] text-white font-black py-6 rounded-[2rem] shadow-2xl flex items-center justify-center gap-4 active:scale-95 transition-all disabled:opacity-20 text-[20px] ${accentColor}`}
+                     className={`flex-[1.4] text-white font-black py-6 rounded-[2rem] shadow-2xl flex items-center justify-center gap-4 active:scale-95 transition-all disabled:opacity-20 text-[18px] ${accentColor}`}
                    >
                      {loading ? <Loader2 className="animate-spin" size={32} /> : (
-                        <><span className="uppercase text-sm tracking-[0.15em]">{mode === 'PURCHASE' ? 'Verify' : 'Pay'}</span> <ArrowRight size={28} /></>
+                        <><span className="uppercase text-sm tracking-[0.15em] font-black">{mode === 'PURCHASE' ? 'Inbound' : 'Checkout'}</span> <ArrowRight size={26} /></>
                      )}
                   </button>
               </div>

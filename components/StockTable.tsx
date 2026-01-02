@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { StockItem, Brand, Role, PriceHistoryEntry } from '../types';
 import { bulkArchiveItems, fetchPriceHistory, toggleArchiveStatus } from '../services/inventoryService';
-import { Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, Archive, ArchiveRestore, Loader2, Eye, EyeOff, Lock, Info, TrendingUp, TrendingDown, Clock, MoreHorizontal, ArrowRight, CheckSquare, Square, MinusSquare, X } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, Archive, ArchiveRestore, Loader2, Eye, EyeOff, Lock, Info, TrendingUp, TrendingDown, Clock, MoreHorizontal, ArrowRight, CheckSquare, Square, MinusSquare, X, History, Calendar } from 'lucide-react';
 
 interface StockTableProps {
   items: StockItem[];
@@ -24,6 +24,7 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role; 
   const [loadingHistory, setLoadingHistory] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
   const isManager = userRole === Role.MANAGER;
+  const isOwner = userRole === Role.OWNER;
   const isMobile = 'ontouchstart' in window || window.innerWidth < 768;
 
   const loadHistory = async () => {
@@ -51,29 +52,25 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role; 
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showHistory, isMobile]);
 
-  const handlePriceClick = async (e: React.MouseEvent) => {
+  const handleReveal = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    e.preventDefault();
+    if (visible) return; // Only for initial reveal
+    setVisible(true);
+    if (!isManager) await loadHistory();
+  };
 
+  const handleToggleHistory = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (!visible) {
-      setVisible(true);
-      // Managers only reveal price on first click, Owners get history too
-      if (!isMobile && !isManager) setShowHistory(true);
-      await loadHistory();
-    } else {
-      // If already visible, second click on mobile shows history drawer
-      if (isMobile) {
-        setShowHistory(true);
-      } else {
-        // Desktop toggles off
-        setVisible(false);
-        setShowHistory(false);
-      }
+        setVisible(true);
+        if (isManager) return;
     }
+    await loadHistory();
+    setShowHistory(!showHistory);
   };
 
   const handleMouseEnter = () => {
-    if (!isMobile && visible && !isManager) {
+    if (!isMobile && visible && isOwner) {
       setShowHistory(true);
       loadHistory();
     }
@@ -87,23 +84,28 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role; 
 
   const HistoryContent = () => (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between mb-4 px-1">
-        <div className="flex items-center gap-2">
-           <Clock size={16} className="text-slate-400" />
-           <h4 className="text-[12px] font-black text-slate-400 uppercase tracking-widest">Price Evolution</h4>
+      <div className="flex items-center justify-between mb-5 px-1">
+        <div className="flex items-center gap-3">
+           <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+              <Clock size={18} />
+           </div>
+           <div>
+              <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight">Price Ledger</h4>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tracking MRP Volatility</p>
+           </div>
         </div>
-        <span className="text-[10px] font-black bg-slate-100 px-2.5 py-1 rounded-lg text-slate-500">
-           {history.length} UPDATES
+        <span className="text-[10px] font-black bg-slate-100 px-3 py-1 rounded-full text-slate-500">
+           {history.length} RECORDS
         </span>
       </div>
 
       {loadingHistory ? (
-        <div className="py-10 flex flex-col items-center gap-4">
-          <Loader2 size={32} className="animate-spin text-brand-500" />
-          <span className="text-xs font-black text-slate-300 uppercase tracking-widest">Accessing Ledger...</span>
+        <div className="py-16 flex flex-col items-center gap-4">
+          <Loader2 size={36} className="animate-spin text-indigo-500" />
+          <span className="text-xs font-black text-slate-400 uppercase tracking-widest animate-pulse">Syncing Database...</span>
         </div>
       ) : history.length > 0 ? (
-        <div className="space-y-4 overflow-y-auto no-scrollbar pr-1 flex-1">
+        <div className="space-y-4 overflow-y-auto no-scrollbar pr-1 flex-1 pb-4">
           {history.map((entry, idx) => {
             const isIncrease = entry.newPrice > entry.oldPrice;
             const percentChange = entry.oldPrice > 0 
@@ -111,24 +113,30 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role; 
                : '0.0';
 
             return (
-              <div key={entry.id} className={`flex flex-col gap-2 ${idx !== history.length - 1 ? 'pb-4 border-b border-slate-50' : ''}`}>
-                 <div className="flex justify-between items-center">
-                    <div className="text-[11px] font-bold text-slate-400">
-                       {new Date(entry.changeDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+              <div key={entry.id} className={`group relative p-4 rounded-2xl transition-all border ${isIncrease ? 'bg-rose-50/30 border-rose-100' : 'bg-teal-50/30 border-teal-100'}`}>
+                 <div className="flex justify-between items-center mb-3">
+                    <div className="flex items-center gap-2">
+                       {/* Fixed: Calendar icon now correctly imported from lucide-react */}
+                       <Calendar size={12} className="text-slate-400" />
+                       <span className="text-[11px] font-bold text-slate-500">
+                          {new Date(entry.changeDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                       </span>
                     </div>
                     <div className={`flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-lg uppercase tracking-tighter ${isIncrease ? 'bg-rose-50 text-rose-600' : 'bg-teal-50 text-teal-600'}`}>
                        {isIncrease ? <TrendingUp size={11}/> : <TrendingDown size={11}/>}
                        {isIncrease ? '+' : ''}{percentChange}%
                     </div>
                  </div>
-                 <div className="flex items-center justify-between bg-slate-50/50 p-3 rounded-2xl border border-slate-100">
+                 <div className="flex items-center justify-between">
                     <div className="flex flex-col">
-                       <span className="text-[9px] font-black text-slate-300 uppercase mb-0.5">From</span>
+                       <span className="text-[9px] font-black text-slate-400 uppercase mb-0.5">Prior</span>
                        <span className="text-sm font-bold text-slate-400 line-through">₹{entry.oldPrice.toLocaleString()}</span>
                     </div>
-                    <ArrowRight size={16} className="text-slate-200" />
+                    <div className="p-2 bg-white rounded-full border border-slate-100 shadow-sm">
+                       <ArrowRight size={14} className="text-slate-400" />
+                    </div>
                     <div className="flex flex-col text-right">
-                       <span className="text-[9px] font-black text-brand-400 uppercase mb-0.5">To</span>
+                       <span className="text-[9px] font-black text-indigo-500 uppercase mb-0.5">New MRP</span>
                        <span className="text-base font-black text-slate-900">₹{entry.newPrice.toLocaleString()}</span>
                     </div>
                  </div>
@@ -137,9 +145,9 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role; 
           })}
         </div>
       ) : (
-        <div className="py-12 text-center bg-slate-50 rounded-3xl border border-dashed border-slate-200">
-           <Clock size={24} className="text-slate-300 mx-auto mb-3" />
-           <p className="text-sm font-bold text-slate-400">No price changes on record.</p>
+        <div className="py-16 text-center bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200">
+           <History size={32} className="text-slate-200 mx-auto mb-4" />
+           <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">No Historical Changes</p>
         </div>
       )}
     </div>
@@ -148,72 +156,88 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role; 
   return (
     <div className={`relative flex ${align === 'right' ? 'justify-end' : 'justify-start'} items-center`}>
       <div 
-        onClick={handlePriceClick}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-        className={`cursor-pointer select-none font-black text-[15px] transition-all duration-200 flex items-center ${align === 'right' ? 'justify-end' : 'justify-start'} gap-2 group/price px-2.5 py-1.5 rounded-xl ${visible ? 'text-slate-900 bg-slate-100 shadow-sm' : 'text-slate-300 hover:text-slate-400 hover:bg-slate-50'}`}
+        onClick={visible ? handleToggleHistory : handleReveal}
+        className={`group/price relative flex items-center gap-2 p-1.5 rounded-xl transition-all duration-200 cursor-pointer ${
+          visible 
+            ? 'bg-slate-900 text-white shadow-lg ring-4 ring-slate-100' 
+            : 'bg-slate-50 text-slate-300 hover:bg-slate-100 hover:text-slate-400'
+        }`}
       >
-        {visible ? (
+        {!visible ? (
           <>
-            <span className="flex items-center gap-1.5">
-              ₹{price.toLocaleString()}
-              {history.length > 0 && !isManager && <div className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-pulse" />}
-            </span>
-            {!isManager && <Info size={16} className={`opacity-40 transition-opacity ${showHistory ? 'text-brand-600 opacity-100' : ''}`} />}
-            {isManager && <Lock size={12} className="opacity-20" />}
+            <div className="px-1.5 py-0.5 font-black text-[14px] blur-[6px] select-none tracking-tighter">₹88,888</div>
+            <div className="bg-white/80 p-1 rounded-lg text-slate-500">
+              <Eye size={14} />
+            </div>
           </>
         ) : (
           <>
-            <span className="blur-[5px] tracking-tighter select-none">₹88,888</span>
-            <div className="bg-slate-100 p-1.5 rounded-lg">
-              {isManager ? <Lock size={14} className="text-slate-400" /> : <Eye size={14} className="text-slate-400" />}
-            </div>
+            <div className="pl-2.5 pr-1 font-black text-[15px] tracking-tight">₹{price.toLocaleString()}</div>
+            {isOwner && (
+                <div 
+                  onClick={handleToggleHistory}
+                  className="bg-indigo-500 p-1.5 rounded-lg text-white hover:bg-indigo-400 transition-colors shadow-sm active:scale-90"
+                >
+                  <History size={13} strokeWidth={3} />
+                </div>
+            )}
+            {isManager && (
+                <div className="p-1 rounded-lg text-white/40">
+                  <Lock size={12} />
+                </div>
+            )}
           </>
         )}
       </div>
 
-      {/* DESKTOP POPOVER (Owners only) */}
-      {!isMobile && showHistory && !isManager && (
+      {/* DESKTOP POPOVER (Owner only) */}
+      {!isMobile && showHistory && isOwner && (
         <div 
           ref={popoverRef}
-          className={`absolute bottom-full ${align === 'right' ? 'right-0' : 'left-0'} mb-3 z-[100] w-72 bg-white rounded-3xl shadow-premium border border-slate-100 p-6 animate-slide-up overflow-hidden`}
+          className={`absolute bottom-full ${align === 'right' ? 'right-0' : 'left-0'} mb-4 z-[100] w-80 bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 p-7 animate-slide-up overflow-hidden`}
         >
-          <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-brand-500 to-indigo-500"></div>
+          <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-indigo-500 to-blue-500"></div>
           <HistoryContent />
-          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 rotate-45 w-4 h-4 bg-white border-r border-b border-slate-100"></div>
+          <div className="absolute bottom-[-6px] left-1/2 -translate-x-1/2 rotate-45 w-4 h-4 bg-white border-r border-b border-slate-100 shadow-xl"></div>
         </div>
       )}
 
-      {/* MOBILE DRAWER (For everyone once revealed) */}
-      {isMobile && showHistory && (
+      {/* MOBILE BOTTOM SHEET DRAWER */}
+      {isMobile && showHistory && isOwner && (
         <div className="fixed inset-0 z-[1000] flex items-end justify-center bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowHistory(false)}>
            <div 
-             className="w-full bg-white rounded-t-[2.5rem] shadow-2xl p-6 pb-12 animate-slide-up max-h-[85vh] flex flex-col"
+             className="w-full bg-white rounded-t-[3rem] shadow-[0_-20px_50px_rgba(0,0,0,0.2)] p-7 pb-12 animate-slide-up max-h-[85vh] flex flex-col"
              onClick={e => e.stopPropagation()}
            >
-              <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-6" />
-              <div className="flex justify-between items-start mb-6">
+              <div className="w-16 h-1.5 bg-slate-200 rounded-full mx-auto mb-8" />
+              
+              <div className="flex justify-between items-start mb-8">
                  <div>
-                    <h3 className="text-2xl font-black text-slate-900 tracking-tight leading-none">{partNumber}</h3>
-                    <p className="text-sm font-bold text-slate-400 mt-2">Inventory Audit Details</p>
+                    <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg uppercase tracking-widest">Audit Mode</span>
+                    <h3 className="text-3xl font-black text-slate-900 tracking-tighter leading-none mt-3">{partNumber}</h3>
+                    <p className="text-sm font-bold text-slate-400 mt-2">Verified MRP History</p>
                  </div>
-                 <button onClick={() => setShowHistory(false)} className="p-3 bg-slate-100 rounded-2xl text-slate-500 active:scale-90 transition-all"><X size={20} /></button>
+                 <button onClick={() => setShowHistory(false)} className="p-4 bg-slate-50 text-slate-400 rounded-2xl active:bg-slate-100 active:text-slate-900 transition-all active:scale-90">
+                    <X size={24} strokeWidth={3} />
+                 </button>
               </div>
-              <div className="flex-1 overflow-hidden">
+
+              <div className="flex-1 overflow-hidden min-h-0">
                 <HistoryContent />
               </div>
-              <div className="mt-8 flex gap-3">
+
+              <div className="mt-10 grid grid-cols-2 gap-4">
                  <button 
                    onClick={() => { setVisible(false); setShowHistory(false); }} 
-                   className="flex-1 py-5 bg-slate-100 text-slate-600 font-black rounded-[1.5rem] uppercase text-[11px] tracking-[0.2em] active:scale-95 transition-all"
+                   className="py-5 bg-slate-100 text-slate-600 font-black rounded-3xl uppercase text-[12px] tracking-[0.2em] active:scale-95 transition-all flex items-center justify-center gap-2"
                  >
-                   Privacy Hide
+                   <EyeOff size={16} /> Hide Price
                  </button>
                  <button 
                    onClick={() => setShowHistory(false)} 
-                   className="flex-1 py-5 bg-slate-900 text-white font-black rounded-[1.5rem] uppercase text-[11px] tracking-[0.2em] active:scale-95 transition-all shadow-xl"
+                   className="py-5 bg-slate-900 text-white font-black rounded-3xl uppercase text-[12px] tracking-[0.2em] active:scale-95 transition-all shadow-xl shadow-slate-200 flex items-center justify-center gap-2"
                  >
-                   Got It
+                   <CheckSquare size={16} /> Dismiss
                  </button>
               </div>
            </div>
