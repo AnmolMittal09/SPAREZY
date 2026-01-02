@@ -1,8 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 // @ts-ignore
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { User, Role, StockItem } from '../types';
-import { fetchInventory } from '../services/inventoryService';
+import { User, Role } from '../types';
 import { 
   LayoutDashboard, 
   Package, 
@@ -16,18 +15,13 @@ import {
   Settings, 
   LogOut, 
   Menu, 
-  Search,
-  Bell,
-  ChevronDown,
-  CheckSquare,
-  FileText,
-  Download,
-  X,
-  Home,
-  MoreHorizontal,
-  XCircle,
-  Zap,
-  UserCircle
+  Bell, 
+  ChevronDown, 
+  CheckSquare, 
+  FileText, 
+  X, 
+  Home, 
+  Zap 
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -46,22 +40,13 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Global Search State
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showResults, setShowResults] = useState(false);
-  const [inventory, setInventory] = useState<StockItem[]>([]);
-  const [searchResults, setSearchResults] = useState<StockItem[]>([]);
-  const searchRef = useRef<HTMLDivElement>(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
   // PWA Install State
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showInstallBtn, setShowInstallBtn] = useState(false);
 
   useEffect(() => {
-    fetchInventory().then(setInventory);
-
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
@@ -80,38 +65,6 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
       setDeferredPrompt(null);
       setShowInstallBtn(false);
     }
-  };
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
-        setShowResults(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const query = e.target.value;
-    setSearchQuery(query);
-    if (query.length > 1) {
-      const results = inventory.filter(item => 
-        item.partNumber.toLowerCase().includes(query.toLowerCase()) || 
-        item.name.toLowerCase().includes(query.toLowerCase())
-      ).slice(0, 8);
-      setSearchResults(results);
-      setShowResults(true);
-    } else {
-      setShowResults(false);
-    }
-  };
-
-  const navigateToItem = (partNumber: string) => {
-    navigate(`/item/${encodeURIComponent(partNumber)}`);
-    setShowResults(false);
-    setSearchQuery('');
-    setMobileSearchOpen(false);
   };
 
   const navGroups = [
@@ -274,110 +227,13 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
               <span className="font-black text-xl tracking-tighter text-slate-900">Sparezy</span>
            </div>
 
-           {/* DESKTOP SEARCH */}
-           <div className="hidden lg:flex flex-1 max-w-xl relative" ref={searchRef}>
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
-              <input 
-                 type="text" 
-                 className="block w-full pl-12 pr-4 py-3.5 border-none rounded-2xl bg-slate-50 text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-brand-500/10 focus:bg-white transition-all text-[15px] font-medium shadow-inner"
-                 placeholder="Search global inventory by part number or name..."
-                 value={searchQuery}
-                 onChange={handleSearch}
-              />
-              {showResults && (
-                <div className="absolute top-full left-0 right-0 mt-3 bg-white rounded-3xl shadow-premium border border-slate-100 max-h-[400px] overflow-y-auto z-50 animate-slide-up no-scrollbar">
-                   {searchResults.length === 0 ? (
-                      <div className="p-10 text-slate-400 text-center font-medium">No matches found for "{searchQuery}"</div>
-                   ) : (
-                      <div className="p-2 space-y-1">
-                        {searchResults.map(item => (
-                          <div 
-                             key={item.id}
-                             onClick={() => navigateToItem(item.partNumber)}
-                             className="px-4 py-4 hover:bg-slate-50 rounded-2xl cursor-pointer flex justify-between items-center transition-colors group"
-                          >
-                             <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 bg-brand-50 text-brand-600 rounded-xl flex items-center justify-center font-bold text-xs">
-                                   {item.brand.charAt(0)}
-                                </div>
-                                <div>
-                                   <div className="text-[15px] font-bold text-slate-900 group-hover:text-brand-600 transition-colors">{item.partNumber}</div>
-                                   <div className="text-xs text-slate-500 font-medium">{item.name}</div>
-                                </div>
-                             </div>
-                             <div className="text-right">
-                                <div className="text-[15px] font-bold text-slate-900">₹{item.price.toLocaleString()}</div>
-                                <div className={`text-[10px] font-bold uppercase tracking-widest ${item.quantity > 0 ? 'text-teal-600' : 'text-rose-600'}`}>
-                                   {item.quantity} in stock
-                                </div>
-                             </div>
-                          </div>
-                        ))}
-                      </div>
-                   )}
-                </div>
-             )}
-           </div>
-
            <div className="flex items-center gap-3 ml-auto">
-              <button onClick={() => setMobileSearchOpen(true)} className="lg:hidden p-2.5 text-slate-600 bg-slate-50 rounded-2xl active:scale-95 transition-all">
-                <Search size={22} />
-              </button>
-              
               <button className="p-2.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-2xl relative transition-all active:scale-95">
                  <Bell size={22} />
                  <span className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white"></span>
               </button>
            </div>
         </header>
-
-        {/* MOBILE SEARCH */}
-        {mobileSearchOpen && (
-           <div className="fixed inset-0 bg-white z-[70] flex flex-col animate-fade-in">
-             <div className="p-4 border-b border-slate-100 flex items-center gap-3">
-                <div className="relative flex-1">
-                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
-                   <input 
-                     autoFocus
-                     type="text"
-                     className="w-full bg-slate-50 border-none rounded-2xl pl-12 pr-4 py-4 text-[16px] font-medium focus:ring-2 focus:ring-brand-500/10 outline-none"
-                     placeholder="Search Part Number..."
-                     value={searchQuery}
-                     onChange={handleSearch}
-                   />
-                </div>
-                <button 
-                  onClick={() => { setMobileSearchOpen(false); setSearchQuery(''); setShowResults(false); }}
-                  className="px-4 h-12 text-slate-500 font-bold text-[15px]"
-                >
-                  Cancel
-                </button>
-             </div>
-             <div className="flex-1 overflow-y-auto p-4 no-scrollbar">
-                 {searchResults.length > 0 ? (
-                    <div className="space-y-3">
-                       {searchResults.map(item => (
-                          <div 
-                             key={item.id}
-                             onClick={() => navigateToItem(item.partNumber)}
-                             className="bg-white border border-slate-100 p-4 rounded-3xl shadow-soft active:scale-95 transition-all"
-                          >
-                             <div className="flex justify-between items-start mb-2">
-                                <span className="font-bold text-[17px] text-slate-900">{item.partNumber}</span>
-                                <span className="font-bold text-brand-600 text-[17px]">₹{item.price.toLocaleString()}</span>
-                             </div>
-                             <div className="text-[14px] text-slate-500 font-medium">{item.name}</div>
-                          </div>
-                       ))}
-                    </div>
-                 ) : searchQuery.length > 1 ? (
-                    <div className="text-center text-slate-400 mt-20 font-medium">No parts found</div>
-                 ) : (
-                    <div className="text-center text-slate-400 mt-20 font-medium italic">Type part number or description...</div>
-                 )}
-             </div>
-           </div>
-        )}
 
         {/* MAIN CONTENT */}
         <main className="flex-1 overflow-y-auto px-6 lg:px-10 py-8 scroll-smooth no-scrollbar">
