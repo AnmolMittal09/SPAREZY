@@ -3,18 +3,12 @@ import { User, StockItem, Role } from '../types';
 import { fetchInventory, getStats } from '../services/inventoryService';
 import StockTable from '../components/StockTable';
 import { 
-  Truck, 
-  Zap,
   Search,
-  LayoutGrid,
   AlertCircle,
   ShieldCheck,
-  Package,
   History,
   Info,
   Eye,
-  ChevronRight,
-  TrendingUp,
   PackageCheck
 } from 'lucide-react';
 // @ts-ignore
@@ -134,61 +128,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                 </div>
             </div>
          </div>
-      </div>
-
-      {/* QUICK ACTIONS - Responsive Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 lg:gap-4 no-print">
-          <button 
-            onClick={() => navigate('/billing')}
-            className="group p-4 lg:px-6 lg:py-5 bg-slate-900 rounded-[1.5rem] lg:rounded-[2rem] text-white shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all flex flex-col lg:flex-row items-center gap-3 lg:gap-4"
-          >
-            <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center shrink-0">
-                <Zap size={20} className="text-brand-400" />
-            </div>
-            <div className="text-center lg:text-left">
-                <span className="block text-[13px] lg:text-sm font-black tracking-tight">New Sale</span>
-                <span className="block text-[8px] lg:text-[10px] font-bold text-slate-500 uppercase tracking-[0.1em]">Counter POS</span>
-            </div>
-          </button>
-
-          <button 
-            onClick={() => navigate('/purchases')}
-            className="group p-4 lg:px-6 lg:py-5 bg-white border border-slate-100 rounded-[1.5rem] lg:rounded-[2rem] text-slate-900 shadow-soft hover:border-brand-500/20 transition-all flex flex-col lg:flex-row items-center gap-3 lg:gap-4"
-          >
-             <div className="w-10 h-10 bg-brand-50 rounded-xl flex items-center justify-center shrink-0">
-                <Truck size={20} className="text-brand-600" />
-            </div>
-            <div className="text-center lg:text-left">
-                <span className="block text-[13px] lg:text-sm font-black tracking-tight">Add Stock</span>
-                <span className="block text-[8px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-[0.1em]">Purchases</span>
-            </div>
-          </button>
-
-          <button 
-            onClick={() => navigate('/parts')}
-            className="group p-4 lg:px-6 lg:py-5 bg-white border border-slate-100 rounded-[1.5rem] lg:rounded-[2rem] text-slate-900 shadow-soft hover:border-brand-500/20 transition-all flex flex-col lg:flex-row items-center gap-3 lg:gap-4"
-          >
-             <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center shrink-0">
-                <LayoutGrid size={20} className="text-slate-400" />
-            </div>
-            <div className="text-center lg:text-left">
-                <span className="block text-[13px] lg:text-sm font-black tracking-tight">Inventory</span>
-                <span className="block text-[8px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-[0.1em]">Full List</span>
-            </div>
-          </button>
-
-          <button 
-            onClick={() => navigate('/reports')}
-            className="group p-4 lg:px-6 lg:py-5 bg-white border border-slate-100 rounded-[1.5rem] lg:rounded-[2rem] text-slate-900 shadow-soft hover:border-brand-500/20 transition-all flex flex-col lg:flex-row items-center gap-3 lg:gap-4"
-          >
-             <div className="w-10 h-10 bg-teal-50 rounded-xl flex items-center justify-center shrink-0">
-                <TrendingUp size={20} className="text-teal-600" />
-            </div>
-            <div className="text-center lg:text-left">
-                <span className="block text-[13px] lg:text-sm font-black tracking-tight">Analytics</span>
-                <span className="block text-[8px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-[0.1em]">Reports</span>
-            </div>
-          </button>
       </div>
 
       {/* LIVE SEARCH RESULTS / DATA TABLE */}
