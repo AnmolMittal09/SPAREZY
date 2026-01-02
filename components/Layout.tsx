@@ -19,7 +19,6 @@ import {
   CheckSquare, 
   FileText, 
   X, 
-  Home, 
   Zap 
 } from 'lucide-react';
 
@@ -41,13 +40,11 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
 
   // PWA Install State
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [showInstallBtn, setShowInstallBtn] = useState(false);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
-      setShowInstallBtn(true);
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -89,37 +86,20 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
     }
   ];
 
-  const NavItem = ({ to, icon: Icon, label }: { to: string, icon: any, label: string }) => {
-    const isActive = location.pathname === to;
-    return (
-      <Link 
-        to={to} 
-        className={`flex flex-col items-center justify-center gap-1 p-2 rounded-2xl transition-all duration-300 ${
-          isActive ? 'text-brand-600' : 'text-slate-400 active:bg-slate-100'
-        }`}
-      >
-        <div className={`p-1.5 rounded-xl transition-all ${isActive ? 'bg-brand-50 shadow-sm' : 'bg-transparent'}`}>
-           <Icon size={22} strokeWidth={isActive ? 2.5 : 2} />
-        </div>
-        <span className={`text-[10px] uppercase tracking-wider ${isActive ? 'font-bold' : 'font-semibold'}`}>{label}</span>
-      </Link>
-    );
-  };
-
   return (
     <div className="h-screen bg-[#F8FAFC] flex overflow-hidden">
       
       {/* MOBILE OVERLAY */}
       {isSidebarOpen && (
         <div 
-          className="fixed inset-0 bg-slate-900/40 z-50 lg:hidden backdrop-blur-sm transition-all duration-300"
+          className="fixed inset-0 bg-slate-900/40 z-[70] lg:hidden backdrop-blur-sm transition-all duration-300"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
 
       {/* SIDEBAR */}
       <aside 
-        className={`fixed lg:static inset-y-0 left-0 z-[60] w-[280px] bg-white border-r border-slate-200 flex flex-col transform transition-all duration-300 ease-in-out ${
+        className={`fixed lg:static inset-y-0 left-0 z-[80] w-[280px] bg-white border-r border-slate-200 flex flex-col transform transition-all duration-300 ease-in-out ${
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
@@ -204,31 +184,21 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
 
       {/* MAIN SECTION */}
       <div className="flex-1 flex flex-col min-w-0 h-full relative">
+        
+        {/* Mobile Menu Toggle - Absolute to avoid shifting layout */}
+        <button 
+          onClick={() => setIsSidebarOpen(true)}
+          className="lg:hidden fixed top-6 left-6 z-[60] p-2.5 bg-white shadow-premium border border-slate-100 rounded-2xl text-slate-600 active:scale-90 transition-all hover:bg-slate-50"
+        >
+          <Menu size={24} />
+        </button>
+
         {/* MAIN CONTENT Area - Now occupies the full height from the top */}
-        <main className="flex-1 overflow-y-auto px-6 lg:px-10 py-8 scroll-smooth no-scrollbar">
-           <div className="max-w-7xl mx-auto pb-24 lg:pb-0">
+        <main className="flex-1 overflow-y-auto px-6 lg:px-10 py-8 lg:py-8 pt-20 lg:pt-8 scroll-smooth no-scrollbar">
+           <div className="max-w-7xl mx-auto">
               {children}
            </div>
         </main>
-
-        {/* MOBILE TAB BAR */}
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-slate-100 z-50 px-4 py-2 flex items-center justify-around h-[70px] shadow-[0_-8px_30px_rgba(0,0,0,0.04)]">
-           <NavItem to="/" icon={Home} label="Home" />
-           <NavItem to="/billing" icon={Zap} label="Sale" />
-           <NavItem to="/parts" icon={Package} label="Items" />
-           <NavItem to="/purchases" icon={ShoppingBag} label="Buy" />
-           
-           <button 
-             onClick={() => setIsSidebarOpen(true)}
-             className="flex flex-col items-center justify-center gap-1 p-2 rounded-2xl text-slate-400 active:bg-slate-100 transition-all"
-           >
-              <div className="p-1.5">
-                  <Menu size={22} />
-              </div>
-              <span className="text-[10px] uppercase tracking-wider font-semibold">Menu</span>
-           </button>
-        </div>
-
       </div>
     </div>
   );

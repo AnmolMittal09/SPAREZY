@@ -43,7 +43,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   const stats = getStats(inventory);
 
   return (
-    <div className="space-y-6 md:space-y-8 animate-fade-in pb-24 md:pb-12 h-full flex flex-col">
+    <div className="space-y-6 md:space-y-8 animate-fade-in h-full flex flex-col">
       
       {/* HEADER - Responsive */}
       <div className="flex justify-between items-center no-print px-1">
