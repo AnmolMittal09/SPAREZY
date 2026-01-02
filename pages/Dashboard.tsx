@@ -11,7 +11,10 @@ import {
   Banknote,
   Package,
   XCircle,
-  ArrowUpRight
+  ArrowUpRight,
+  ClipboardList,
+  Zap,
+  Clock
 } from 'lucide-react';
 // @ts-ignore
 import { useNavigate } from 'react-router-dom';
@@ -27,6 +30,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const isManager = user.role === Role.MANAGER;
 
   useEffect(() => {
     const loadData = async () => {
@@ -53,56 +57,92 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
       <div className="flex justify-between items-center no-print px-1">
          <div className="hidden md:block">
             <h1 className="text-3xl font-black text-slate-900 tracking-tight leading-none mb-1">
-               Store Overview
+               {isManager ? 'Daily Operations' : 'Store Overview'}
             </h1>
-            <p className="text-slate-500 font-medium text-sm">Real-time inventory and pricing at your fingertips.</p>
+            <p className="text-slate-500 font-medium text-sm">
+               {isManager ? 'Fulfill sales and receive inventory updates.' : 'Real-time inventory and pricing at your fingertips.'}
+            </p>
          </div>
          
          <div className="md:hidden flex items-center gap-4">
-            <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-xl">
-               <PackageCheck size={24} />
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-xl ${isManager ? 'bg-indigo-600' : 'bg-slate-900'}`}>
+               {isManager ? <Zap size={24} /> : <PackageCheck size={24} />}
             </div>
             <div>
-               <h1 className="text-2xl font-black text-slate-900 leading-none tracking-tight">Main Hub</h1>
+               <h1 className="text-2xl font-black text-slate-900 leading-none tracking-tight">{isManager ? 'Workdesk' : 'Main Hub'}</h1>
                <div className="flex items-center gap-2 mt-1.5">
                   <div className={`w-2 h-2 rounded-full ${user.role === Role.OWNER ? 'bg-indigo-500' : 'bg-teal-500'} animate-pulse`}></div>
                   <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">{user.role} Privileges</p>
                </div>
             </div>
          </div>
+
+         {isManager && (
+            <button 
+               onClick={() => navigate('/billing')}
+               className="hidden md:flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-2xl font-black text-sm transition-all active:scale-95 shadow-xl shadow-indigo-100"
+            >
+               <Zap size={18} /> New Bill
+            </button>
+         )}
       </div>
 
-      {/* MOBILE STATS SCROLL - Clean Cards */}
-      <div className="md:hidden flex gap-4 overflow-x-auto no-scrollbar py-2 -mx-1 px-1">
-         <div className="flex-none w-[180px] bg-white p-5 rounded-[2rem] shadow-soft border border-slate-100 flex flex-col gap-4">
-            <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center"><Banknote size={20} /></div>
+      {/* STATS SECTION */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+         {/* Valuation/Volume Card - HIDDEN ON MOBILE */}
+         <div className={`hidden md:flex bg-white p-6 rounded-[2.5rem] shadow-soft border border-slate-100 items-center gap-5 transition-all hover:shadow-premium ${isManager ? 'md:col-span-2' : ''}`}>
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg ${isManager ? 'bg-indigo-50 text-indigo-600' : 'bg-blue-50 text-blue-600'}`}>
+               <Banknote size={26} />
+            </div>
             <div>
-               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Inventory Value</p>
-               <p className="text-xl font-black text-slate-900">₹{(stats.totalValue / 100000).toFixed(1)}L</p>
+               <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">
+                  {isManager ? 'Inventory Depth' : 'Asset Value'}
+               </p>
+               <p className="text-2xl font-black text-slate-900">
+                  {isManager ? `${stats.totalItems.toLocaleString()} Units` : `₹${(stats.totalValue / 100000).toFixed(1)}L`}
+               </p>
             </div>
          </div>
-         <div className="flex-none w-[180px] bg-white p-5 rounded-[2rem] shadow-soft border border-slate-100 flex flex-col gap-4">
-            <div className="w-10 h-10 bg-teal-50 text-teal-600 rounded-xl flex items-center justify-center"><Package size={20} /></div>
-            <div>
-               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Stock Items</p>
-               <p className="text-xl font-black text-slate-900">{stats.totalItems.toLocaleString()}</p>
+
+         {/* Stock Alerts Card */}
+         <div 
+            onClick={() => navigate('/low-stock')}
+            className="bg-white p-6 rounded-[2.5rem] shadow-soft border border-slate-100 flex items-center gap-5 cursor-pointer hover:border-amber-200 hover:bg-amber-50 group transition-all"
+         >
+            <div className="w-14 h-14 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+               <AlertCircle size={26} />
             </div>
-         </div>
-         <div className="flex-none w-[180px] bg-rose-50 p-5 rounded-[2rem] shadow-soft border border-rose-100 flex flex-col gap-4" onClick={() => navigate('/out-of-stock')}>
-            <div className="w-10 h-10 bg-rose-600 text-white rounded-xl flex items-center justify-center shadow-lg shadow-rose-200"><XCircle size={20} /></div>
             <div>
-               <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest mb-1">Zero Stock</p>
-               <div className="flex items-center justify-between">
-                  <p className="text-xl font-black text-rose-700">{stats.zeroStockCount}</p>
-                  <ArrowUpRight size={16} className="text-rose-300" />
+               <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1 group-hover:text-amber-700">Low Stock</p>
+               <div className="flex items-center gap-2">
+                  <p className="text-2xl font-black text-slate-900 group-hover:text-amber-900">{stats.lowStockCount}</p>
+                  <ArrowUpRight size={16} className="text-slate-300 group-hover:text-amber-400" />
                </div>
             </div>
          </div>
+
+         {/* Pending Approvals / Zero Stock */}
+         <div 
+            onClick={() => navigate(isManager ? '/movements' : '/out-of-stock')}
+            className={`bg-white p-6 rounded-[2.5rem] shadow-soft border border-slate-100 flex items-center gap-5 cursor-pointer hover:shadow-premium group transition-all ${isManager ? 'border-indigo-100 bg-indigo-50/20' : 'hover:border-rose-200 hover:bg-rose-50'}`}
+         >
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg ${isManager ? 'bg-indigo-600 text-white' : 'bg-rose-50 text-rose-600'}`}>
+               {isManager ? <Clock size={26} /> : <XCircle size={26} />}
+            </div>
+            <div>
+               <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isManager ? 'text-indigo-400' : 'text-slate-400 group-hover:text-rose-700'}`}>
+                  {isManager ? 'Recent Audit' : 'Out of Stock'}
+               </p>
+               <p className={`text-2xl font-black ${isManager ? 'text-indigo-900' : 'text-slate-900 group-hover:text-rose-900'}`}>
+                  {isManager ? 'Activity Log' : stats.zeroStockCount}
+               </p>
+            </div>
+         </div>
       </div>
 
-      {/* SEARCH SECTION - Refined for Quick Actions */}
+      {/* SEARCH SECTION */}
       <div className="relative group no-print">
-         <div className="absolute -inset-1 bg-gradient-to-r from-brand-600 to-indigo-600 rounded-[2.5rem] blur opacity-5 group-hover:opacity-10 transition duration-500"></div>
+         <div className={`absolute -inset-1 rounded-[2.5rem] blur opacity-5 group-hover:opacity-10 transition duration-500 ${isManager ? 'bg-indigo-600' : 'bg-brand-600'}`}></div>
          <div className="relative bg-white rounded-[2.5rem] p-6 lg:p-10 shadow-premium border border-slate-50">
             <div className="flex flex-col gap-6 lg:gap-8">
                 <div className="flex items-center gap-5">
@@ -149,13 +189,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
       <div className="bg-white rounded-[2.5rem] shadow-premium border border-slate-50 overflow-hidden flex flex-col flex-1 min-h-[400px]">
          <div className="p-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/10">
             <div className="flex items-center gap-3">
-                <div className="w-2 h-2 bg-brand-500 rounded-full animate-pulse"></div>
+                <div className={`w-2 h-2 rounded-full animate-pulse ${isManager ? 'bg-indigo-500' : 'bg-brand-500'}`}></div>
                 <span className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em]">
                     {searchQuery ? `FOUND INVENTORY FOR "${searchQuery}"` : "LIVE CATALOG FEED"}
                 </span>
             </div>
-            <div className="flex items-center gap-2 text-[10px] font-black text-brand-600 uppercase tracking-widest bg-brand-50 px-3 py-1.5 rounded-xl shadow-sm">
-                <Eye size={14} /> Reveal Prices
+            <div className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl shadow-sm ${isManager ? 'bg-indigo-50 text-indigo-600' : 'bg-brand-50 text-brand-600'}`}>
+                <Eye size={14} /> Tap to Reveal Prices
             </div>
          </div>
          <div className="flex-1 min-h-0">

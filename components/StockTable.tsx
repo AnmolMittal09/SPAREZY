@@ -55,16 +55,17 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role; 
     e.stopPropagation();
     e.preventDefault();
 
-    if (isManager) return;
-
     if (!visible) {
       setVisible(true);
-      if (!isMobile) setShowHistory(true);
+      // Managers only reveal price on first click, Owners get history too
+      if (!isMobile && !isManager) setShowHistory(true);
       await loadHistory();
     } else {
+      // If already visible, second click on mobile shows history drawer
       if (isMobile) {
         setShowHistory(true);
       } else {
+        // Desktop toggles off
         setVisible(false);
         setShowHistory(false);
       }
@@ -72,7 +73,7 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role; 
   };
 
   const handleMouseEnter = () => {
-    if (!isMobile && visible) {
+    if (!isMobile && visible && !isManager) {
       setShowHistory(true);
       loadHistory();
     }
@@ -83,17 +84,6 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role; 
       setShowHistory(false);
     }
   };
-
-  if (isManager) {
-    return (
-      <div className={`flex items-center ${align === 'right' ? 'justify-end' : 'justify-start'} gap-2 text-slate-300 select-none`}>
-        <span className="blur-[4px] tracking-tighter">₹88,888</span>
-        <div className="bg-slate-100 p-1 rounded-md">
-          <Lock size={12} className="text-slate-400" />
-        </div>
-      </div>
-    );
-  }
 
   const HistoryContent = () => (
     <div className="flex flex-col h-full">
@@ -161,28 +151,29 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role; 
         onClick={handlePriceClick}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
-        className={`cursor-pointer select-none font-black text-[15px] transition-all duration-200 flex items-center ${align === 'right' ? 'justify-end' : 'justify-start'} gap-2 group/price px-2.5 py-1.5 rounded-xl ${visible ? 'text-slate-900 bg-slate-100' : 'text-slate-300 hover:text-slate-400 hover:bg-slate-50'}`}
+        className={`cursor-pointer select-none font-black text-[15px] transition-all duration-200 flex items-center ${align === 'right' ? 'justify-end' : 'justify-start'} gap-2 group/price px-2.5 py-1.5 rounded-xl ${visible ? 'text-slate-900 bg-slate-100 shadow-sm' : 'text-slate-300 hover:text-slate-400 hover:bg-slate-50'}`}
       >
         {visible ? (
           <>
             <span className="flex items-center gap-1.5">
               ₹{price.toLocaleString()}
-              {history.length > 0 && <div className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-pulse" />}
+              {history.length > 0 && !isManager && <div className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-pulse" />}
             </span>
-            <Info size={16} className={`opacity-40 transition-opacity ${showHistory ? 'text-brand-600 opacity-100' : ''}`} />
+            {!isManager && <Info size={16} className={`opacity-40 transition-opacity ${showHistory ? 'text-brand-600 opacity-100' : ''}`} />}
+            {isManager && <Lock size={12} className="opacity-20" />}
           </>
         ) : (
           <>
-            <span className="blur-[4px] tracking-tighter">₹88,888</span>
+            <span className="blur-[5px] tracking-tighter select-none">₹88,888</span>
             <div className="bg-slate-100 p-1.5 rounded-lg">
-              <Eye size={14} className="text-slate-400" />
+              {isManager ? <Lock size={14} className="text-slate-400" /> : <Eye size={14} className="text-slate-400" />}
             </div>
           </>
         )}
       </div>
 
-      {/* DESKTOP POPOVER */}
-      {!isMobile && showHistory && (
+      {/* DESKTOP POPOVER (Owners only) */}
+      {!isMobile && showHistory && !isManager && (
         <div 
           ref={popoverRef}
           className={`absolute bottom-full ${align === 'right' ? 'right-0' : 'left-0'} mb-3 z-[100] w-72 bg-white rounded-3xl shadow-premium border border-slate-100 p-6 animate-slide-up overflow-hidden`}
@@ -193,18 +184,18 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role; 
         </div>
       )}
 
-      {/* MOBILE DRAWER */}
+      {/* MOBILE DRAWER (For everyone once revealed) */}
       {isMobile && showHistory && (
         <div className="fixed inset-0 z-[1000] flex items-end justify-center bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowHistory(false)}>
            <div 
-             className="w-full bg-white rounded-t-[2.5rem] shadow-2xl p-6 pb-12 animate-slide-up max-h-[80vh] flex flex-col"
+             className="w-full bg-white rounded-t-[2.5rem] shadow-2xl p-6 pb-12 animate-slide-up max-h-[85vh] flex flex-col"
              onClick={e => e.stopPropagation()}
            >
               <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-6" />
               <div className="flex justify-between items-start mb-6">
                  <div>
                     <h3 className="text-2xl font-black text-slate-900 tracking-tight leading-none">{partNumber}</h3>
-                    <p className="text-sm font-bold text-slate-400 mt-2">Historical Pricing Audit</p>
+                    <p className="text-sm font-bold text-slate-400 mt-2">Inventory Audit Details</p>
                  </div>
                  <button onClick={() => setShowHistory(false)} className="p-3 bg-slate-100 rounded-2xl text-slate-500 active:scale-90 transition-all"><X size={20} /></button>
               </div>
@@ -214,15 +205,15 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role; 
               <div className="mt-8 flex gap-3">
                  <button 
                    onClick={() => { setVisible(false); setShowHistory(false); }} 
-                   className="flex-1 py-4.5 bg-slate-100 text-slate-600 font-black rounded-2xl uppercase text-[11px] tracking-widest active:scale-95 transition-all"
+                   className="flex-1 py-5 bg-slate-100 text-slate-600 font-black rounded-[1.5rem] uppercase text-[11px] tracking-[0.2em] active:scale-95 transition-all"
                  >
-                   Hide MRP Again
+                   Privacy Hide
                  </button>
                  <button 
                    onClick={() => setShowHistory(false)} 
-                   className="flex-1 py-4.5 bg-slate-900 text-white font-black rounded-2xl uppercase text-[11px] tracking-widest active:scale-95 transition-all shadow-xl"
+                   className="flex-1 py-5 bg-slate-900 text-white font-black rounded-[1.5rem] uppercase text-[11px] tracking-[0.2em] active:scale-95 transition-all shadow-xl"
                  >
-                   Keep Visible
+                   Got It
                  </button>
               </div>
            </div>
@@ -327,7 +318,7 @@ const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({ item, userRole, sho
                 onTouchMove={onTouchMove}
                 onTouchEnd={onTouchEnd}
                 style={{ transform: `translateX(${currentX}px)` }}
-                className={`relative bg-white border border-slate-100 p-6 rounded-[2.5rem] shadow-sm transition-transform duration-200 ease-out z-10 flex gap-5 items-center ${isZero ? 'bg-slate-50/50' : ''} ${isSelected ? 'ring-2 ring-brand-500 bg-brand-50/50 border-brand-200' : ''}`}
+                className={`relative bg-white border border-slate-100 p-6 rounded-[2.5rem] shadow-sm transition-transform duration-200 ease-out z-10 flex gap-5 items-center ${isZero ? 'bg-slate-50/50' : ''} ${isSelected ? 'ring-2 ring-brand-500 bg-brand-50/50 border-brand-200 shadow-md' : ''}`}
             >
                 {enableSelection && isOwner && (
                     <div 
@@ -358,7 +349,7 @@ const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({ item, userRole, sho
                     </div>
                     <div className="mt-5 pt-4 border-t border-slate-50 flex items-center justify-between">
                         <div className="flex flex-col">
-                            <span className="text-[9px] font-black text-slate-300 uppercase tracking-[0.2em] mb-1">MRP Price</span>
+                            <span className="text-[9px] font-black text-slate-300 uppercase tracking-[0.2em] mb-1">List Rate</span>
                             <PriceCell price={item.price} partNumber={item.partNumber} userRole={userRole} align="left" />
                         </div>
                         <div className="flex items-center gap-2 text-slate-200">
