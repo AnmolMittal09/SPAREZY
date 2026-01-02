@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { StockItem, Brand, Role, PriceHistoryEntry } from '../types';
 import { bulkArchiveItems, fetchPriceHistory, toggleArchiveStatus } from '../services/inventoryService';
-import { Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, Archive, ArchiveRestore, Loader2, Eye, EyeOff, Lock, Info, TrendingUp, TrendingDown, Clock, MoreHorizontal, ArrowRight, CheckSquare, Square, MinusSquare, X, History, Calendar } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, Archive, ArchiveRestore, Loader2, Eye, EyeOff, Lock, TrendingUp, TrendingDown, Clock, ArrowRight, CheckSquare, Square, MinusSquare, X, History, Calendar, ChevronDown } from 'lucide-react';
 
 interface StockTableProps {
   items: StockItem[];
@@ -22,7 +22,11 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role; 
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<PriceHistoryEntry[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [flipPosition, setFlipPosition] = useState<'top' | 'bottom'>('top');
+  
   const popoverRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  
   const isManager = userRole === Role.MANAGER;
   const isOwner = userRole === Role.OWNER;
   const isMobile = 'ontouchstart' in window || window.innerWidth < 768;
@@ -54,79 +58,142 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role; 
 
   const handleReveal = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (visible) {
-        if (!isMobile && isOwner) {
-            setShowHistory(!showHistory);
-            await loadHistory();
-        }
-        return;
-    }
+    if (visible) return; 
     setVisible(true);
-    if (!isManager) await loadHistory();
+    if (isOwner) await loadHistory();
   };
 
+  const handleToggleHistory = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!visible) {
+        setVisible(true);
+    }
+
+    // Detect if trigger is too high in the viewport to avoid clipping
+    if (triggerRef.current) {
+        const rect = triggerRef.current.getBoundingClientRect();
+        setFlipPosition(rect.top < 350 ? 'bottom' : 'top');
+    }
+
+    await loadHistory();
+    setShowHistory(!showHistory);
+  };
+
+  const AuditContent = () => (
+    <div className="flex flex-col h-full">
+      <div className="flex items-center justify-between mb-4 px-1">
+        <div className="flex items-center gap-2">
+           <div className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg">
+              <Clock size={14} strokeWidth={2.5} />
+           </div>
+           <div>
+              <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-tight">Audit Trail</h4>
+              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Price History Log</p>
+           </div>
+        </div>
+        <span className="text-[9px] font-black bg-slate-100 px-2 py-0.5 rounded-full text-slate-500">
+           {history.length} RECORDS
+        </span>
+      </div>
+
+      {loadingHistory ? (
+        <div className="py-10 flex flex-col items-center gap-3">
+          <Loader2 size={24} className="animate-spin text-indigo-500" />
+          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Fetching Data...</span>
+        </div>
+      ) : history.length > 0 ? (
+        <div className="space-y-2 overflow-y-auto no-scrollbar pr-1 flex-1 max-h-[280px]">
+          {history.map((entry) => {
+            const isIncrease = entry.newPrice > entry.oldPrice;
+            const percentChange = entry.oldPrice > 0 
+               ? (((entry.newPrice - entry.oldPrice) / entry.oldPrice) * 100).toFixed(1) 
+               : '0.0';
+
+            return (
+              <div key={entry.id} className={`group relative p-3 rounded-2xl transition-all border ${isIncrease ? 'bg-rose-50/20 border-rose-100' : 'bg-teal-50/20 border-teal-100'}`}>
+                 <div className="flex justify-between items-center mb-2">
+                    <div className="flex items-center gap-1.5">
+                       <Calendar size={11} className="text-slate-400" />
+                       <span className="text-[10px] font-bold text-slate-500">
+                          {new Date(entry.changeDate).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
+                       </span>
+                    </div>
+                    <div className={`flex items-center gap-0.5 text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-tighter ${isIncrease ? 'bg-rose-100 text-rose-600' : 'bg-teal-100 text-teal-600'}`}>
+                       {isIncrease ? <TrendingUp size={9}/> : <TrendingDown size={9}/>}
+                       {isIncrease ? '+' : ''}{percentChange}%
+                    </div>
+                 </div>
+                 <div className="flex items-center justify-between">
+                    <div className="flex flex-col">
+                       <span className="text-[8px] font-black text-slate-400 uppercase mb-0.5">Previous</span>
+                       <span className="text-[13px] font-bold text-slate-400 line-through">₹{entry.oldPrice.toLocaleString()}</span>
+                    </div>
+                    <ArrowRight size={12} className="text-slate-300" />
+                    <div className="flex flex-col text-right">
+                       <span className="text-[8px] font-black text-indigo-500 uppercase mb-0.5">Effective</span>
+                       <span className="text-[15px] font-black text-slate-900">₹{entry.newPrice.toLocaleString()}</span>
+                    </div>
+                 </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="py-10 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+           <History size={24} className="text-slate-200 mx-auto mb-2 opacity-50" />
+           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">No history found</p>
+        </div>
+      )}
+    </div>
+  );
+
   return (
-    <div className={`relative flex ${align === 'right' ? 'justify-end' : 'justify-start'} items-center`}>
+    <div className={`relative flex ${align === 'right' ? 'justify-end' : 'justify-start'} items-center`} ref={triggerRef}>
       <div 
-        onClick={handleReveal}
-        className={`group/price relative flex items-center gap-2 p-1.5 rounded-xl transition-all duration-200 cursor-pointer ${
+        onClick={visible ? (isMobile ? undefined : handleToggleHistory) : handleReveal}
+        className={`group/price relative flex items-center gap-2 p-1 rounded-xl transition-all duration-300 cursor-pointer ${
           visible 
-            ? 'bg-slate-900 text-white shadow-lg ring-4 ring-slate-100' 
-            : 'bg-slate-50 text-slate-300 hover:bg-slate-100 hover:text-slate-400'
+            ? 'bg-slate-900 text-white shadow-lg ring-2 ring-indigo-500/10' 
+            : 'bg-slate-50 text-slate-300 hover:bg-white hover:text-slate-500 hover:shadow-md'
         }`}
       >
         {!visible ? (
           <>
-            <div className="px-1.5 py-0.5 font-black text-[14px] blur-[6px] select-none tracking-tighter">₹88,888</div>
-            <div className="bg-white/80 p-1 rounded-lg text-slate-500">
-              <Eye size={14} />
+            <div className="px-1.5 py-0.5 font-black text-[14px] blur-[7px] select-none tracking-tighter opacity-40">₹88,888</div>
+            <div className="bg-white/90 p-1.5 rounded-lg text-slate-400 shadow-sm group-hover/price:text-indigo-600 transition-colors">
+              <Eye size={13} strokeWidth={2.5} />
             </div>
           </>
         ) : (
           <>
-            <div className="pl-2.5 pr-1 font-black text-[15px] tracking-tight">₹{price.toLocaleString()}</div>
-            {isOwner && (
-                <div className="bg-indigo-500 p-1.5 rounded-lg text-white hover:bg-indigo-400 transition-colors shadow-sm">
-                  <History size={13} strokeWidth={3} />
+            <div className="pl-2.5 pr-1 font-black text-[14px] tracking-tight py-0.5">₹{price.toLocaleString()}</div>
+            {isOwner && !isMobile && (
+                <div 
+                  onClick={handleToggleHistory}
+                  className={`p-1.5 rounded-lg transition-all shadow-sm active:scale-90 ${showHistory ? 'bg-indigo-600 text-white' : 'bg-indigo-500 text-white hover:bg-indigo-400'}`}
+                >
+                  <History size={12} strokeWidth={3} />
                 </div>
             )}
             {isManager && (
-                <div className="p-1 rounded-lg text-white/40">
-                  <Lock size={12} />
+                <div className="p-1 rounded-lg text-white/40 mr-0.5">
+                  <Lock size={11} />
                 </div>
             )}
           </>
         )}
       </div>
 
-      {showHistory && !isMobile && isOwner && (
+      {/* DESKTOP Contextual Popover - Anchored with Flip Logic */}
+      {!isMobile && showHistory && isOwner && (
         <div 
           ref={popoverRef}
-          className={`absolute bottom-full ${align === 'right' ? 'right-0' : 'left-0'} mb-4 z-50 w-64 bg-white rounded-3xl shadow-premium border border-slate-100 p-5 animate-slide-up`}
+          className={`absolute ${flipPosition === 'top' ? 'bottom-full mb-4' : 'top-full mt-4'} ${align === 'right' ? 'right-0' : 'left-0'} z-[600] w-72 bg-white rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-slate-100 p-6 animate-slide-up overflow-hidden`}
         >
-          <div className="flex items-center gap-2 mb-4 border-b border-slate-50 pb-2">
-            <Clock size={14} className="text-indigo-500" />
-            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Price History</h4>
-          </div>
-          {loadingHistory ? (
-            <div className="py-4 flex justify-center"><Loader2 size={20} className="animate-spin text-slate-300" /></div>
-          ) : history.length > 0 ? (
-            <div className="space-y-3 max-h-48 overflow-y-auto no-scrollbar">
-              {history.map(entry => (
-                <div key={entry.id} className="flex justify-between items-center text-[12px]">
-                  <div className="text-slate-400 font-bold">{new Date(entry.changeDate).toLocaleDateString()}</div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-slate-300 line-through">₹{entry.oldPrice}</span>
-                    <ArrowRight size={10} className="text-slate-200" />
-                    <span className="font-black text-slate-800">₹{entry.newPrice}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-4 text-[10px] font-bold text-slate-300 uppercase tracking-widest">No Records</div>
-          )}
-          <div className="absolute bottom-[-6px] left-1/2 -translate-x-1/2 rotate-45 w-3 h-3 bg-white border-r border-b border-slate-100"></div>
+          <div className="absolute top-0 left-0 w-full h-1.5 bg-indigo-600"></div>
+          <AuditContent />
+          {/* Popover Arrow */}
+          <div className={`absolute ${flipPosition === 'top' ? 'bottom-[-6px]' : 'top-[-6px]'} left-1/2 -translate-x-1/2 rotate-45 w-3 h-3 bg-white border-${flipPosition === 'top' ? 'r' : 'l'} border-${flipPosition === 'top' ? 'b' : 't'} border-slate-100 shadow-xl`}></div>
         </div>
       )}
     </div>
@@ -149,12 +216,14 @@ const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({ item, userRole, sho
     const [isSwiping, setIsSwiping] = useState(false);
     const [swipedOpen, setSwipedOpen] = useState(false);
     const [archiving, setArchiving] = useState(false);
+    const [showHistory, setShowHistory] = useState(false);
+    const [history, setHistory] = useState<PriceHistoryEntry[]>([]);
+    const [loadingHistory, setLoadingHistory] = useState(false);
 
     const isOwner = userRole === Role.OWNER;
     const maxSwipe = isOwner ? -160 : -80;
 
     const onTouchStart = (e: React.TouchEvent) => {
-        // Prevent swipe if starting from left side checkbox area
         if (enableSelection && isOwner) {
             const touchX = e.touches[0].clientX;
             if (touchX < 80) return; 
@@ -197,13 +266,28 @@ const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({ item, userRole, sho
         }
     };
 
+    const toggleMobileHistory = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!showHistory && history.length === 0) {
+            setLoadingHistory(true);
+            try {
+                const data = await fetchPriceHistory(item.partNumber);
+                setHistory(data || []);
+            } catch (err) {
+                console.error("Failed to load price history", err);
+            } finally {
+                setLoadingHistory(false);
+            }
+        }
+        setShowHistory(!showHistory);
+    };
+
     const isLow = item.quantity > 0 && item.quantity <= item.minStockThreshold;
     const isZero = item.quantity === 0;
 
     return (
-        <div className="relative overflow-hidden rounded-[2.5rem] animate-fade-in">
-            {/* Background Action Buttons */}
-            <div className="absolute inset-0 flex justify-end">
+        <div className="relative overflow-visible rounded-[2.5rem] animate-fade-in">
+            <div className="absolute inset-0 flex justify-end rounded-[2.5rem] overflow-hidden">
                 <div className="flex h-full">
                     <button 
                         onClick={() => navigate(`/item/${encodeURIComponent(item.partNumber)}`)}
@@ -225,53 +309,98 @@ const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({ item, userRole, sho
                 </div>
             </div>
 
-            {/* Main Content Layer */}
             <div 
                 onTouchStart={onTouchStart}
                 onTouchMove={onTouchMove}
                 onTouchEnd={onTouchEnd}
                 style={{ transform: `translateX(${currentX}px)` }}
-                className={`relative bg-white border border-slate-100 p-6 rounded-[2.5rem] shadow-sm transition-transform duration-200 ease-out z-10 flex gap-5 items-center ${isZero ? 'bg-slate-50/50' : ''} ${isSelected ? 'ring-2 ring-brand-500 bg-brand-50/50 border-brand-200 shadow-md' : ''}`}
+                className={`relative bg-white border border-slate-100 p-6 rounded-[2.5rem] shadow-sm transition-all duration-200 ease-out z-10 flex flex-col gap-4 ${isZero ? 'bg-slate-50/50' : ''} ${isSelected ? 'ring-2 ring-brand-500 bg-brand-50/50 border-brand-200 shadow-md' : ''}`}
             >
-                {/* Checkbox Section */}
-                {enableSelection && isOwner && (
-                    <div 
-                        onClick={(e) => { e.stopPropagation(); toggleSelect(item.partNumber); }}
-                        className="flex-none p-2 active:scale-90 transition-transform"
-                    >
-                        {isSelected ? <CheckSquare className="text-brand-600" size={28} /> : <Square className="text-slate-300" size={28} />}
-                    </div>
-                )}
+                <div className="flex gap-4 items-center">
+                    {enableSelection && isOwner && (
+                        <div 
+                            onClick={(e) => { e.stopPropagation(); toggleSelect(item.partNumber); }}
+                            className="flex-none p-1.5 active:scale-90 transition-transform"
+                        >
+                            {isSelected ? <CheckSquare className="text-brand-600" size={26} /> : <Square className="text-slate-300" size={26} />}
+                        </div>
+                    )}
 
-                <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-start mb-2">
-                        <div className="space-y-1.5 flex-1 pr-4 min-w-0">
-                            <div className="flex items-center gap-2">
-                                <span className={`flex-none text-[9px] px-2 py-0.5 rounded-lg font-black uppercase tracking-wider ${item.brand === Brand.HYUNDAI ? 'bg-blue-600 text-white' : 'bg-red-600 text-white'}`}>
-                                    {item.brand.substring(0, 3)}
-                                </span>
-                                <span className="font-black text-slate-900 text-xl tracking-tight truncate">{item.partNumber}</span>
+                    <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-start mb-1.5">
+                            <div className="space-y-1.5 flex-1 pr-3 min-w-0">
+                                <div className="flex items-center gap-2">
+                                    <span className={`flex-none text-[8px] px-1.5 py-0.5 rounded-md font-black uppercase tracking-wider ${item.brand === Brand.HYUNDAI ? 'bg-blue-600 text-white' : 'bg-red-600 text-white'}`}>
+                                        {item.brand.substring(0, 3)}
+                                    </span>
+                                    <span className="font-black text-slate-900 text-xl tracking-tight truncate">{item.partNumber}</span>
+                                </div>
+                                <p className="text-[13px] text-slate-400 font-bold truncate leading-tight">{item.name}</p>
                             </div>
-                            <p className="text-[14px] text-slate-500 font-medium truncate leading-tight">{item.name}</p>
-                        </div>
-                        <div className="text-right flex flex-col items-end gap-1 flex-none">
-                            <div className={`font-black text-[22px] leading-none ${isZero ? 'text-rose-600' : isLow ? 'text-amber-500' : 'text-slate-900'}`}>
-                                {item.quantity}
-                                <span className="text-[10px] uppercase font-bold text-slate-300 ml-1.5">PCS</span>
+                            <div className="text-right flex flex-col items-end flex-none">
+                                <div className={`font-black text-2xl leading-none ${isZero ? 'text-rose-600' : isLow ? 'text-amber-500' : 'text-slate-900'}`}>
+                                    {item.quantity}
+                                    <span className="text-[10px] uppercase font-bold text-slate-300 ml-1.5">PCS</span>
+                                </div>
                             </div>
-                        </div>
-                    </div>
-                    <div className="mt-5 pt-4 border-t border-slate-50 flex items-center justify-between">
-                        <div className="flex flex-col">
-                            <span className="text-[9px] font-black text-slate-300 uppercase tracking-[0.2em] mb-1">List Rate</span>
-                            <PriceCell price={item.price} partNumber={item.partNumber} userRole={userRole} align="left" />
-                        </div>
-                        <div className="flex items-center gap-2 text-slate-200">
-                            <span className="text-[9px] font-black uppercase tracking-widest">Swipe</span>
-                            <ChevronLeft size={16} className="animate-pulse" />
                         </div>
                     </div>
                 </div>
+
+                <div className="pt-4 border-t border-slate-50 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <PriceCell price={item.price} partNumber={item.partNumber} userRole={userRole} align="left" />
+                        {isOwner && (
+                            <button 
+                                onClick={toggleMobileHistory}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${showHistory ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-50 text-slate-400 border border-slate-100'}`}
+                            >
+                                <History size={12} strokeWidth={3} />
+                                {showHistory ? 'Close Audit' : 'Audit'}
+                            </button>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-2 text-slate-200">
+                        <ChevronLeft size={16} className="animate-pulse" />
+                    </div>
+                </div>
+
+                {/* INLINE MOBILE HISTORY DRAWER */}
+                {showHistory && isOwner && (
+                    <div className="mt-2 p-5 bg-slate-50 rounded-2xl border border-slate-100 animate-slide-up">
+                        <div className="flex items-center gap-2 mb-4 border-b border-slate-200 pb-2">
+                            <Clock size={12} className="text-indigo-500" />
+                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">MRP Change Ledger</span>
+                        </div>
+                        
+                        {loadingHistory ? (
+                            <div className="py-6 flex justify-center"><Loader2 className="animate-spin text-indigo-400" size={24} /></div>
+                        ) : history.length > 0 ? (
+                            <div className="space-y-4">
+                                {history.map(entry => {
+                                    const isIncrease = entry.newPrice > entry.oldPrice;
+                                    return (
+                                        <div key={entry.id} className="flex items-center justify-between bg-white p-3 rounded-xl shadow-sm border border-slate-100">
+                                            <div className="flex flex-col">
+                                                <span className="text-[10px] font-bold text-slate-400 mb-1">{new Date(entry.changeDate).toLocaleDateString(undefined, {day: '2-digit', month: 'short', year: 'numeric'})}</span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[12px] font-bold text-slate-400 line-through">₹{entry.oldPrice.toLocaleString()}</span>
+                                                    <ArrowRight size={10} className="text-slate-300" />
+                                                    <span className="text-[14px] font-black text-slate-900">₹{entry.newPrice.toLocaleString()}</span>
+                                                </div>
+                                            </div>
+                                            <div className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase ${isIncrease ? 'bg-rose-50 text-rose-600' : 'bg-teal-50 text-teal-600'}`}>
+                                                {isIncrease ? '+' : ''}{(((entry.newPrice - entry.oldPrice) / entry.oldPrice) * 100).toFixed(1)}%
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <p className="text-[11px] font-bold text-slate-400 text-center py-6 italic uppercase tracking-widest">No records found</p>
+                        )}
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -401,7 +530,7 @@ const StockTable: React.FC<StockTableProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-[2rem] lg:rounded-[2.5rem] shadow-soft border border-slate-50 flex flex-col h-full overflow-hidden">
+    <div className="bg-white rounded-[2rem] lg:rounded-[2.5rem] shadow-soft border border-slate-50 flex flex-col h-full overflow-visible">
       {!hideToolbar && (
         <div className="p-4 lg:p-6 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -444,7 +573,6 @@ const StockTable: React.FC<StockTableProps> = ({
         </div>
       )}
 
-      {/* Bulk Selection Banner Mobile */}
       {enableActions && isOwner && (
         <div className="md:hidden p-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
            <button 
@@ -458,7 +586,6 @@ const StockTable: React.FC<StockTableProps> = ({
         </div>
       )}
 
-      {/* Global Selection Indicator */}
       {enableActions && isOwner && selectedParts.size > 0 && (
         <div className="bg-brand-600 p-4 text-center text-[13px] text-white animate-slide-up flex flex-col md:flex-row items-center justify-center gap-3">
            <p className="font-bold">
@@ -478,10 +605,9 @@ const StockTable: React.FC<StockTableProps> = ({
         </div>
       )}
 
-      {/* Desktop Table */}
-      <div className="hidden md:block flex-1 overflow-auto no-scrollbar">
+      <div className="hidden md:block flex-1 overflow-visible">
         <table className="w-full text-left text-[14px] border-collapse">
-            <thead className="bg-slate-50/80 backdrop-blur-md sticky top-0 z-20">
+            <thead className="bg-slate-50/80 backdrop-blur-md sticky top-0 z-[400]">
                 <tr className="border-b border-slate-100">
                     {enableActions && isOwner && (
                         <th className="px-6 py-4 w-10">
@@ -510,7 +636,7 @@ const StockTable: React.FC<StockTableProps> = ({
                     {enableActions && <th className="px-6 py-4 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] w-20">Link</th>}
                 </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
+            <tbody className="divide-y divide-slate-50 overflow-visible">
                 {currentItems.length === 0 ? (
                     <tr><td colSpan={7} className="p-20 text-center text-slate-400 font-medium text-lg italic">No parts matching your search.</td></tr>
                 ) : (
@@ -520,7 +646,7 @@ const StockTable: React.FC<StockTableProps> = ({
                         const isSelected = selectedParts.has(item.partNumber);
 
                         return (
-                            <tr key={item.id} className={`group hover:bg-slate-50 transition-colors ${isSelected ? 'bg-brand-50/30' : ''}`}>
+                            <tr key={item.id} className={`group hover:bg-slate-50 transition-colors overflow-visible ${isSelected ? 'bg-brand-50/30' : ''}`}>
                                 {enableActions && isOwner && (
                                     <td className="px-6 py-5">
                                         <input 
@@ -548,7 +674,7 @@ const StockTable: React.FC<StockTableProps> = ({
                                         {item.quantity}
                                     </span>
                                 </td>
-                                <td className="px-6 py-5 text-right">
+                                <td className="px-6 py-5 text-right overflow-visible">
                                   <PriceCell price={item.price} partNumber={item.partNumber} userRole={userRole} />
                                 </td>
                                 {enableActions && (
@@ -565,8 +691,7 @@ const StockTable: React.FC<StockTableProps> = ({
             </tbody>
         </table>
         
-        {/* Pagination Footer */}
-        <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky bottom-0">
+        <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky bottom-0 z-[100]">
           <span className="text-[12px] font-bold text-slate-400 uppercase tracking-widest">Page {currentPage} of {totalPages}</span>
           <div className="flex gap-2">
               <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-2 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-100 disabled:opacity-20 transition-all active:scale-95">
@@ -579,7 +704,6 @@ const StockTable: React.FC<StockTableProps> = ({
         </div>
       </div>
 
-      {/* Improved Mobile List View */}
       <div className="md:hidden flex-1 overflow-y-auto bg-slate-50/40 p-4 space-y-4 no-scrollbar">
          {mobileItems.length === 0 ? (
              <div className="flex flex-col items-center justify-center py-32 text-slate-300">
