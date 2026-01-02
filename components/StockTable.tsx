@@ -1,9 +1,9 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 // @ts-ignore
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { StockItem, Brand, Role, PriceHistoryEntry } from '../types';
-import { bulkArchiveItems, fetchPriceHistory } from '../services/inventoryService';
-import { Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, Archive, ArchiveRestore, Loader2, Eye, EyeOff, Lock, Info, TrendingUp, TrendingDown, Clock } from 'lucide-react';
+import { bulkArchiveItems, fetchPriceHistory, toggleArchiveStatus } from '../services/inventoryService';
+import { Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, Archive, ArchiveRestore, Loader2, Eye, EyeOff, Lock, Info, TrendingUp, TrendingDown, Clock, MoreHorizontal } from 'lucide-react';
 
 interface StockTableProps {
   items: StockItem[];
@@ -49,7 +49,6 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role }
       return;
     }
 
-    // If already visible, show history popup
     if (!showHistory) {
       setShowHistory(true);
       if (!history && !loadingHistory) {
@@ -57,7 +56,6 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role }
         try {
           const data = await fetchPriceHistory(partNumber);
           if (data && data.length > 0) {
-            // Get the most recent change
             setHistory(data[0]);
           }
         } catch (err) {
@@ -106,7 +104,6 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role }
         )}
       </div>
 
-      {/* PRICE HISTORY POPOVER */}
       {showHistory && (
         <div 
           ref={popoverRef}
@@ -173,6 +170,140 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role }
   );
 };
 
+interface SwipeableItemProps {
+    item: StockItem;
+    userRole?: Role;
+    shouldHidePrice: boolean;
+}
+
+const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({ item, userRole, shouldHidePrice }) => {
+    const navigate = useNavigate();
+    const [startX, setStartX] = useState(0);
+    const [currentX, setCurrentX] = useState(0);
+    const [isSwiping, setIsSwiping] = useState(false);
+    const [swipedOpen, setSwipedOpen] = useState(false);
+    const [archiving, setArchiving] = useState(false);
+
+    const isOwner = userRole === Role.OWNER;
+    const threshold = 50;
+    const maxSwipe = isOwner ? -160 : -80; // Negative because swiping left
+
+    const onTouchStart = (e: React.TouchEvent) => {
+        setStartX(e.touches[0].clientX);
+        setIsSwiping(true);
+    };
+
+    const onTouchMove = (e: React.TouchEvent) => {
+        if (!isSwiping) return;
+        const diff = e.touches[0].clientX - startX;
+        // If swiped open previously, start from open position
+        let newX = swipedOpen ? diff + maxSwipe : diff;
+        // Constraint: Don't swipe too far right (beyond 0) or left (beyond maxSwipe - 40 for bounce effect)
+        if (newX > 0) newX = 0;
+        if (newX < maxSwipe - 40) newX = maxSwipe - 40;
+        setCurrentX(newX);
+    };
+
+    const onTouchEnd = () => {
+        setIsSwiping(false);
+        if (currentX < maxSwipe / 2) {
+            setSwipedOpen(true);
+            setCurrentX(maxSwipe);
+        } else {
+            setSwipedOpen(false);
+            setCurrentX(0);
+        }
+    };
+
+    const handleArchive = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!confirm(`Archive ${item.partNumber}?`)) return;
+        setArchiving(true);
+        try {
+            await toggleArchiveStatus(item.partNumber, true);
+            window.location.reload();
+        } catch (err) {
+            alert("Failed to archive item.");
+        } finally {
+            setArchiving(false);
+        }
+    };
+
+    const isLow = item.quantity > 0 && item.quantity <= item.minStockThreshold;
+    const isZero = item.quantity === 0;
+
+    return (
+        <div className="relative overflow-hidden rounded-[2.5rem]">
+            {/* ACTIONS REVEALED ON SWIPE (UNDERNEATH) */}
+            <div className="absolute inset-0 flex justify-end">
+                <div className="flex h-full">
+                    <button 
+                        onClick={() => navigate(`/item/${encodeURIComponent(item.partNumber)}`)}
+                        className="bg-brand-600 text-white w-20 flex flex-col items-center justify-center gap-1 transition-all active:bg-brand-700"
+                    >
+                        <Eye size={20} />
+                        <span className="text-[9px] font-black uppercase">Info</span>
+                    </button>
+                    {isOwner && (
+                        <button 
+                            onClick={handleArchive}
+                            disabled={archiving}
+                            className="bg-rose-600 text-white w-20 flex flex-col items-center justify-center gap-1 transition-all active:bg-rose-700"
+                        >
+                            {archiving ? <Loader2 size={20} className="animate-spin" /> : <Archive size={20} />}
+                            <span className="text-[9px] font-black uppercase">Arch.</span>
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {/* MAIN CARD CONTENT */}
+            <div 
+                onTouchStart={onTouchStart}
+                onTouchMove={onTouchMove}
+                onTouchEnd={onTouchEnd}
+                style={{ transform: `translateX(${currentX}px)` }}
+                className={`relative bg-white border border-slate-100 p-5 rounded-[2.5rem] shadow-sm transition-transform duration-200 ease-out z-10 ${isZero ? 'bg-slate-50/50' : ''}`}
+            >
+                <div className="flex justify-between items-start">
+                    <div className="space-y-1.5 flex-1 pr-4">
+                        <div className="flex items-center gap-2">
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-black uppercase tracking-wider ${item.brand === Brand.HYUNDAI ? 'bg-blue-600 text-white' : 'bg-red-600 text-white'}`}>
+                                {item.brand.substring(0, 3)}
+                            </span>
+                            <span className="font-black text-slate-900 text-lg tracking-tight">{item.partNumber}</span>
+                        </div>
+                        <p className="text-[13px] text-slate-500 font-medium line-clamp-1 leading-tight">{item.name}</p>
+                    </div>
+                    
+                    <div className="text-right flex flex-col items-end gap-0.5">
+                        <div className={`font-black text-[20px] leading-none ${isZero ? 'text-rose-600' : isLow ? 'text-amber-500' : 'text-slate-900'}`}>
+                            {item.quantity}
+                            <span className="text-[10px] uppercase font-bold text-slate-300 ml-1">PCS</span>
+                        </div>
+                        <div className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md ${isZero ? 'bg-rose-50 text-rose-600' : isLow ? 'bg-amber-50 text-amber-600' : 'bg-teal-50 text-teal-600'}`}>
+                            {isZero ? 'Out' : isLow ? 'Low' : 'Stock'}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-slate-50 flex items-center justify-between">
+                    <div className="flex flex-col">
+                        <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Price (MRP)</span>
+                        {shouldHidePrice ? <PriceCell price={item.price} partNumber={item.partNumber} userRole={userRole} /> : <div className="font-black text-slate-900 text-[15px]">₹{item.price.toLocaleString()}</div>}
+                    </div>
+                    
+                    {/* Swipe indicator/hint */}
+                    <div className="flex items-center gap-1.5 text-slate-300">
+                        <span className="text-[9px] font-black uppercase tracking-widest">Swipe</span>
+                        <ChevronLeft size={14} className="animate-pulse" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const StockTable: React.FC<StockTableProps> = ({ 
     items, 
     title, 
@@ -196,8 +327,6 @@ const StockTable: React.FC<StockTableProps> = ({
   const isManager = userRole === Role.MANAGER;
   const effectiveSearch = externalSearch !== undefined ? externalSearch : internalSearch;
 
-  // Logic: MRP is hidden by default for everyone if hidePriceByDefault is true, 
-  // or ALWAYS hidden for Managers on this specific request.
   const shouldHidePrice = hidePriceByDefault || isManager;
 
   useEffect(() => {
@@ -421,7 +550,6 @@ const StockTable: React.FC<StockTableProps> = ({
             </tbody>
         </table>
         
-        {/* PAGINATION */}
         <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky bottom-0">
           <span className="text-[12px] font-bold text-slate-400 uppercase tracking-widest">Page {currentPage} of {totalPages}</span>
           <div className="flex gap-2">
@@ -435,54 +563,19 @@ const StockTable: React.FC<StockTableProps> = ({
         </div>
       </div>
 
-      {/* MOBILE VIEW */}
+      {/* MOBILE VIEW - SWIPE TO REVEAL OPTIMIZED */}
       <div className="md:hidden flex-1 overflow-y-auto bg-slate-50/30 p-3 space-y-3 no-scrollbar">
          {mobileItems.length === 0 ? (
              <div className="p-20 text-center text-slate-400 font-medium italic">No parts found.</div>
          ) : (
-             mobileItems.map((item) => {
-                const isLow = item.quantity > 0 && item.quantity <= item.minStockThreshold;
-                const isZero = item.quantity === 0;
-                
-                return (
-                  <div 
-                    key={item.id}
-                    className={`block bg-white border border-slate-100 p-4 rounded-3xl shadow-sm active:scale-[0.98] transition-all overflow-hidden relative ${isZero ? 'opacity-70' : ''}`}
-                  >
-                    <div className="flex justify-between items-start">
-                        <div className="space-y-1.5 flex-1 pr-4">
-                            <div className="flex items-center gap-2">
-                                <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-black uppercase tracking-wider ${item.brand === Brand.HYUNDAI ? 'bg-blue-600 text-white' : 'bg-red-600 text-white'}`}>
-                                  {item.brand.substring(0, 3)}
-                                </span>
-                                <span className="font-black text-slate-900 text-lg tracking-tight">{item.partNumber}</span>
-                            </div>
-                            <p className="text-[13px] text-slate-500 font-medium line-clamp-2 leading-tight">{item.name}</p>
-                        </div>
-                        
-                        <div className="text-right flex flex-col items-end gap-1">
-                            <div className={`font-black text-[22px] leading-none mb-1 ${isZero ? 'text-rose-600' : isLow ? 'text-amber-500' : 'text-slate-900'}`}>
-                                {item.quantity}
-                                <span className="text-[10px] uppercase font-bold text-slate-300 ml-1">PCS</span>
-                            </div>
-                            <div className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full ${isZero ? 'bg-rose-50 text-rose-600' : isLow ? 'bg-amber-50 text-amber-600' : 'bg-teal-50 text-teal-600'}`}>
-                                {isZero ? 'Out Stock' : isLow ? 'Low Stock' : 'In Stock'}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="mt-4 pt-3 border-t border-slate-50 flex items-center justify-between">
-                        <div className="flex flex-col">
-                            <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Price (MRP)</span>
-                            {shouldHidePrice ? <PriceCell price={item.price} partNumber={item.partNumber} userRole={userRole} /> : <div className="font-black text-slate-900 text-[15px]">₹{item.price.toLocaleString()}</div>}
-                        </div>
-                        <Link to={`/item/${encodeURIComponent(item.partNumber)}`} className="bg-slate-50 text-slate-500 font-bold text-[11px] px-4 py-2 rounded-xl flex items-center gap-1 active:bg-brand-50 active:text-brand-600 transition-colors">
-                            Details <ChevronRight size={14} />
-                        </Link>
-                    </div>
-                  </div>
-                );
-             })
+             mobileItems.map((item) => (
+                <SwipeableMobileItem 
+                    key={item.id} 
+                    item={item} 
+                    userRole={userRole} 
+                    shouldHidePrice={shouldHidePrice} 
+                />
+             ))
          )}
          
          {mobileLimit < filteredItems.length && (
