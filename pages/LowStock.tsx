@@ -23,7 +23,7 @@ const LowStock: React.FC<Props> = ({ user }) => {
   if (loading) return <TharLoader />;
 
   return (
-    <div className="space-y-6 h-[calc(100vh-100px)] flex flex-col">
+    <div className="space-y-6 flex flex-col">
       <div>
          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
             <AlertTriangle className="text-red-600" /> Low Stock Alerts

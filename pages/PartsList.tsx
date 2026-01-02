@@ -25,7 +25,7 @@ const PartsList: React.FC<Props> = ({ user }) => {
   if (loading) return <TharLoader />;
 
   return (
-    <div className="space-y-4 md:space-y-6 h-full md:h-[calc(100vh-100px)] flex flex-col">
+    <div className="space-y-4 md:space-y-6 flex flex-col">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 p-1">
          <div>
             <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">

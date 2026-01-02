@@ -333,7 +333,6 @@ const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({ item, userRole, sho
                                     <span className={`flex-none text-[8px] px-1.5 py-0.5 rounded-md font-black uppercase tracking-wider ${item.brand === Brand.HYUNDAI ? 'bg-blue-600 text-white' : 'bg-red-600 text-white'}`}>
                                         {item.brand.substring(0, 3)}
                                     </span>
-                                    {/* FIX: Full Part Number Visibility, No Truncation */}
                                     <span className="font-black text-slate-900 text-lg leading-tight tracking-tight break-all">
                                         {item.partNumber}
                                     </span>
@@ -528,7 +527,7 @@ const StockTable: React.FC<StockTableProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-[2rem] lg:rounded-[2.5rem] shadow-soft border border-slate-50 flex flex-col h-full overflow-visible">
+    <div className="bg-white rounded-[2rem] lg:rounded-[2.5rem] shadow-soft border border-slate-50 flex flex-col overflow-visible">
       {!hideToolbar && (
         <div className="p-4 lg:p-6 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -603,7 +602,7 @@ const StockTable: React.FC<StockTableProps> = ({
         </div>
       )}
 
-      <div className="hidden md:block flex-1 overflow-visible">
+      <div className="hidden md:block overflow-visible">
         <table className="w-full text-left text-[14px] border-collapse">
             <thead className="bg-slate-50/80 backdrop-blur-md sticky top-0 z-[400]">
                 <tr className="border-b border-slate-100">
@@ -634,7 +633,7 @@ const StockTable: React.FC<StockTableProps> = ({
                     {enableActions && <th className="px-6 py-4 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] w-20">Link</th>}
                 </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50 overflow-visible">
+            <tbody className="divide-y divide-slate-50">
                 {currentItems.length === 0 ? (
                     <tr><td colSpan={7} className="p-20 text-center text-slate-400 font-medium text-lg italic">No parts matching your search.</td></tr>
                 ) : (
@@ -702,7 +701,7 @@ const StockTable: React.FC<StockTableProps> = ({
         </div>
       </div>
 
-      <div className="md:hidden flex-1 overflow-y-auto bg-slate-50/40 p-4 space-y-3 no-scrollbar pb-24">
+      <div className="md:hidden flex flex-col p-4 space-y-3 pb-24">
          {mobileItems.length === 0 ? (
              <div className="flex flex-col items-center justify-center py-32 text-slate-300">
                 <Search size={64} className="opacity-10 mb-4" />

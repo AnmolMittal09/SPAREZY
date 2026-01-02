@@ -40,7 +40,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   if (loading) return <TharLoader />;
 
   return (
-    <div className="space-y-4 md:space-y-6 animate-fade-in h-full flex flex-col max-w-5xl mx-auto">
+    <div className="space-y-4 md:space-y-6 animate-fade-in flex flex-col max-w-5xl mx-auto">
       
       {/* HEADER - Integrated Brand Filter */}
       <div className="flex flex-col gap-4 no-print px-1 pt-2">
@@ -86,7 +86,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                         ref={searchInputRef}
                         type="text" 
                         inputMode="search"
-                        className="block w-full pl-16 pr-6 py-6 rounded-3xl bg-slate-50 border-2 border-transparent text-xl font-bold text-slate-900 placeholder:text-slate-300 focus:bg-white focus:border-brand-500/20 focus:ring-[10px] focus:ring-brand-500/5 transition-all outline-none shadow-inner"
+                        className="block w-full pl-16 pr-6 py-6 rounded-3xl bg-slate-100 border-2 border-transparent text-xl font-bold text-slate-900 placeholder:text-slate-300 focus:bg-white focus:border-brand-500/20 focus:ring-[10px] focus:ring-brand-500/5 transition-all outline-none shadow-inner"
                         placeholder="Type Part Number..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
