@@ -5,9 +5,7 @@ import StockTable from '../components/StockTable';
 import { 
   Search,
   AlertCircle,
-  ShieldCheck,
   History,
-  Info,
   Eye,
   PackageCheck
 } from 'lucide-react';

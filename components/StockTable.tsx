@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { StockItem, Brand, Role } from '../types';
 import { bulkArchiveItems } from '../services/inventoryService';
-import { Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, Archive, ArchiveRestore, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, Archive, ArchiveRestore, Loader2, Eye, EyeOff, Lock } from 'lucide-react';
 
 interface StockTableProps {
   items: StockItem[];
@@ -19,10 +19,19 @@ interface StockTableProps {
 
 const PriceCell: React.FC<{ price: number; userRole?: Role }> = ({ price, userRole }) => {
   const [visible, setVisible] = useState(false);
-  
-  // If the user is an owner, we might want them to see it, 
-  // but the user's specific request was "hide mrp if someone click... show"
-  // so we keep it hidden for everyone by default to prevent customers from seeing it over the counter.
+  const isManager = userRole === Role.MANAGER;
+
+  // Logic: Managers strictly cannot reveal the MRP.
+  if (isManager) {
+    return (
+      <div className="flex items-center justify-end gap-2 text-slate-300 select-none">
+        <span className="blur-[4px] tracking-tighter">₹88,888</span>
+        <div className="bg-slate-100 p-1 rounded-md">
+          <Lock size={12} className="text-slate-400" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div 
@@ -70,11 +79,12 @@ const StockTable: React.FC<StockTableProps> = ({
   const [isArchiving, setIsArchiving] = useState(false);
 
   const isOwner = userRole === Role.OWNER;
+  const isManager = userRole === Role.MANAGER;
   const effectiveSearch = externalSearch !== undefined ? externalSearch : internalSearch;
 
   // Logic: MRP is hidden by default for everyone if hidePriceByDefault is true, 
   // or ALWAYS hidden for Managers on this specific request.
-  const shouldHidePrice = hidePriceByDefault || userRole === Role.MANAGER;
+  const shouldHidePrice = hidePriceByDefault || isManager;
 
   useEffect(() => {
     setCurrentPage(1);
