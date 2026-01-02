@@ -26,7 +26,8 @@ import {
   MessageCircle,
   Calculator,
   ShieldCheck,
-  AlertTriangle
+  AlertTriangle,
+  Percent
 } from 'lucide-react';
 import { fetchTransactions, createBulkTransactions } from '../services/transactionService';
 import { extractInvoiceData } from '../services/geminiService';
@@ -46,6 +47,7 @@ interface ExtractedItem {
   printedUnitPrice: number;
   calculatedPrice: number;
   hasError: boolean;
+  errorType: 'DISCOUNT_LOW' | 'CALC_MISMATCH' | 'NONE';
   diff: number;
 }
 
@@ -60,6 +62,8 @@ const Purchases: React.FC<Props> = ({ user }) => {
   const [importLog, setImportLog] = useState<{ success: boolean; message: string; count: number; totalValue: number; errorCount: number } | null>(null);
   const [previewData, setPreviewData] = useState<ExtractedItem[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const STANDARD_DISCOUNT = 12;
 
   useEffect(() => {
     if (activeTab === 'HISTORY') {
@@ -101,18 +105,28 @@ const Purchases: React.FC<Props> = ({ user }) => {
         const extracted = await extractInvoiceData(base64, file.type);
         
         if (extracted && extracted.length > 0) {
-          // Process verification logic
+          // Process verification logic with 12% rules
           const verifiedItems = extracted.map((item: any) => {
-            const calculated = item.mrp * (1 - (item.discountPercent / 100));
-            // Check for discrepancy greater than 0.5 (floating point buffer)
-            const diff = Math.abs(calculated - item.printedUnitPrice);
-            const hasError = diff > 0.5;
+            const expectedPriceAt12Percent = item.mrp * (1 - (STANDARD_DISCOUNT / 100));
+            const diff = Math.abs(expectedPriceAt12Percent - item.printedUnitPrice);
+            
+            let hasError = false;
+            let errorType: 'DISCOUNT_LOW' | 'CALC_MISMATCH' | 'NONE' = 'NONE';
+
+            if (item.discountPercent < STANDARD_DISCOUNT) {
+              hasError = true;
+              errorType = 'DISCOUNT_LOW';
+            } else if (diff > 0.5) {
+              hasError = true;
+              errorType = 'CALC_MISMATCH';
+            }
 
             return {
               ...item,
-              calculatedPrice: parseFloat(calculated.toFixed(2)),
+              calculatedPrice: parseFloat(expectedPriceAt12Percent.toFixed(2)),
               hasError,
-              diff: parseFloat((item.printedUnitPrice - calculated).toFixed(2))
+              errorType,
+              diff: parseFloat((item.printedUnitPrice - expectedPriceAt12Percent).toFixed(2))
             };
           });
           setPreviewData(verifiedItems);
@@ -132,8 +146,19 @@ const Purchases: React.FC<Props> = ({ user }) => {
           const mrp = Number(row[2] || 0);
           const disc = Number(row[3] || 0);
           const printed = Number(row[4] || mrp * (1 - disc/100));
-          const calculated = mrp * (1 - disc/100);
+          const calculatedAt12 = mrp * (1 - (STANDARD_DISCOUNT/100));
           
+          let hasError = false;
+          let errorType: 'DISCOUNT_LOW' | 'CALC_MISMATCH' | 'NONE' = 'NONE';
+
+          if (disc < STANDARD_DISCOUNT) {
+            hasError = true;
+            errorType = 'DISCOUNT_LOW';
+          } else if (Math.abs(printed - calculatedAt12) > 0.5) {
+            hasError = true;
+            errorType = 'CALC_MISMATCH';
+          }
+
           return {
             partNumber: String(row[0] || ''),
             name: String(row[1] || 'Excel Row'),
@@ -141,9 +166,10 @@ const Purchases: React.FC<Props> = ({ user }) => {
             mrp,
             discountPercent: disc,
             printedUnitPrice: printed,
-            calculatedPrice: calculated,
-            hasError: Math.abs(printed - calculated) > 0.5,
-            diff: printed - calculated
+            calculatedPrice: calculatedAt12,
+            hasError,
+            errorType,
+            diff: printed - calculatedAt12
           };
         }).filter(i => i.partNumber && i.quantity > 0);
         
@@ -167,8 +193,8 @@ const Purchases: React.FC<Props> = ({ user }) => {
       partNumber: item.partNumber,
       type: TransactionType.PURCHASE,
       quantity: item.quantity,
-      price: item.printedUnitPrice, // We use what's on the bill
-      customerName: `AI Scan (${new Date().toLocaleDateString()})`,
+      price: item.printedUnitPrice,
+      customerName: `AI Audit Scan (${new Date().toLocaleDateString()})`,
       createdByRole: user.role
     }));
 
@@ -198,7 +224,8 @@ const Purchases: React.FC<Props> = ({ user }) => {
       `📅 *Date:* ${new Date().toLocaleDateString()}\n` +
       `📦 *Items:* ${importLog.count}\n` +
       `💰 *Total:* ₹${importLog.totalValue.toLocaleString()}\n` +
-      `⚠️ *Bill Discrepancies:* ${importLog.errorCount === 0 ? 'None (Verified ✅)' : importLog.errorCount + ' Errors Found 🚨'}\n\n` +
+      `📏 *Standard B.DC:* ${STANDARD_DISCOUNT}%\n` +
+      `⚠️ *Discrepancies:* ${importLog.errorCount === 0 ? 'None (Verified ✅)' : importLog.errorCount + ' Issues Found 🚨'}\n\n` +
       `_Automated AI verification completed._`;
       
     const url = `https://wa.me/?text=${encodeURIComponent(summary)}`;
@@ -221,12 +248,12 @@ const Purchases: React.FC<Props> = ({ user }) => {
        <div className="hidden md:flex justify-between items-center mb-8 px-1">
           <div>
              <h1 className="text-3xl font-black text-slate-900 tracking-tight">Purchase Inbound</h1>
-             <p className="text-slate-500 font-medium">Verify bill calculations using AI-powered OCR.</p>
+             <p className="text-slate-500 font-medium">Verify bill against standard 12% discount rule.</p>
           </div>
           <div className="flex bg-white p-1.5 rounded-2xl border border-slate-200 shadow-soft">
-             <button onClick={() => { setActiveTab('NEW'); setErrorMsg(null); }} className={`px-6 py-2.5 text-sm font-bold rounded-xl flex items-center gap-2 ${activeTab === 'NEW' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}><PlusCircle size={18} /> Manual</button>
-             <button onClick={() => { setActiveTab('IMPORT'); setErrorMsg(null); }} className={`px-6 py-2.5 text-sm font-bold rounded-xl flex items-center gap-2 ${activeTab === 'IMPORT' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}><ScanLine size={18} /> AI Scan</button>
-             <button onClick={() => { setActiveTab('HISTORY'); setErrorMsg(null); }} className={`px-6 py-2.5 text-sm font-bold rounded-xl flex items-center gap-2 ${activeTab === 'HISTORY' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}><History size={18} /> History</button>
+             <button onClick={() => { setActiveTab('NEW'); setErrorMsg(null); }} className={`px-6 py-2.5 text-sm font-bold rounded-xl transition-all flex items-center gap-2 ${activeTab === 'NEW' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}><PlusCircle size={18} /> Manual</button>
+             <button onClick={() => { setActiveTab('IMPORT'); setErrorMsg(null); }} className={`px-6 py-2.5 text-sm font-bold rounded-xl transition-all flex items-center gap-2 ${activeTab === 'IMPORT' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}><ScanLine size={18} /> AI Scan</button>
+             <button onClick={() => { setActiveTab('HISTORY'); setErrorMsg(null); }} className={`px-6 py-2.5 text-sm font-bold rounded-xl transition-all flex items-center gap-2 ${activeTab === 'HISTORY' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}><History size={18} /> History</button>
           </div>
        </div>
 
@@ -240,17 +267,16 @@ const Purchases: React.FC<Props> = ({ user }) => {
                     <div className="bg-blue-50 border border-blue-100 rounded-[2.5rem] p-8 flex gap-5 items-start shadow-sm">
                         <div className="p-4 bg-blue-600 text-white rounded-3xl shadow-xl shadow-blue-100 flex-none"><Calculator size={28} /></div>
                         <div>
-                            <h3 className="font-black text-blue-900 text-lg uppercase tracking-tight">AI Bill Verification</h3>
+                            <h3 className="font-black text-blue-900 text-lg uppercase tracking-tight">Audit: 12% B.DC Rule</h3>
                             <p className="text-[14px] text-blue-700/80 mt-2 leading-relaxed font-medium">
-                                Upload your PDF bill. Sparezy will check <b>MRP - B.DC %</b> and verify if the final price on the bill is correct. 
-                                Discrepancies will be highlighted automatically.
+                                Upload your bill. Sparezy will verify if every item has at least <b>12% B.DC</b> and if the <b>Net Price</b> calculation is correct based on MRP.
                             </p>
                         </div>
                     </div>
 
                     <div className="bg-white border-4 border-dashed border-slate-100 rounded-[3rem] p-12 text-center hover:border-blue-400 hover:bg-blue-50/20 transition-all group shadow-soft">
                         {importing ? (
-                          <div className="py-8"><TharLoader /><p className="mt-8 font-black text-blue-600 animate-pulse text-sm uppercase tracking-widest">Verifying Calculations...</p></div>
+                          <div className="py-8"><TharLoader /><p className="mt-8 font-black text-blue-600 animate-pulse text-sm uppercase tracking-widest">Auditing Bill Calculations...</p></div>
                         ) : (
                           <>
                             <div className="w-24 h-24 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mx-auto mb-8 group-hover:bg-blue-50 group-hover:text-blue-500 transition-all shadow-inner"><FileText size={44} /></div>
@@ -276,7 +302,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
                         {importLog.success ? 'Import Complete' : 'Process Halted'}
                       </h3>
                       <p className="mt-4 font-bold text-slate-400 text-base max-w-sm leading-relaxed">
-                         {importLog.success ? `Stock updated. ${importLog.errorCount > 0 ? `Detected ${importLog.errorCount} price errors in original bill.` : 'All calculations verified.'}` : importLog.message}
+                         {importLog.success ? `Stock updated. ${importLog.errorCount > 0 ? `Alert: Detected ${importLog.errorCount} discrepancies in bill math or discount rules.` : 'Audit passed: All items follow 12% rule.'}` : importLog.message}
                       </p>
                       {importLog.success && (
                         <div className="mt-12 space-y-4 w-full">
@@ -291,7 +317,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
                                 </div>
                             </div>
                             <div className="flex gap-3">
-                                <button onClick={shareToWhatsApp} className="flex-1 bg-green-500 hover:bg-green-600 text-white font-black py-5 rounded-[2rem] shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95"><MessageCircle size={24} /> Share Verified Summary</button>
+                                <button onClick={shareToWhatsApp} className="flex-1 bg-green-500 hover:bg-green-600 text-white font-black py-5 rounded-[2rem] shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95"><MessageCircle size={24} /> Share Audit Summary</button>
                                 <button onClick={() => setActiveTab('HISTORY')} className="bg-slate-900 text-white p-5 rounded-[2rem] shadow-xl transition-all active:scale-95"><History size={24} /></button>
                             </div>
                         </div>
@@ -307,7 +333,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
                            <div className="bg-blue-600 text-white p-4 rounded-3xl shadow-xl shadow-blue-100"><ShieldCheck size={28} /></div>
                            <div>
                               <h3 className="font-black text-slate-900 text-xl leading-none mb-2">Audit: {previewData.length} Items</h3>
-                              <p className="text-[11px] text-slate-400 font-black uppercase tracking-[0.2em]">Verification in progress</p>
+                              <p className="text-[11px] text-slate-400 font-black uppercase tracking-[0.2em]">Verification Rule: {STANDARD_DISCOUNT}% B.DC</p>
                            </div>
                         </div>
                         <button onClick={() => setPreviewData([])} className="p-3 text-slate-300 hover:text-rose-500 bg-white rounded-2xl shadow-sm transition-all active:scale-90"><X size={24} /></button>
@@ -330,8 +356,11 @@ const Purchases: React.FC<Props> = ({ user }) => {
                                     <p className="font-bold text-slate-900">₹{row.mrp.toLocaleString()}</p>
                                  </div>
                                  <div>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">B.DC %</p>
-                                    <p className="font-bold text-slate-900">{row.discountPercent}%</p>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">B.DC Detected</p>
+                                    <p className={`font-bold ${row.errorType === 'DISCOUNT_LOW' ? 'text-rose-600' : 'text-slate-900'}`}>
+                                      {row.discountPercent}%
+                                      {row.errorType === 'DISCOUNT_LOW' && <span className="text-[9px] block">Less than {STANDARD_DISCOUNT}%!</span>}
+                                    </p>
                                  </div>
                                  <div className="md:text-right">
                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Bill Unit Price</p>
@@ -343,8 +372,12 @@ const Purchases: React.FC<Props> = ({ user }) => {
                                  <div className="bg-rose-100/50 p-4 rounded-2xl border border-rose-200 flex gap-3 items-center">
                                     <AlertTriangle className="text-rose-600" size={20} />
                                     <div className="text-[12px] font-bold text-rose-800 leading-tight">
-                                       <p>Calculation Mistake! Expected: ₹{row.calculatedPrice.toLocaleString()}</p>
-                                       <p className="opacity-70 mt-1">Difference of ₹{row.diff.toLocaleString()} detected per unit.</p>
+                                       {row.errorType === 'DISCOUNT_LOW' ? (
+                                          <p>Error: Bill discount ({row.discountPercent}%) is lower than standard ({STANDARD_DISCOUNT}%).</p>
+                                       ) : (
+                                          <p>Price Mismatch! At {STANDARD_DISCOUNT}% B.DC, expected ₹{row.calculatedPrice.toLocaleString()}</p>
+                                       )}
+                                       <p className="opacity-70 mt-1">Discrepancy of ₹{row.diff.toLocaleString()} detected per unit.</p>
                                     </div>
                                  </div>
                               )}

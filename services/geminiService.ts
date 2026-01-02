@@ -48,16 +48,16 @@ export const extractInvoiceData = async (base64File: string, mimeType: string) =
     };
 
     const prompt = `
-      Extract line items from this car spare parts invoice (likely Hyundai or Mahindra). 
-      For each item, identify:
-      1. Part Number
+      Extract line items from this car spare parts invoice. 
+      Specifically look for:
+      1. Part Number (alphanumeric, often labeled as Part ID, SKU, or Part No)
       2. Name/Description
       3. Quantity (Qty)
       4. MRP (Maximum Retail Price before any discount)
-      5. B.DC or Basic Discount Percentage (look for "B.DC", "Disc%", or "Discount")
-      6. Printed Net Unit Price (The price shown on the bill AFTER discount)
+      5. B.DC % (Basic Discount percentage. Note: It is expected to be 12%. If it is different, extract the actual value shown)
+      6. Printed Net Unit Price (The price shown on the bill for ONE unit AFTER the discount is applied)
 
-      Ensure numerical values are clean numbers. If a discount isn't explicitly listed for an item, use 0.
+      Ensure numerical values are clean numbers. If discount isn't listed, assume 0 for extraction but the system will verify against the 12% rule.
       Return the data strictly as a JSON array.
     `;
 
@@ -75,7 +75,7 @@ export const extractInvoiceData = async (base64File: string, mimeType: string) =
               name: { type: Type.STRING },
               quantity: { type: Type.NUMBER },
               mrp: { type: Type.NUMBER },
-              discountPercent: { type: Type.NUMBER, description: "B.DC or Discount %" },
+              discountPercent: { type: Type.NUMBER, description: "B.DC or Discount % extracted from bill" },
               printedUnitPrice: { type: Type.NUMBER, description: "The unit price shown on the bill after discount" }
             },
             required: ["partNumber", "quantity", "mrp", "discountPercent", "printedUnitPrice"]
