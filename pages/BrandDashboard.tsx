@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 // @ts-ignore
 import { useParams } from 'react-router-dom';
@@ -113,6 +112,7 @@ const BrandDashboard: React.FC<Props> = ({ user }) => {
             brandFilter={targetBrand} 
             userRole={user.role}
             enableActions={true}
+            hidePriceByDefault={true}
          />
       </div>
     </div>

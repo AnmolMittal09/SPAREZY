@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { User, Brand, StockItem } from '../types';
 import { fetchInventory } from '../services/inventoryService';
@@ -102,6 +101,7 @@ const PartsList: React.FC<Props> = ({ user }) => {
              brandFilter={brandFilter}
              enableActions={true}
              stockStatusFilter={statusFilter}
+             hidePriceByDefault={true}
           />
       </div>
     </div>

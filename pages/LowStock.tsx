@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { User, StockItem } from '../types';
 import { fetchInventory } from '../services/inventoryService';
@@ -39,6 +38,7 @@ const LowStock: React.FC<Props> = ({ user }) => {
              userRole={user.role}
              enableActions={true}
              stockStatusFilter="LOW"
+             hidePriceByDefault={true}
           />
       </div>
     </div>

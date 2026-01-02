@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { fetchItemDetails, fetchPriceHistory } from '../services/inventoryService';
 import { PriceHistoryEntry, StockItem, Brand } from '../types';
-import { ArrowLeft, Loader2, TrendingUp, TrendingDown, Clock, Tag, Box, Hash } from 'lucide-react';
+import { ArrowLeft, Loader2, TrendingUp, TrendingDown, Clock, Tag, Box, Hash, Eye, EyeOff } from 'lucide-react';
 import TharLoader from '../components/TharLoader';
 
 const ItemDetail: React.FC = () => {
@@ -11,6 +11,7 @@ const ItemDetail: React.FC = () => {
   const [item, setItem] = useState<StockItem | null>(null);
   const [history, setHistory] = useState<PriceHistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [priceVisible, setPriceVisible] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -68,12 +69,23 @@ const ItemDetail: React.FC = () => {
       {/* Main Info Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
          {/* Price Card */}
-         <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
-            <div className="flex items-center gap-2 text-gray-500 mb-2">
-               <Tag size={18} />
-               <span className="text-sm font-medium uppercase tracking-wide">Current Price</span>
+         <div 
+            onClick={() => setPriceVisible(!priceVisible)}
+            className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between cursor-pointer group hover:border-brand-300 transition-all"
+          >
+            <div className="flex items-center justify-between text-gray-500 mb-2">
+               <div className="flex items-center gap-2">
+                 <Tag size={18} />
+                 <span className="text-sm font-medium uppercase tracking-wide">Current MRP</span>
+               </div>
+               {priceVisible ? <EyeOff size={16} className="text-slate-400" /> : <Eye size={16} className="text-brand-500" />}
             </div>
-            <div className="text-3xl font-bold text-gray-900">₹{item.price.toLocaleString()}</div>
+            <div className="flex items-baseline gap-1">
+              <span className={`text-3xl font-black text-slate-900 transition-all duration-300 ${priceVisible ? 'blur-0' : 'blur-md select-none opacity-40'}`}>
+                ₹{item.price.toLocaleString()}
+              </span>
+              {!priceVisible && <span className="text-xs font-bold text-brand-600 animate-pulse ml-2">Click to show</span>}
+            </div>
          </div>
 
          {/* Stock Card */}
