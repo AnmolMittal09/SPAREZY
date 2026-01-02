@@ -26,6 +26,7 @@ import {
 interface Props {
   user: User;
   forcedMode?: 'SALES' | 'PURCHASE' | 'RETURN';
+  onSearchToggle?: (isOpen: boolean) => void;
 }
 
 interface CartItem {
@@ -39,7 +40,7 @@ interface CartItem {
   stockError?: boolean;
 }
 
-const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
+const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }) => {
   const [mode, setMode] = useState<'SALES' | 'PURCHASE' | 'RETURN'>(forcedMode || 'SALES');
   const [inventory, setInventory] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -71,6 +72,11 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
   }, [mode]);
 
   useEffect(() => { if (forcedMode) setMode(forcedMode); }, [forcedMode]);
+
+  // Sync mobile search state to parent
+  useEffect(() => {
+    if (onSearchToggle) onSearchToggle(showMobileSearch);
+  }, [showMobileSearch, onSearchToggle]);
 
   const handleSearch = (val: string) => {
     setSearch(val);
