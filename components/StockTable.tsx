@@ -151,7 +151,7 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role; 
     <div className={`relative flex ${align === 'right' ? 'justify-end' : 'justify-start'} items-center`} ref={triggerRef}>
       <div 
         onClick={visible ? (isMobile ? undefined : handleToggleHistory) : handleReveal}
-        className={`group/price relative flex items-center gap-2 p-1 rounded-xl transition-all duration-300 cursor-pointer ${
+        className={`group/price relative flex items-center gap-2 p-1.5 rounded-xl transition-all duration-300 cursor-pointer ${
           visible 
             ? 'bg-slate-900 text-white shadow-lg ring-2 ring-indigo-500/10' 
             : 'bg-slate-50 text-slate-300 hover:bg-white hover:text-slate-500 hover:shadow-md'
@@ -184,7 +184,6 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role; 
         )}
       </div>
 
-      {/* DESKTOP Contextual Popover - Anchored with Flip Logic */}
       {!isMobile && showHistory && isOwner && (
         <div 
           ref={popoverRef}
@@ -192,7 +191,6 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role; 
         >
           <div className="absolute top-0 left-0 w-full h-1.5 bg-indigo-600"></div>
           <AuditContent />
-          {/* Popover Arrow */}
           <div className={`absolute ${flipPosition === 'top' ? 'bottom-[-6px]' : 'top-[-6px]'} left-1/2 -translate-x-1/2 rotate-45 w-3 h-3 bg-white border-${flipPosition === 'top' ? 'r' : 'l'} border-${flipPosition === 'top' ? 'b' : 't'} border-slate-100 shadow-xl`}></div>
         </div>
       )}
@@ -286,118 +284,119 @@ const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({ item, userRole, sho
     const isZero = item.quantity === 0;
 
     return (
-        <div className="relative overflow-visible rounded-[2.5rem] animate-fade-in">
-            <div className="absolute inset-0 flex justify-end rounded-[2.5rem] overflow-hidden">
+        <div className="relative overflow-visible rounded-[2rem] animate-fade-in">
+            {/* Background Layer (Swipe Actions) */}
+            <div className="absolute inset-0 flex justify-end rounded-[2rem] overflow-hidden">
                 <div className="flex h-full">
                     <button 
                         onClick={() => navigate(`/item/${encodeURIComponent(item.partNumber)}`)}
-                        className="bg-brand-600 text-white w-20 flex flex-col items-center justify-center gap-1.5"
+                        className="bg-brand-600 text-white w-20 flex flex-col items-center justify-center gap-1"
                     >
-                        <Eye size={24} />
-                        <span className="text-[9px] font-black uppercase tracking-widest">Detail</span>
+                        <Eye size={20} />
+                        <span className="text-[8px] font-black uppercase tracking-widest">Detail</span>
                     </button>
                     {isOwner && (
                         <button 
                             onClick={handleArchive}
                             disabled={archiving}
-                            className="bg-rose-600 text-white w-20 flex flex-col items-center justify-center gap-1.5"
+                            className="bg-rose-600 text-white w-20 flex flex-col items-center justify-center gap-1"
                         >
-                            {archiving ? <Loader2 size={24} className="animate-spin" /> : <Archive size={24} />}
-                            <span className="text-[9px] font-black uppercase tracking-widest">Archive</span>
+                            {archiving ? <Loader2 size={20} className="animate-spin" /> : <Archive size={20} />}
+                            <span className="text-[8px] font-black uppercase tracking-widest">Archive</span>
                         </button>
                     )}
                 </div>
             </div>
 
+            {/* Foreground Content Card */}
             <div 
                 onTouchStart={onTouchStart}
                 onTouchMove={onTouchMove}
                 onTouchEnd={onTouchEnd}
                 style={{ transform: `translateX(${currentX}px)` }}
-                className={`relative bg-white border border-slate-100 p-6 rounded-[2.5rem] shadow-sm transition-all duration-200 ease-out z-10 flex flex-col gap-4 ${isZero ? 'bg-slate-50/50' : ''} ${isSelected ? 'ring-2 ring-brand-500 bg-brand-50/50 border-brand-200 shadow-md' : ''}`}
+                className={`relative bg-white border border-slate-100 p-5 rounded-[2rem] shadow-sm transition-all duration-200 ease-out z-10 flex flex-col gap-3 ${isZero ? 'bg-slate-50/50' : ''} ${isSelected ? 'ring-2 ring-brand-500 bg-brand-50 border-brand-200' : ''}`}
             >
                 <div className="flex gap-4 items-center">
                     {enableSelection && isOwner && (
                         <div 
                             onClick={(e) => { e.stopPropagation(); toggleSelect(item.partNumber); }}
-                            className="flex-none p-1.5 active:scale-90 transition-transform"
+                            className="flex-none active:scale-90 transition-transform"
                         >
-                            {isSelected ? <CheckSquare className="text-brand-600" size={26} /> : <Square className="text-slate-300" size={26} />}
+                            {isSelected ? <CheckSquare className="text-brand-600" size={24} /> : <Square className="text-slate-200" size={24} />}
                         </div>
                     )}
 
                     <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-start mb-1.5">
-                            <div className="space-y-1.5 flex-1 pr-3 min-w-0">
-                                <div className="flex items-center gap-2">
+                        <div className="flex justify-between items-start mb-1">
+                            <div className="space-y-1 flex-1 pr-2 min-w-0">
+                                <div className="flex items-start gap-2 flex-col sm:flex-row sm:items-center">
                                     <span className={`flex-none text-[8px] px-1.5 py-0.5 rounded-md font-black uppercase tracking-wider ${item.brand === Brand.HYUNDAI ? 'bg-blue-600 text-white' : 'bg-red-600 text-white'}`}>
                                         {item.brand.substring(0, 3)}
                                     </span>
-                                    <span className="font-black text-slate-900 text-xl tracking-tight truncate">{item.partNumber}</span>
+                                    {/* FIX: Full Part Number Visibility, No Truncation */}
+                                    <span className="font-black text-slate-900 text-lg leading-tight tracking-tight break-all">
+                                        {item.partNumber}
+                                    </span>
                                 </div>
-                                <p className="text-[13px] text-slate-400 font-bold truncate leading-tight">{item.name}</p>
+                                <p className="text-[12px] text-slate-400 font-bold leading-tight">{item.name}</p>
                             </div>
-                            <div className="text-right flex flex-col items-end flex-none">
-                                <div className={`font-black text-2xl leading-none ${isZero ? 'text-rose-600' : isLow ? 'text-amber-500' : 'text-slate-900'}`}>
+                            <div className="text-right flex flex-col items-end flex-none pt-1">
+                                <div className={`font-black text-xl leading-none ${isZero ? 'text-rose-600' : isLow ? 'text-amber-500' : 'text-slate-900'}`}>
                                     {item.quantity}
-                                    <span className="text-[10px] uppercase font-bold text-slate-300 ml-1.5">PCS</span>
+                                    <span className="text-[9px] uppercase font-bold text-slate-300 ml-1">PCS</span>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div className="pt-4 border-t border-slate-50 flex items-center justify-between">
+                <div className="pt-3 border-t border-slate-50 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <PriceCell price={item.price} partNumber={item.partNumber} userRole={userRole} align="left" />
                         {isOwner && (
                             <button 
                                 onClick={toggleMobileHistory}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${showHistory ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-50 text-slate-400 border border-slate-100'}`}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[8px] font-black uppercase tracking-widest transition-all ${showHistory ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-400 border border-slate-100'}`}
                             >
-                                <History size={12} strokeWidth={3} />
-                                {showHistory ? 'Close Audit' : 'Audit'}
+                                <History size={11} strokeWidth={3} />
+                                {showHistory ? 'Close Audit' : 'Audit Trail'}
                             </button>
                         )}
                     </div>
-                    <div className="flex items-center gap-2 text-slate-200">
-                        <ChevronLeft size={16} className="animate-pulse" />
-                    </div>
                 </div>
 
-                {/* INLINE MOBILE HISTORY DRAWER */}
                 {showHistory && isOwner && (
-                    <div className="mt-2 p-5 bg-slate-50 rounded-2xl border border-slate-100 animate-slide-up">
-                        <div className="flex items-center gap-2 mb-4 border-b border-slate-200 pb-2">
-                            <Clock size={12} className="text-indigo-500" />
-                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">MRP Change Ledger</span>
+                    <div className="mt-1 p-4 bg-slate-50 rounded-2xl border border-slate-100 animate-slide-up">
+                        <div className="flex items-center gap-2 mb-3 border-b border-slate-200 pb-2">
+                            <Clock size={11} className="text-indigo-500" />
+                            <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">MRP Change Ledger</span>
                         </div>
                         
                         {loadingHistory ? (
-                            <div className="py-6 flex justify-center"><Loader2 className="animate-spin text-indigo-400" size={24} /></div>
+                            <div className="py-4 flex justify-center"><Loader2 className="animate-spin text-indigo-400" size={20} /></div>
                         ) : history.length > 0 ? (
-                            <div className="space-y-4">
+                            <div className="space-y-3">
                                 {history.map(entry => {
                                     const isIncrease = entry.newPrice > entry.oldPrice;
                                     return (
                                         <div key={entry.id} className="flex items-center justify-between bg-white p-3 rounded-xl shadow-sm border border-slate-100">
                                             <div className="flex flex-col">
-                                                <span className="text-[10px] font-bold text-slate-400 mb-1">{new Date(entry.changeDate).toLocaleDateString(undefined, {day: '2-digit', month: 'short', year: 'numeric'})}</span>
+                                                <span className="text-[9px] font-bold text-slate-400 mb-0.5">{new Date(entry.changeDate).toLocaleDateString(undefined, {day: '2-digit', month: 'short', year: 'numeric'})}</span>
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-[12px] font-bold text-slate-400 line-through">₹{entry.oldPrice.toLocaleString()}</span>
-                                                    <ArrowRight size={10} className="text-slate-300" />
-                                                    <span className="text-[14px] font-black text-slate-900">₹{entry.newPrice.toLocaleString()}</span>
+                                                    <span className="text-[11px] font-bold text-slate-400 line-through">₹{entry.oldPrice.toLocaleString()}</span>
+                                                    <ArrowRight size={8} className="text-slate-300" />
+                                                    <span className="text-[13px] font-black text-slate-900">₹{entry.newPrice.toLocaleString()}</span>
                                                 </div>
                                             </div>
-                                            <div className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase ${isIncrease ? 'bg-rose-50 text-rose-600' : 'bg-teal-50 text-teal-600'}`}>
-                                                {isIncrease ? '+' : ''}{(((entry.newPrice - entry.oldPrice) / entry.oldPrice) * 100).toFixed(1)}%
+                                            <div className={`px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase ${isIncrease ? 'bg-rose-50 text-rose-600' : 'bg-teal-50 text-teal-600'}`}>
+                                                {isIncrease ? '+' : ''}{(((entry.newPrice - entry.oldPrice) / (entry.oldPrice || 1)) * 100).toFixed(1)}%
                                             </div>
                                         </div>
                                     );
                                 })}
                             </div>
                         ) : (
-                            <p className="text-[11px] font-bold text-slate-400 text-center py-6 italic uppercase tracking-widest">No records found</p>
+                            <p className="text-[10px] font-bold text-slate-400 text-center py-4 italic uppercase tracking-widest">No records found</p>
                         )}
                     </div>
                 )}
@@ -467,7 +466,6 @@ const StockTable: React.FC<StockTableProps> = ({
   const [mobileLimit, setMobileLimit] = useState(20);
   const mobileItems = filteredItems.slice(0, mobileLimit);
 
-  // --- SELECTION LOGIC ---
   const isAllPageSelected = currentItems.length > 0 && currentItems.every(i => selectedParts.has(i.partNumber));
   const isAllMobileSelected = mobileItems.length > 0 && mobileItems.every(i => selectedParts.has(i.partNumber));
   
@@ -595,7 +593,7 @@ const StockTable: React.FC<StockTableProps> = ({
              }
            </p>
            <div className="flex gap-4">
-             {((window.innerWidth >= 768 && isAllPageSelected) || (window.innerWidth < 768 && isAllMobileSelected)) && !isAllFilteredSelected && filteredItems.length > (window.innerWidth < 768 ? mobileItems.length : currentItems.length) && (
+             {((window.innerWidth >= 768 && isAllPageSelected) || (window.innerWidth < 768 && isAllMobileSelected)) && !isAllFilteredSelected && filteredItems.length > (window.innerWidth < 768 ? mobileLimit : currentItems.length) && (
                <button onClick={toggleSelectAllFiltered} className="underline font-black text-white hover:text-brand-100 transition-colors uppercase text-[11px] tracking-widest">
                  Select All {filteredItems.length} Result{filteredItems.length > 1 ? 's' : ''}
                </button>
@@ -704,7 +702,7 @@ const StockTable: React.FC<StockTableProps> = ({
         </div>
       </div>
 
-      <div className="md:hidden flex-1 overflow-y-auto bg-slate-50/40 p-4 space-y-4 no-scrollbar">
+      <div className="md:hidden flex-1 overflow-y-auto bg-slate-50/40 p-4 space-y-3 no-scrollbar pb-24">
          {mobileItems.length === 0 ? (
              <div className="flex flex-col items-center justify-center py-32 text-slate-300">
                 <Search size={64} className="opacity-10 mb-4" />
@@ -726,7 +724,7 @@ const StockTable: React.FC<StockTableProps> = ({
          {mobileLimit < filteredItems.length && (
             <button 
               onClick={() => setMobileLimit(prev => prev + 20)}
-              className="w-full py-6 text-[12px] font-black uppercase tracking-[0.3em] text-slate-400 border-2 border-dashed border-slate-200 rounded-[2.5rem] hover:bg-white transition-all bg-white shadow-sm active:scale-[0.98]"
+              className="w-full py-6 text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 border-2 border-dashed border-slate-200 rounded-[2rem] hover:bg-white transition-all bg-white shadow-sm active:scale-[0.98]"
             >
                Load More Results ({filteredItems.length - mobileLimit} left)
             </button>
