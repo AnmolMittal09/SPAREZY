@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { StockItem, Brand, Role, PriceHistoryEntry } from '../types';
 import { bulkArchiveItems, fetchPriceHistory, toggleArchiveStatus } from '../services/inventoryService';
-import { Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, Archive, ArchiveRestore, Loader2, Eye, EyeOff, Lock, Info, TrendingUp, TrendingDown, Clock, MoreHorizontal, ArrowRight } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, Archive, ArchiveRestore, Loader2, Eye, EyeOff, Lock, Info, TrendingUp, TrendingDown, Clock, MoreHorizontal, ArrowRight, CheckSquare, Square, MinusSquare } from 'lucide-react';
 
 interface StockTableProps {
   items: StockItem[];
@@ -25,7 +25,6 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role }
   const popoverRef = useRef<HTMLDivElement>(null);
   const isManager = userRole === Role.MANAGER;
 
-  // Fetch history logic extracted for reuse in hover/click
   const loadHistory = async () => {
     if (history.length > 0 || loadingHistory) return;
     setLoadingHistory(true);
@@ -39,7 +38,6 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role }
     }
   };
 
-  // Close popover when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
@@ -72,7 +70,6 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role }
   };
 
   const handleMouseEnter = () => {
-    // Only trigger history popover on hover if price is already revealed and not a touch device
     if (!('ontouchstart' in window) && visible) {
       setShowHistory(true);
       loadHistory();
@@ -180,13 +177,6 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role }
                   </div>
                 );
               })}
-              {history.length > 8 && (
-                <div className="pt-2 text-center">
-                  <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest italic">
-                    + {history.length - 8} more historical records
-                  </p>
-                </div>
-              )}
             </div>
           ) : (
             <div className="py-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
@@ -194,11 +184,8 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role }
                   <Clock size={16} className="text-slate-300" />
                </div>
                <p className="text-xs font-bold text-slate-400">No price changes on record.</p>
-               <div className="mt-4 font-black text-slate-900 text-lg">₹{price.toLocaleString()}</div>
-               <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mt-1">Current Base Price</p>
             </div>
           )}
-          
           <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 rotate-45 w-3 h-3 bg-white border-r border-b border-slate-100"></div>
         </div>
       )}
@@ -221,8 +208,7 @@ const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({ item, userRole, sho
     const [archiving, setArchiving] = useState(false);
 
     const isOwner = userRole === Role.OWNER;
-    const threshold = 50;
-    const maxSwipe = isOwner ? -160 : -80; // Negative because swiping left
+    const maxSwipe = isOwner ? -160 : -80;
 
     const onTouchStart = (e: React.TouchEvent) => {
         setStartX(e.touches[0].clientX);
@@ -232,9 +218,7 @@ const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({ item, userRole, sho
     const onTouchMove = (e: React.TouchEvent) => {
         if (!isSwiping) return;
         const diff = e.touches[0].clientX - startX;
-        // If swiped open previously, start from open position
         let newX = swipedOpen ? diff + maxSwipe : diff;
-        // Constraint: Don't swipe too far right (beyond 0) or left (beyond maxSwipe - 40 for bounce effect)
         if (newX > 0) newX = 0;
         if (newX < maxSwipe - 40) newX = maxSwipe - 40;
         setCurrentX(newX);
@@ -270,12 +254,11 @@ const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({ item, userRole, sho
 
     return (
         <div className="relative overflow-hidden rounded-[2.5rem]">
-            {/* ACTIONS REVEALED ON SWIPE (UNDERNEATH) */}
             <div className="absolute inset-0 flex justify-end">
                 <div className="flex h-full">
                     <button 
                         onClick={() => navigate(`/item/${encodeURIComponent(item.partNumber)}`)}
-                        className="bg-brand-600 text-white w-20 flex flex-col items-center justify-center gap-1 transition-all active:bg-brand-700"
+                        className="bg-brand-600 text-white w-20 flex flex-col items-center justify-center gap-1"
                     >
                         <Eye size={20} />
                         <span className="text-[9px] font-black uppercase">Info</span>
@@ -284,7 +267,7 @@ const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({ item, userRole, sho
                         <button 
                             onClick={handleArchive}
                             disabled={archiving}
-                            className="bg-rose-600 text-white w-20 flex flex-col items-center justify-center gap-1 transition-all active:bg-rose-700"
+                            className="bg-rose-600 text-white w-20 flex flex-col items-center justify-center gap-1"
                         >
                             {archiving ? <Loader2 size={20} className="animate-spin" /> : <Archive size={20} />}
                             <span className="text-[9px] font-black uppercase">Arch.</span>
@@ -293,7 +276,6 @@ const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({ item, userRole, sho
                 </div>
             </div>
 
-            {/* MAIN CARD CONTENT */}
             <div 
                 onTouchStart={onTouchStart}
                 onTouchMove={onTouchMove}
@@ -311,27 +293,19 @@ const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({ item, userRole, sho
                         </div>
                         <p className="text-[13px] text-slate-500 font-medium line-clamp-1 leading-tight">{item.name}</p>
                     </div>
-                    
                     <div className="text-right flex flex-col items-end gap-0.5">
                         <div className={`font-black text-[20px] leading-none ${isZero ? 'text-rose-600' : isLow ? 'text-amber-500' : 'text-slate-900'}`}>
                             {item.quantity}
                             <span className="text-[10px] uppercase font-bold text-slate-300 ml-1">PCS</span>
                         </div>
-                        <div className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md ${isZero ? 'bg-rose-50 text-rose-600' : isLow ? 'bg-amber-50 text-amber-600' : 'bg-teal-50 text-teal-600'}`}>
-                            {isZero ? 'Out' : isLow ? 'Low' : 'Stock'}
-                        </div>
                     </div>
                 </div>
-
                 <div className="mt-4 pt-3 border-t border-slate-50 flex items-center justify-between">
                     <div className="flex flex-col">
                         <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Price (MRP)</span>
                         {shouldHidePrice ? <PriceCell price={item.price} partNumber={item.partNumber} userRole={userRole} /> : <div className="font-black text-slate-900 text-[15px]">₹{item.price.toLocaleString()}</div>}
                     </div>
-                    
-                    {/* Swipe indicator/hint */}
                     <div className="flex items-center gap-1.5 text-slate-300">
-                        <span className="text-[9px] font-black uppercase tracking-widest">Swipe</span>
                         <ChevronLeft size={14} className="animate-pulse" />
                     </div>
                 </div>
@@ -365,32 +339,6 @@ const StockTable: React.FC<StockTableProps> = ({
 
   const shouldHidePrice = hidePriceByDefault || isManager;
 
-  useEffect(() => {
-    setCurrentPage(1);
-    setSelectedParts(new Set());
-  }, [effectiveSearch, brandFilter, showArchived, stockStatusFilter]);
-
-  const toggleSelect = (partNumber: string) => {
-      const newSet = new Set(selectedParts);
-      if (newSet.has(partNumber)) newSet.delete(partNumber);
-      else newSet.add(partNumber);
-      setSelectedParts(newSet);
-  };
-
-  const handleBulkArchive = async () => {
-      if (!confirm(`Archive ${selectedParts.size} items?`)) return;
-      setIsArchiving(true);
-      try {
-        await bulkArchiveItems(Array.from(selectedParts), true);
-        setSelectedParts(new Set());
-        window.location.reload(); 
-      } catch (e) {
-        alert("Failed to archive items. Please try again.");
-      } finally {
-        setIsArchiving(false);
-      }
-  };
-
   const filteredItems = useMemo(() => {
     let result = items.filter(item => {
         if (!showArchived && item.isArchived) return false;
@@ -421,22 +369,48 @@ const StockTable: React.FC<StockTableProps> = ({
     return result;
   }, [items, effectiveSearch, brandFilter, showArchived, sortConfig, stockStatusFilter]);
 
+  // --- SELECTION LOGIC (CROSS-PAGE) ---
+  const isAllFilteredSelected = filteredItems.length > 0 && filteredItems.every(i => selectedParts.has(i.partNumber));
+  const isPartiallySelected = selectedParts.size > 0 && !isAllFilteredSelected;
+
+  const toggleSelectAllFiltered = () => {
+    if (isAllFilteredSelected) {
+      setSelectedParts(new Set());
+    } else {
+      setSelectedParts(new Set(filteredItems.map(i => i.partNumber)));
+    }
+  };
+
+  useEffect(() => {
+    setCurrentPage(1);
+    setSelectedParts(new Set());
+  }, [effectiveSearch, brandFilter, showArchived, stockStatusFilter]);
+
+  const toggleSelect = (partNumber: string) => {
+      const newSet = new Set(selectedParts);
+      if (newSet.has(partNumber)) newSet.delete(partNumber);
+      else newSet.add(partNumber);
+      setSelectedParts(newSet);
+  };
+
+  const handleBulkArchive = async () => {
+      if (!confirm(`Archive ${selectedParts.size} items?`)) return;
+      setIsArchiving(true);
+      try {
+        await bulkArchiveItems(Array.from(selectedParts), true);
+        setSelectedParts(new Set());
+        window.location.reload(); 
+      } catch (e) {
+        alert("Failed to archive items. Please try again.");
+      } finally {
+        setIsArchiving(false);
+      }
+  };
+
   const [mobileLimit, setMobileLimit] = useState(20);
   const mobileItems = filteredItems.slice(0, mobileLimit);
   const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
   const currentItems = filteredItems.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-  const isAllPageSelected = currentItems.length > 0 && currentItems.every(i => selectedParts.has(i.partNumber));
-
-  const toggleSelectAllPage = () => {
-    const newSet = new Set(selectedParts);
-    if (isAllPageSelected) {
-        currentItems.forEach(i => newSet.delete(i.partNumber));
-    } else {
-        currentItems.forEach(i => newSet.add(i.partNumber));
-    }
-    setSelectedParts(newSet);
-  };
 
   const requestSort = (key: keyof StockItem) => {
     let direction: 'asc' | 'desc' = 'asc';
@@ -494,25 +468,35 @@ const StockTable: React.FC<StockTableProps> = ({
       )}
 
       {enableActions && isOwner && selectedParts.size > 0 && (
-        <div className="bg-brand-50 border-b border-brand-100 p-2 text-center text-[13px] text-brand-800 animate-slide-up">
-           <b>{selectedParts.size}</b> items selected.
-           <button onClick={() => setSelectedParts(new Set())} className="ml-3 font-bold hover:underline">Deselect All</button>
+        <div className="bg-brand-600 p-3 text-center text-[13px] text-white animate-slide-up flex items-center justify-center gap-3">
+           <p className="font-bold">
+             {isAllFilteredSelected 
+               ? `All ${filteredItems.length} filtered items selected.` 
+               : `${selectedParts.size} items selected.`
+             }
+           </p>
+           {!isAllFilteredSelected && filteredItems.length > currentItems.length && (
+             <button onClick={toggleSelectAllFiltered} className="underline font-black text-white hover:text-brand-100 transition-colors">
+               Select all {filteredItems.length} items
+             </button>
+           )}
+           <button onClick={() => setSelectedParts(new Set())} className="ml-4 px-3 py-1 bg-white/20 hover:bg-white/30 rounded-lg text-xs font-black transition-all">Deselect All</button>
         </div>
       )}
 
-      {/* DESKTOP VIEW */}
       <div className="hidden md:block flex-1 overflow-auto no-scrollbar">
         <table className="w-full text-left text-[14px] border-collapse">
             <thead className="bg-slate-50/80 backdrop-blur-md sticky top-0 z-20">
                 <tr className="border-b border-slate-100">
                     {enableActions && isOwner && (
                         <th className="px-6 py-4 w-10">
-                            <input 
-                              type="checkbox" 
-                              checked={isAllPageSelected}
-                              onChange={toggleSelectAllPage} 
-                              className="w-4 h-4 rounded-md border-slate-300 text-brand-600 focus:ring-brand-500" 
-                            />
+                            <button 
+                              onClick={toggleSelectAllFiltered} 
+                              className="text-slate-400 hover:text-brand-600 transition-colors"
+                              title={isAllFilteredSelected ? "Deselect All" : "Select All Filtered"}
+                            >
+                              {isAllFilteredSelected ? <CheckSquare className="text-brand-600" size={20} /> : isPartiallySelected ? <MinusSquare className="text-brand-600" size={20} /> : <Square size={20} />}
+                            </button>
                         </th>
                     )}
                     <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-widest text-[10px] cursor-pointer" onClick={() => requestSort('partNumber')}>
@@ -599,7 +583,6 @@ const StockTable: React.FC<StockTableProps> = ({
         </div>
       </div>
 
-      {/* MOBILE VIEW - SWIPE TO REVEAL OPTIMIZED */}
       <div className="md:hidden flex-1 overflow-y-auto bg-slate-50/30 p-3 space-y-3 no-scrollbar">
          {mobileItems.length === 0 ? (
              <div className="p-20 text-center text-slate-400 font-medium italic">No parts found.</div>
@@ -613,7 +596,6 @@ const StockTable: React.FC<StockTableProps> = ({
                 />
              ))
          )}
-         
          {mobileLimit < filteredItems.length && (
             <button 
               onClick={() => setMobileLimit(prev => prev + 20)}
