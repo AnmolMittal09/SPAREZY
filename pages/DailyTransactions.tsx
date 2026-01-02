@@ -75,7 +75,6 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
   const handleSearch = (val: string) => {
     setSearch(val);
     if (val.length > 0) {
-       // Auto-hide filters when user starts typing to focus on results
        if (val.length > 1) setHideFilters(true);
        
        let filtered = inventory.filter(i => 
@@ -188,50 +187,52 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
   return (
     <div className="flex-1 h-full flex flex-col animate-fade-in relative">
        
-       {/* MOBILE SEARCH MODAL */}
+       {/* MOBILE SEARCH MODAL - High Z-Index to prevent navigation bleed-through */}
        {showMobileSearch && (
-         <div className="fixed inset-0 z-[100] bg-[#F8FAFC] flex flex-col animate-slide-up">
-            <div className="flex-none h-16 flex items-center px-4 gap-4 bg-white border-b border-slate-100 shadow-sm">
-               <button onClick={() => { setShowMobileSearch(false); setHideFilters(false); }} className="p-2 text-slate-400">
+         <div className="fixed inset-0 z-[200] bg-white flex flex-col animate-slide-up">
+            <div className="flex-none h-20 flex items-center px-4 gap-4 bg-white border-b border-slate-100 shadow-sm pt-4">
+               <button onClick={() => { setShowMobileSearch(false); setHideFilters(false); }} className="p-3 text-slate-900 bg-slate-50 rounded-2xl active:scale-95 transition-all">
                   <ArrowLeft size={24} />
                </button>
-               <h3 className="font-bold text-lg text-slate-800">Part Search</h3>
+               <div>
+                  <h3 className="font-black text-lg text-slate-900 tracking-tight leading-none">Select Part</h3>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Inventory Lookup</p>
+               </div>
                <button 
                   onClick={() => setHideFilters(!hideFilters)} 
-                  className="ml-auto p-2 text-slate-400 hover:text-brand-600"
+                  className="ml-auto p-3 text-slate-400 bg-slate-50 rounded-2xl"
                >
                   {hideFilters ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
                </button>
             </div>
             
-            {/* SEARCH SECTION - DYNAMICALLY COLLAPSIBLE */}
-            <div className={`flex-none bg-white shadow-sm transition-all duration-300 overflow-hidden ${hideFilters ? 'max-h-20' : 'max-h-48'}`}>
-                <div className="p-4 space-y-4">
-                    <div className="relative">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+            {/* SEARCH & FILTERS - Pure white background to hide content behind */}
+            <div className={`flex-none bg-white transition-all duration-300 overflow-hidden ${hideFilters ? 'max-h-24' : 'max-h-64'}`}>
+                <div className="p-5 space-y-4">
+                    <div className="relative group">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-brand-500 transition-colors" size={20} />
                         <input 
                             autoFocus
                             type="text" 
-                            className="w-full bg-slate-50 p-3.5 pl-11 rounded-2xl border-none text-base font-bold shadow-inner outline-none ring-1 ring-slate-100 focus:ring-brand-500/20"
-                            placeholder="Part Number..."
+                            className="w-full bg-slate-50 p-4 pl-12 rounded-[1.25rem] border-none text-base font-bold shadow-inner outline-none ring-1 ring-slate-100 focus:ring-2 focus:ring-brand-500/20 transition-all"
+                            placeholder="Type part number or name..."
                             value={search}
                             onChange={e => handleSearch(e.target.value)}
                         />
                         {search && (
-                          <button onClick={() => handleSearch('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300">
-                            <X size={18} />
+                          <button onClick={() => handleSearch('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 bg-slate-200/50 p-1 rounded-full">
+                            <X size={16} />
                           </button>
                         )}
                     </div>
                     
-                    {/* Brand Buttons - Hidden when hideFilters is true */}
                     {!hideFilters && (
                       <div className="flex gap-2 overflow-x-auto no-scrollbar py-1 animate-fade-in">
                           {(['ALL', Brand.HYUNDAI, Brand.MAHINDRA] as const).map(b => (
                               <button
                                   key={b}
                                   onClick={() => { setSelectedBrand(b); handleSearch(search); }}
-                                  className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap border transition-all ${selectedBrand === b ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white text-slate-400 border-slate-200'}`}
+                                  className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap border-2 transition-all ${selectedBrand === b ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white text-slate-400 border-slate-100'}`}
                               >
                                   {b}
                               </button>
@@ -245,47 +246,49 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
             <div 
               ref={scrollRef}
               onScroll={handleMobileScroll}
-              className="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar"
+              className="flex-1 overflow-y-auto p-5 space-y-3 no-scrollbar bg-slate-50/50"
             >
                 {suggestions.map(item => (
                     <button 
                         key={item.id}
                         onClick={() => addToCart(item)}
-                        className="w-full bg-white p-4 rounded-[1.5rem] border border-slate-100 shadow-sm flex justify-between items-center text-left active:scale-[0.98] transition-all"
+                        className="w-full bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex justify-between items-center text-left active:scale-[0.98] transition-all"
                     >
                         <div className="flex-1 min-w-0 pr-4">
-                            <div className="flex items-center gap-2 mb-1">
-                                <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded ${item.brand === Brand.HYUNDAI ? 'bg-blue-50 text-blue-600' : 'bg-red-50 text-red-600'}`}>
+                            <div className="flex items-center gap-2 mb-1.5">
+                                <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-md ${item.brand === Brand.HYUNDAI ? 'bg-blue-600 text-white' : 'bg-red-600 text-white'}`}>
                                     {item.brand.substring(0,3)}
                                 </span>
-                                <div className="font-bold text-slate-900 text-base truncate">{item.partNumber}</div>
+                                <div className="font-black text-slate-900 text-lg tracking-tight truncate">{item.partNumber}</div>
                             </div>
-                            <div className="text-[12px] text-slate-400 font-medium truncate mb-2">{item.name}</div>
-                            <div className={`text-[10px] font-black uppercase inline-flex items-center gap-1.5 ${item.quantity > 0 ? 'text-teal-600' : 'text-rose-500'}`}>
+                            <div className="text-[13px] text-slate-500 font-medium truncate mb-2.5">{item.name}</div>
+                            <div className={`text-[10px] font-black uppercase inline-flex items-center gap-2 px-2 py-1 rounded-lg ${item.quantity > 0 ? 'bg-teal-50 text-teal-600' : 'bg-rose-50 text-rose-500'}`}>
                                 <div className={`w-1.5 h-1.5 rounded-full ${item.quantity > 0 ? 'bg-teal-500' : 'bg-rose-500'} animate-pulse`}></div>
-                                Stock: {item.quantity}
+                                {item.quantity} In Stock
                             </div>
                         </div>
-                        <div className="text-right flex flex-col items-end">
-                            <div className="font-black text-slate-900 text-lg">₹{item.price.toLocaleString()}</div>
-                            <div className="bg-brand-50 text-brand-600 p-1 rounded-lg mt-1">
-                                <Plus size={16} strokeWidth={3} />
+                        <div className="text-right flex flex-col items-end gap-2">
+                            <div className="font-black text-slate-900 text-xl tracking-tight">₹{item.price.toLocaleString()}</div>
+                            <div className="bg-brand-600 text-white p-2 rounded-xl shadow-lg shadow-brand-100 active:scale-90 transition-all">
+                                <Plus size={20} strokeWidth={3} />
                             </div>
                         </div>
                     </button>
                 ))}
                 
                 {search.length === 0 && (
-                   <div className="flex flex-col items-center justify-center py-20 text-slate-300">
-                      <Search size={48} className="mb-4 opacity-10" />
-                      <p className="font-bold text-xs uppercase tracking-[0.2em]">Start typing to find parts</p>
+                   <div className="flex flex-col items-center justify-center py-24 text-slate-300">
+                      <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mb-6 shadow-soft">
+                        <Search size={40} className="opacity-20" />
+                      </div>
+                      <p className="font-black text-[11px] uppercase tracking-[0.3em]">Type to find spare parts</p>
                    </div>
                 )}
 
                 {search.length > 1 && suggestions.length === 0 && (
-                    <div className="text-center py-12">
-                        <X className="mx-auto text-slate-200 mb-2" size={40} />
-                        <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">No matches found</p>
+                    <div className="text-center py-20">
+                        <X className="mx-auto text-slate-200 mb-4" size={48} />
+                        <p className="text-slate-400 font-black uppercase tracking-widest text-xs">No matching parts found</p>
                     </div>
                 )}
             </div>
