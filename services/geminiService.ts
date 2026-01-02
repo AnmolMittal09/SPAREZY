@@ -1,12 +1,9 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { StockItem } from "../types";
 
 export const generateInventoryInsights = async (inventory: StockItem[]): Promise<string> => {
   try {
-    // Fix: Using correct initialization and model for summarization tasks
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
-    
-    // Summarize data to send to Gemini to avoid token limits with huge inventories
     const summary = inventory.map(i => 
       `- ${i.partNumber} (${i.brand}): ${i.quantity} units (Threshold: ${i.minStockThreshold})`
     ).join('\n');
@@ -36,5 +33,52 @@ export const generateInventoryInsights = async (inventory: StockItem[]): Promise
   } catch (error) {
     console.error("Gemini API Error:", error);
     return "Failed to generate AI insights. Please try again later.";
+  }
+};
+
+export const extractInvoiceData = async (base64File: string, mimeType: string) => {
+  try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+    
+    const filePart = {
+      inlineData: {
+        data: base64File,
+        mimeType: mimeType,
+      },
+    };
+
+    const prompt = `
+      Extract line items from this car spare parts invoice. 
+      Identify the Part Number (often alphanumeric), Description (Name), Quantity, and Unit Price.
+      Exclude taxes and shipping from line items.
+      If a part number is missing but a name exists, try to infer or leave empty.
+      Return the data strictly as a JSON array of objects.
+    `;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: { parts: [filePart, { text: prompt }] },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              partNumber: { type: Type.STRING },
+              name: { type: Type.STRING },
+              quantity: { type: Type.NUMBER },
+              price: { type: Type.NUMBER }
+            },
+            required: ["partNumber", "quantity", "price"]
+          }
+        }
+      }
+    });
+
+    return JSON.parse(response.text || "[]");
+  } catch (error) {
+    console.error("Invoice Extraction Error:", error);
+    throw new Error("Failed to read the invoice. Please ensure the document is clear.");
   }
 };
