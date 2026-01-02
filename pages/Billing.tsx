@@ -1,8 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import { User, Transaction, TransactionStatus, TransactionType, Role } from '../types';
 import DailyTransactions from './DailyTransactions'; 
-import { History, PlusCircle, Receipt, User as UserIcon, Undo2, Search, ArrowRight, CheckCircle2, AlertCircle } from 'lucide-react';
+// Added missing Minus, Plus, and Loader2 icons to imports
+import { History, PlusCircle, Receipt, User as UserIcon, Undo2, Search, ArrowRight, CheckCircle2, AlertCircle, ShoppingBag, Clock, Calendar, Minus, Plus, Loader2 } from 'lucide-react';
 import { createBulkTransactions, fetchTransactions } from '../services/transactionService';
 import TharLoader from '../components/TharLoader';
 
@@ -137,53 +137,45 @@ const Billing: React.FC<Props> = ({ user }) => {
   return (
     <div className="h-full flex flex-col bg-slate-50 md:bg-transparent">
        
-       {/* --- MOBILE COMPACT HEADER (POS STYLE) --- */}
-       <div className="md:hidden bg-white px-4 pt-4 pb-3 shadow-[0_1px_3px_rgba(0,0,0,0.05)] z-20 sticky top-0 border-b border-slate-100">
-          <div className="flex justify-between items-end mb-3">
-             <div>
-                <h1 className="text-xl font-extrabold text-slate-900 leading-none tracking-tight">Billing</h1>
-                <p className="text-xs text-slate-500 font-medium mt-1">Record sales & returns</p>
-             </div>
-          </div>
-          
-          {/* Compact Segmented Control */}
-          <div className="flex bg-slate-100 p-1 rounded-xl">
+       {/* --- MOBILE SEGMENTED CONTROL --- */}
+       <div className="md:hidden bg-white p-4 border-b border-slate-100 z-20 sticky top-0 shadow-sm">
+          <div className="flex bg-slate-100 p-1 rounded-2xl">
              <button 
                onClick={() => setActiveTab('NEW')}
-               className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${activeTab === 'NEW' ? 'bg-white text-slate-900 shadow-sm ring-1 ring-black/5' : 'text-slate-500 hover:text-slate-700'}`}
+               className={`flex-1 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'NEW' ? 'bg-white text-brand-600 shadow-md ring-1 ring-slate-100' : 'text-slate-400'}`}
              >
-               New Sale
+               Point of Sale
              </button>
              <button 
                onClick={() => setActiveTab('RETURN')}
-               className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${activeTab === 'RETURN' ? 'bg-white text-red-600 shadow-sm ring-1 ring-black/5' : 'text-slate-500 hover:text-slate-700'}`}
+               className={`flex-1 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'RETURN' ? 'bg-white text-rose-600 shadow-md ring-1 ring-slate-100' : 'text-slate-400'}`}
              >
-               Return
+               Returns
              </button>
              <button 
                onClick={() => setActiveTab('HISTORY')}
-               className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${activeTab === 'HISTORY' ? 'bg-white text-slate-900 shadow-sm ring-1 ring-black/5' : 'text-slate-500 hover:text-slate-700'}`}
+               className={`flex-1 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'HISTORY' ? 'bg-white text-slate-800 shadow-md ring-1 ring-slate-100' : 'text-slate-400'}`}
              >
-               History
+               Log
              </button>
           </div>
        </div>
 
-       {/* --- DESKTOP HEADER (Hidden on Mobile) --- */}
-       <div className="hidden md:flex justify-between items-center mb-4">
+       {/* --- DESKTOP HEADER --- */}
+       <div className="hidden md:flex justify-between items-center mb-6">
           <div>
-             <h1 className="text-2xl font-bold text-slate-900">Billing (Sales)</h1>
-             <p className="text-slate-500">Record cash sales, estimates, and customer returns.</p>
+             <h1 className="text-3xl font-black text-slate-900 tracking-tight">Counter Sales</h1>
+             <p className="text-slate-500 font-medium">Record retail transactions and customer returns.</p>
           </div>
-          <div className="flex bg-white p-1 rounded-lg border border-slate-200 shadow-sm">
-             <button onClick={() => setActiveTab('NEW')} className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'NEW' ? 'bg-slate-900 text-white shadow' : 'text-slate-600 hover:bg-slate-50'}`}>
-               <PlusCircle size={16} /> New Sale
+          <div className="flex bg-white p-1 rounded-2xl border border-slate-200 shadow-soft">
+             <button onClick={() => setActiveTab('NEW')} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === 'NEW' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}>
+               <PlusCircle size={18} /> New Sale
              </button>
-             <button onClick={() => setActiveTab('RETURN')} className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'RETURN' ? 'bg-red-600 text-white shadow' : 'text-slate-600 hover:bg-red-50 hover:text-red-700'}`}>
-               <Undo2 size={16} /> Returns
+             <button onClick={() => setActiveTab('RETURN')} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === 'RETURN' ? 'bg-rose-600 text-white shadow-lg' : 'text-slate-500 hover:bg-rose-50'}`}>
+               <Undo2 size={18} /> Process Return
              </button>
-             <button onClick={() => setActiveTab('HISTORY')} className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'HISTORY' ? 'bg-slate-900 text-white shadow' : 'text-slate-600 hover:bg-slate-50'}`}>
-               <History size={16} /> History
+             <button onClick={() => setActiveTab('HISTORY')} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === 'HISTORY' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}>
+               <History size={18} /> Recent History
              </button>
           </div>
        </div>
@@ -194,272 +186,168 @@ const Billing: React.FC<Props> = ({ user }) => {
           )}
 
           {activeTab === 'RETURN' && (
-             <div className="bg-white md:rounded-xl shadow-sm border border-slate-200 flex flex-col h-full overflow-hidden">
-                {/* Mobile Specific Header spacing */}
-                <div className="md:p-4 p-3 border-b border-slate-200 bg-red-50 flex flex-col md:flex-row justify-between items-center gap-3 md:gap-4">
-                   <div className="flex items-center gap-2 text-red-800 font-bold text-sm md:text-base w-full md:w-auto">
-                      <Undo2 size={18} /> Process Returns
+             <div className="bg-[#F8FAFC] md:bg-white md:rounded-3xl shadow-soft border border-slate-100 flex flex-col h-full overflow-hidden">
+                <div className="p-4 md:p-6 border-b border-slate-100 bg-white flex flex-col md:flex-row justify-between items-center gap-4">
+                   <div className="flex items-center gap-3 text-rose-600 font-black text-base w-full md:w-auto">
+                      <div className="p-2 bg-rose-50 rounded-xl"><Undo2 size={20} /></div>
+                      SELECT ITEMS TO RETURN
                    </div>
                    <div className="w-full md:w-auto flex-1 md:max-w-xs relative">
-                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-red-300" size={16} />
+                       <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
                        <input 
                           type="text" 
-                          placeholder="Search sale..."
-                          className="w-full pl-9 pr-3 py-2 border border-red-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 bg-white"
+                          placeholder="Search Part No. or Customer..."
+                          className="w-full pl-11 pr-4 py-3 bg-slate-50 border-none rounded-2xl text-sm font-bold shadow-inner focus:ring-2 focus:ring-rose-500/20"
                           value={returnSearch}
                           onChange={e => setReturnSearch(e.target.value)}
                        />
                    </div>
                 </div>
 
-                <div className="flex-1 overflow-auto">
+                <div className="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar">
                    {loading ? (
                       <div className="flex justify-center p-12"><TharLoader /></div>
                    ) : filteredSalesLog.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center h-64 text-slate-400">
-                         <AlertCircle size={48} className="mb-4 opacity-20" />
-                         <p>No compatible sales found.</p>
+                      <div className="flex flex-col items-center justify-center py-24 text-slate-300">
+                         <AlertCircle size={64} className="mb-4 opacity-10" />
+                         <p className="font-black text-xs uppercase tracking-widest">No compatible sales found</p>
                       </div>
                    ) : (
-                      <>
-                        {/* Mobile View for Returns */}
-                        <div className="block md:hidden divide-y divide-slate-100 pb-20">
-                            {filteredSalesLog.map(tx => {
-                                const isSelected = !!selectedReturns[tx.id];
-                                const prevReturned = alreadyReturnedMap.get(tx.id) || 0;
-                                const remainingQty = tx.quantity - prevReturned;
-                                const returnQty = selectedReturns[tx.id] || remainingQty;
-                                
-                                return (
-                                    <div key={tx.id} className={`p-4 flex gap-3 ${isSelected ? 'bg-red-50' : 'bg-white'}`}>
-                                        <div className="pt-1">
-                                            <input 
-                                            type="checkbox"
-                                            checked={isSelected}
-                                            onChange={() => handleReturnToggle(tx)}
-                                            className="w-5 h-5 text-red-600 rounded border-slate-300"
-                                            />
+                      <div className="pb-24 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {filteredSalesLog.map(tx => {
+                            const isSelected = !!selectedReturns[tx.id];
+                            const prevReturned = alreadyReturnedMap.get(tx.id) || 0;
+                            const remainingQty = tx.quantity - prevReturned;
+                            const returnQty = selectedReturns[tx.id] || remainingQty;
+                            
+                            return (
+                                <div 
+                                    key={tx.id} 
+                                    onClick={() => handleReturnToggle(tx)}
+                                    className={`p-5 rounded-[2rem] border transition-all cursor-pointer bg-white ${isSelected ? 'border-rose-500 ring-2 ring-rose-500/10 shadow-lg' : 'border-slate-100 hover:border-slate-200 shadow-sm'}`}
+                                >
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${isSelected ? 'bg-rose-500 border-rose-500 text-white' : 'bg-slate-50 border-slate-200 text-transparent'}`}>
+                                            <CheckCircle2 size={14} />
                                         </div>
-                                        <div className="flex-1">
-                                            <div className="flex justify-between">
-                                                <span className="font-bold text-slate-900">{tx.partNumber}</span>
-                                                <span className="text-xs text-slate-500">{new Date(tx.createdAt).toLocaleDateString()}</span>
-                                            </div>
-                                            <div className="text-sm text-slate-600">{tx.customerName || 'Walk-in'}</div>
-                                            <div className="mt-2 flex justify-between items-end">
-                                                <div className="text-xs">
-                                                    <span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold mr-2">Sold: {tx.quantity}</span>
-                                                    <span className="text-slate-400">Rem: {remainingQty}</span>
-                                                </div>
-                                                {isSelected && (
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-xs font-bold text-slate-400">Ret Qty:</span>
-                                                        <input 
-                                                            type="number"
-                                                            min="1"
-                                                            max={remainingQty}
-                                                            value={returnQty}
-                                                            onChange={(e) => handleReturnQtyChange(tx.id, remainingQty, e.target.value)}
-                                                            className="w-12 p-1 border border-red-300 rounded text-center font-bold text-sm"
-                                                        />
-                                                    </div>
-                                                )}
-                                            </div>
+                                        <div className="text-right">
+                                            <div className="text-[9px] font-black text-slate-400 uppercase mb-0.5">Sold On</div>
+                                            <div className="text-[11px] font-bold text-slate-900">{new Date(tx.createdAt).toLocaleDateString()}</div>
                                         </div>
                                     </div>
-                                )
-                            })}
-                        </div>
-                        {/* Desktop Table Hidden on Mobile */}
-                        <div className="hidden md:block">
-                            <table className="w-full text-sm text-left">
-                                <thead className="bg-white text-slate-600 font-medium sticky top-0 shadow-sm z-10">
-                                    <tr>
-                                    <th className="px-6 py-4 w-16 text-center">Select</th>
-                                    <th className="px-6 py-4">Sale Date</th>
-                                    <th className="px-6 py-4">Customer</th>
-                                    <th className="px-6 py-4">Part Details</th>
-                                    <th className="px-6 py-4 text-center">Sold (Rem)</th>
-                                    <th className="px-6 py-4 text-center w-32">Return Qty</th>
-                                    <th className="px-6 py-4 text-right">Refund Amount</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {filteredSalesLog.map(tx => {
-                                    const isSelected = !!selectedReturns[tx.id];
-                                    const prevReturned = alreadyReturnedMap.get(tx.id) || 0;
-                                    const remainingQty = tx.quantity - prevReturned;
-                                    const returnQty = selectedReturns[tx.id] || remainingQty;
-                                    
-                                    return (
-                                        <tr key={tx.id} className={`hover:bg-red-50 transition-colors ${isSelected ? 'bg-red-50/50' : ''}`}>
-                                            <td className="px-6 py-4 text-center">
-                                                <input 
-                                                type="checkbox"
-                                                checked={isSelected}
-                                                onChange={() => handleReturnToggle(tx)}
-                                                className="w-5 h-5 text-red-600 rounded border-slate-300 focus:ring-red-500 cursor-pointer"
-                                                />
-                                            </td>
-                                            <td className="px-6 py-4 text-slate-500">
-                                                {new Date(tx.createdAt).toLocaleDateString()}
-                                            </td>
-                                            <td className="px-6 py-4 font-medium text-slate-700">
-                                                {tx.customerName || 'Walk-in'}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="font-bold text-slate-900">{tx.partNumber}</div>
-                                                <div className="text-xs text-slate-500">Price: ₹{tx.price}</div>
-                                            </td>
-                                            <td className="px-6 py-4 text-center">
-                                                <span className="font-bold text-slate-800">{tx.quantity}</span>
-                                                {prevReturned > 0 && (
-                                                    <div className="text-[10px] text-red-500 font-bold">Ret: {prevReturned}</div>
-                                                )}
-                                                <div className="text-[10px] text-green-600 font-bold bg-green-50 rounded px-1 mt-1">
-                                                    Rem: {remainingQty}
+
+                                    <div className="mb-4">
+                                        <div className="font-black text-lg text-slate-900 leading-tight">{tx.partNumber}</div>
+                                        <div className="text-[13px] text-slate-400 font-medium flex items-center gap-1.5 mt-1">
+                                            <UserIcon size={14} className="text-slate-300" /> {tx.customerName || 'Walk-in Customer'}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex justify-between items-end border-t border-slate-50 pt-4">
+                                        <div className="space-y-1">
+                                            <div className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Original Sale</div>
+                                            <div className="font-black text-slate-900">{tx.quantity} <span className="text-[10px] text-slate-400">units</span></div>
+                                            <div className="text-[9px] font-black text-teal-600 bg-teal-50 px-1.5 py-0.5 rounded-md inline-block">Rem: {remainingQty}</div>
+                                        </div>
+
+                                        {isSelected && (
+                                            <div onClick={e => e.stopPropagation()} className="bg-rose-50 p-2 rounded-2xl border border-rose-100 flex flex-col items-center">
+                                                <span className="text-[9px] font-black text-rose-500 uppercase mb-1">Return Qty</span>
+                                                <div className="flex items-center gap-2 bg-white px-2 py-1 rounded-xl shadow-sm">
+                                                    <button onClick={() => handleReturnQtyChange(tx.id, remainingQty, (returnQty - 1).toString())} className="w-8 h-8 rounded-lg flex items-center justify-center text-rose-500"><Minus size={14}/></button>
+                                                    <span className="font-black text-slate-900 min-w-[20px] text-center">{returnQty}</span>
+                                                    <button onClick={() => handleReturnQtyChange(tx.id, remainingQty, (returnQty + 1).toString())} className="w-8 h-8 bg-rose-500 text-white rounded-lg flex items-center justify-center"><Plus size={14}/></button>
                                                 </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-center">
-                                                {isSelected ? (
-                                                <input 
-                                                    type="number" 
-                                                    min="1" 
-                                                    max={remainingQty}
-                                                    value={returnQty}
-                                                    onChange={(e) => handleReturnQtyChange(tx.id, remainingQty, e.target.value)}
-                                                    className="w-20 px-2 py-1 border border-red-300 rounded text-center font-bold text-red-700 outline-none focus:ring-2 focus:ring-red-500"
-                                                />
-                                                ) : (
-                                                <span className="text-slate-300">-</span>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4 text-right font-bold text-red-600">
-                                                {isSelected ? `₹${(tx.price * returnQty).toLocaleString()}` : '-'}
-                                            </td>
-                                        </tr>
-                                    );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                      </>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )
+                        })}
+                      </div>
                    )}
                 </div>
 
-                {/* Return Footer Actions */}
-                <div className="p-4 bg-white border-t border-slate-200 flex justify-between items-center shadow-lg z-20 pb-safe-bottom">
-                   <div className="flex items-center gap-4">
-                      <div className="text-slate-500 text-sm">
-                         Selected <span className="font-bold text-slate-900">{Object.keys(selectedReturns).length}</span>
-                      </div>
-                      <div className="h-8 w-px bg-slate-200 mx-2 hidden md:block"></div>
-                      <div className="text-slate-500 text-sm hidden md:block">
-                         Total: <span className="font-bold text-red-600 text-lg ml-1">₹{totalRefundAmount.toLocaleString()}</span>
-                      </div>
+                {/* Return Fixed Footer */}
+                <div className="fixed bottom-0 md:bottom-6 left-0 md:left-auto right-0 md:right-8 bg-white md:rounded-3xl border-t md:border border-slate-100 p-5 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] md:shadow-2xl z-[90] pb-safe flex justify-between items-center md:min-w-[400px]">
+                   <div className="flex-1">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Refund Total ({Object.keys(selectedReturns).length})</p>
+                      <p className="text-2xl font-black text-rose-600 tracking-tight">₹{totalRefundAmount.toLocaleString()}</p>
                    </div>
 
                    <button 
                       onClick={submitReturns}
                       disabled={Object.keys(selectedReturns).length === 0 || processingReturns}
-                      className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-bold shadow-md shadow-red-200 transition-all flex items-center gap-2 disabled:opacity-50 disabled:shadow-none"
+                      className="bg-rose-600 hover:bg-rose-700 text-white px-8 py-4 rounded-2xl font-black shadow-xl shadow-rose-200 transition-all flex items-center gap-3 active:scale-95 disabled:opacity-30 disabled:shadow-none"
                    >
-                      {processingReturns ? <ArrowRight className="animate-spin" /> : <CheckCircle2 />}
-                      Confirm
+                      {processingReturns ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle2 size={20} />}
+                      Process
                    </button>
                 </div>
              </div>
           )}
 
           {activeTab === 'HISTORY' && (
-             <div className="bg-white md:rounded-xl shadow-sm border border-slate-200 flex flex-col h-full overflow-hidden">
-                <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center gap-2 text-slate-600 font-medium text-sm">
-                   <Receipt size={18} /> Sales & Returns Log
+             <div className="bg-[#F8FAFC] md:bg-white md:rounded-3xl shadow-soft border border-slate-100 flex flex-col h-full overflow-hidden">
+                <div className="p-5 border-b border-slate-100 bg-white flex items-center gap-3">
+                   <div className="p-2 bg-slate-900 text-white rounded-xl"><History size={18} /></div>
+                   <span className="font-black text-slate-900 text-base uppercase tracking-tight">Approved Ledger</span>
                 </div>
                 
-                <div className="flex-1 overflow-auto">
+                <div className="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar pb-24">
                   {loading ? (
                     <div className="flex justify-center p-12"><TharLoader /></div>
                   ) : history.length === 0 ? (
-                    <div className="p-12 text-center text-slate-400">No history found.</div>
+                    <div className="flex flex-col items-center justify-center py-24 text-slate-300">
+                        <AlertCircle size={64} className="mb-4 opacity-10" />
+                        <p className="font-black text-xs uppercase tracking-widest">No history yet</p>
+                    </div>
                   ) : (
-                    <>
-                    {/* Mobile Card List for History */}
-                    <div className="md:hidden divide-y divide-slate-100">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                       {history.map(tx => {
                           const isReturn = tx.type === TransactionType.RETURN;
                           return (
-                            <div key={tx.id} className={`p-4 ${isReturn ? 'bg-red-50/20' : 'bg-white'}`}>
-                                <div className="flex justify-between items-start mb-2">
-                                    <div>
-                                        <div className="font-bold text-slate-900 text-base">{tx.partNumber}</div>
-                                        <div className="text-xs text-slate-500">{new Date(tx.createdAt).toLocaleString()}</div>
-                                    </div>
-                                    <div className="text-right">
-                                        <div className={`font-black text-base ${isReturn ? 'text-red-600' : 'text-slate-900'}`}>
-                                            {isReturn ? '-' : ''}₹{(tx.price * tx.quantity).toLocaleString()}
+                            <div key={tx.id} className={`p-5 rounded-[2rem] bg-white border border-slate-50 shadow-sm flex flex-col animate-fade-in relative overflow-hidden group`}>
+                                {isReturn && <div className="absolute top-0 right-0 w-16 h-16 bg-rose-500/5 rotate-45 translate-x-8 -translate-y-8"></div>}
+                                
+                                <div className="flex justify-between items-start mb-4">
+                                    <div className="space-y-1">
+                                        <div className="font-black text-slate-900 text-lg leading-tight group-hover:text-brand-600 transition-colors">{tx.partNumber}</div>
+                                        <div className="flex items-center gap-1.5 text-slate-400 text-[11px] font-bold">
+                                            <Calendar size={12} /> {new Date(tx.createdAt).toLocaleDateString()}
+                                            <span className="text-slate-200">|</span>
+                                            <Clock size={12} /> {new Date(tx.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                                         </div>
-                                        <div className="text-[10px] text-slate-400 font-bold uppercase">{tx.type}</div>
+                                    </div>
+                                    <div className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${isReturn ? 'bg-rose-50 text-rose-600' : 'bg-teal-50 text-teal-600'}`}>
+                                        {tx.type}
                                     </div>
                                 </div>
-                                <div className="flex justify-between items-center text-sm">
-                                    <div className="text-slate-600 flex items-center gap-1">
-                                        <UserIcon size={12}/> {tx.customerName || 'Walk-in'}
+
+                                <div className="bg-slate-50/50 p-3 rounded-2xl border border-slate-50 flex items-center gap-3 mb-5">
+                                    <div className="w-8 h-8 bg-white rounded-xl flex items-center justify-center text-slate-300 shadow-sm border border-slate-100">
+                                        <UserIcon size={14} />
                                     </div>
-                                    <div className="bg-slate-100 px-2 py-0.5 rounded text-xs font-bold text-slate-600">
-                                        Qty: {tx.quantity}
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Billed To</p>
+                                        <p className="text-[13px] font-bold text-slate-800 truncate">{tx.customerName || 'Walk-in Customer'}</p>
+                                    </div>
+                                </div>
+
+                                <div className="mt-auto flex justify-between items-center">
+                                    <div className="bg-slate-100 px-3 py-1.5 rounded-xl text-[11px] font-black text-slate-500 uppercase tracking-widest">
+                                        QTY: {tx.quantity}
+                                    </div>
+                                    <div className="text-right">
+                                        <p className={`text-xl font-black tracking-tight ${isReturn ? 'text-rose-600' : 'text-slate-900'}`}>
+                                            {isReturn ? '-' : ''}₹{(tx.price * tx.quantity).toLocaleString()}
+                                        </p>
                                     </div>
                                 </div>
                             </div>
                           );
                       })}
                     </div>
-                    {/* Desktop Table */}
-                    <table className="hidden md:table w-full text-sm text-left">
-                       <thead className="bg-white text-slate-600 font-medium sticky top-0 border-b border-slate-200 shadow-sm">
-                          <tr>
-                             <th className="px-4 md:px-6 py-4">Date</th>
-                             <th className="px-4 md:px-6 py-4">Type</th>
-                             <th className="px-4 md:px-6 py-4">Part No</th>
-                             <th className="hidden md:table-cell px-6 py-4">Customer</th>
-                             <th className="px-4 md:px-6 py-4 text-center">Qty</th>
-                             <th className="hidden md:table-cell px-6 py-4 text-right">Unit Price</th>
-                             <th className="px-4 md:px-6 py-4 text-right">Total</th>
-                          </tr>
-                       </thead>
-                       <tbody className="divide-y divide-slate-100">
-                          {history.map(tx => {
-                             const isReturn = tx.type === TransactionType.RETURN;
-                             return (
-                               <tr key={tx.id} className={`hover:bg-slate-50 transition-colors ${isReturn ? 'bg-red-50/30' : ''}`}>
-                                  <td className="px-4 md:px-6 py-4 text-slate-500 text-xs md:text-sm">
-                                     {new Date(tx.createdAt).toLocaleDateString()}
-                                  </td>
-                                  <td className="px-4 md:px-6 py-4">
-                                     <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${isReturn ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                                        {tx.type}
-                                     </span>
-                                  </td>
-                                  <td className="px-4 md:px-6 py-4 font-bold text-slate-900 text-xs md:text-sm">{tx.partNumber}</td>
-                                  <td className="hidden md:table-cell px-6 py-4 text-slate-600">
-                                     <div className="flex items-center gap-2">
-                                        <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs text-slate-500">
-                                          <UserIcon size={12}/>
-                                        </div>
-                                        {tx.customerName || 'Walk-in'}
-                                     </div>
-                                  </td>
-                                  <td className="px-4 md:px-6 py-4 text-center font-bold text-xs md:text-sm">{tx.quantity}</td>
-                                  <td className="hidden md:table-cell px-6 py-4 text-right">₹{tx.price.toLocaleString()}</td>
-                                  <td className={`px-4 md:px-6 py-4 text-right font-bold text-xs md:text-sm ${isReturn ? 'text-red-600' : 'text-slate-900'}`}>
-                                     {isReturn ? '-' : ''}₹{(tx.price * tx.quantity).toLocaleString()}
-                                  </td>
-                               </tr>
-                             );
-                          })}
-                       </tbody>
-                    </table>
-                    </>
                   )}
                 </div>
              </div>

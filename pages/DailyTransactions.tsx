@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Role, TransactionType, User, StockItem, Customer } from '../types';
+import { Role, TransactionType, User, StockItem, Customer, Brand } from '../types';
 import { createBulkTransactions } from '../services/transactionService';
 import { fetchInventory } from '../services/inventoryService';
 import { getCustomers } from '../services/masterService';
@@ -9,8 +9,6 @@ import {
   Trash2,
   Minus,
   Plus,
-  CheckCircle2,
-  Undo2,
   ShoppingCart,
   User as UserIcon,
   PackagePlus,
@@ -18,9 +16,9 @@ import {
   X,
   AlertCircle,
   Zap,
-  ShoppingBag,
-  // Added missing ArrowRight import
-  ArrowRight
+  ArrowRight,
+  ChevronRight,
+  Filter
 } from 'lucide-react';
 
 interface Props {
@@ -50,6 +48,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
   const [savedCustomers, setSavedCustomers] = useState<Customer[]>([]);
   const [customerSuggestions, setCustomerSuggestions] = useState<Customer[]>([]);
   const [showCustomerList, setShowCustomerList] = useState(false);
+  const [selectedBrand, setSelectedBrand] = useState<Brand | 'ALL'>('ALL');
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [showMobileSearch, setShowMobileSearch] = useState(false);
   
@@ -70,10 +69,14 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
   const handleSearch = (val: string) => {
     setSearch(val);
     if (val.length > 1) {
-       setSuggestions(inventory.filter(i => 
+       let filtered = inventory.filter(i => 
          i.partNumber.toLowerCase().includes(val.toLowerCase()) || 
          i.name.toLowerCase().includes(val.toLowerCase())
-       ).slice(0, 30));
+       );
+       if (selectedBrand !== 'ALL') {
+         filtered = filtered.filter(i => i.brand === selectedBrand);
+       }
+       setSuggestions(filtered.slice(0, 30));
     } else setSuggestions([]);
   };
 
@@ -130,7 +133,6 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
       }));
   };
 
-  // Added removeItem function to handle item removal from cart
   const removeItem = (id: string) => {
     setCart(prev => prev.filter(item => item.tempId !== id));
   };
@@ -164,59 +166,77 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
        
        {/* MOBILE SEARCH MODAL */}
        {showMobileSearch && (
-         <div className="fixed inset-0 z-[100] bg-white flex flex-col animate-slide-up">
-            <div className="flex-none h-20 flex items-center px-6 gap-4 border-b border-slate-50">
-               <button onClick={() => setShowMobileSearch(false)} className="p-2.5 bg-slate-50 rounded-2xl text-slate-600">
+         <div className="fixed inset-0 z-[100] bg-[#F8FAFC] flex flex-col animate-slide-up">
+            <div className="flex-none h-16 flex items-center px-4 gap-4 bg-white border-b border-slate-100 shadow-sm">
+               <button onClick={() => setShowMobileSearch(false)} className="p-2 text-slate-400">
                   <ArrowLeft size={24} />
                </button>
-               <h3 className="font-black text-xl text-slate-900 tracking-tight">Select Part</h3>
+               <h3 className="font-bold text-lg text-slate-800">Select Part</h3>
             </div>
-            <div className="flex-1 overflow-y-auto bg-slate-50 p-6 no-scrollbar">
-               <div className="sticky top-0 z-20 bg-slate-50/80 backdrop-blur-md pb-6">
-                   <div className="relative">
-                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
-                      <input 
-                         autoFocus
-                         type="text" 
-                         className="w-full bg-white p-4 pl-12 rounded-3xl border border-slate-200 text-lg font-bold shadow-soft outline-none focus:ring-2 focus:ring-brand-500/10"
-                         placeholder="Start typing Part No..."
-                         value={search}
-                         onChange={e => handleSearch(e.target.value)}
-                      />
-                   </div>
-               </div>
-               <div className="space-y-3">
-                    {suggestions.map(item => (
-                        <button 
-                          key={item.id}
-                          onClick={() => addToCart(item)}
-                          className="w-full flex items-center justify-between bg-white p-5 rounded-[2rem] border border-slate-100 shadow-soft active:scale-95 transition-all text-left"
+            
+            {/* Search Input Area */}
+            <div className="p-4 bg-white space-y-4">
+                <div className="relative">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+                    <input 
+                        autoFocus
+                        type="text" 
+                        className="w-full bg-slate-50 p-3.5 pl-11 rounded-2xl border-none text-base font-bold shadow-inner outline-none ring-1 ring-slate-100 focus:ring-brand-500/20"
+                        placeholder="Type Part No. or Name..."
+                        value={search}
+                        onChange={e => handleSearch(e.target.value)}
+                    />
+                </div>
+                <div className="flex gap-2 overflow-x-auto no-scrollbar py-1">
+                    {(['ALL', Brand.HYUNDAI, Brand.MAHINDRA] as const).map(b => (
+                        <button
+                            key={b}
+                            onClick={() => { setSelectedBrand(b); handleSearch(search); }}
+                            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap border transition-all ${selectedBrand === b ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white text-slate-400 border-slate-200'}`}
                         >
-                            <div className="flex-1 min-w-0 pr-4">
-                                <div className="font-black text-[17px] text-slate-900 leading-tight">{item.partNumber}</div>
-                                <div className="text-[13px] text-slate-400 font-medium truncate mt-1">{item.name}</div>
-                                <div className={`text-[10px] mt-2 inline-block px-2 py-0.5 rounded font-black uppercase tracking-widest ${item.quantity > 0 ? 'bg-teal-50 text-teal-700' : 'bg-rose-50 text-rose-700'}`}>
-                                    In Stock: {item.quantity}
-                                </div>
-                            </div>
-                            <div className="text-right">
-                                 <div className="font-black text-slate-900 text-lg mb-2">₹{item.price.toLocaleString()}</div>
-                                 <div className="bg-brand-600 text-white text-[11px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest">Select</div>
-                            </div>
+                            {b}
                         </button>
                     ))}
-                    {suggestions.length === 0 && (
-                        <div className="flex flex-col items-center justify-center pt-20 text-slate-300">
-                            <Search size={64} className="mb-4 opacity-20" />
-                            <p className="font-bold text-slate-400 uppercase tracking-widest text-xs">Type part number or description</p>
+                </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar">
+                {suggestions.map(item => (
+                    <button 
+                        key={item.id}
+                        onClick={() => addToCart(item)}
+                        className="w-full bg-white p-4 rounded-[1.5rem] border border-slate-100 shadow-sm flex justify-between items-center text-left active:scale-[0.98] transition-all"
+                    >
+                        <div className="flex-1 min-w-0 pr-4">
+                            <div className="flex items-center gap-2 mb-1">
+                                <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded ${item.brand === Brand.HYUNDAI ? 'bg-blue-50 text-blue-600' : 'bg-red-50 text-red-600'}`}>
+                                    {item.brand.substring(0,3)}
+                                </span>
+                                <div className="font-bold text-slate-900 text-base truncate">{item.partNumber}</div>
+                            </div>
+                            <div className="text-[12px] text-slate-400 font-medium truncate mb-2">{item.name}</div>
+                            <div className={`text-[10px] font-black uppercase inline-flex items-center gap-1.5 ${item.quantity > 0 ? 'text-teal-600' : 'text-rose-500'}`}>
+                                <div className={`w-1.5 h-1.5 rounded-full ${item.quantity > 0 ? 'bg-teal-500' : 'bg-rose-500'} animate-pulse`}></div>
+                                Stock: {item.quantity} units
+                            </div>
                         </div>
-                    )}
-               </div>
+                        <div className="text-right flex flex-col items-end">
+                            <div className="font-black text-slate-900 text-lg">₹{item.price.toLocaleString()}</div>
+                            <ChevronRight size={18} className="text-slate-200 mt-1" />
+                        </div>
+                    </button>
+                ))}
+                {search.length > 1 && suggestions.length === 0 && (
+                    <div className="text-center py-12">
+                        <X className="mx-auto text-slate-200 mb-2" size={40} />
+                        <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">No matches found</p>
+                    </div>
+                )}
             </div>
          </div>
        )}
 
-       {/* DESKTOP LAYOUT */}
+       {/* DESKTOP LAYOUT (Retained for Desktop Users) */}
        <div className="hidden lg:grid grid-cols-12 gap-8 h-full">
            <div className="col-span-8 bg-white rounded-[2.5rem] shadow-premium border border-slate-50 flex flex-col overflow-hidden">
                <div className="p-8 border-b border-slate-50 bg-slate-50/50">
@@ -243,7 +263,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
                             >
                                <div className="flex justify-between items-start mb-3">
                                    <span className="font-black text-lg text-slate-900 group-hover:text-brand-600 transition-colors">{item.partNumber}</span>
-                                   <span className={`text-[10px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest ${item.quantity > 0 ? 'bg-teal-50 text-teal-600' : 'bg-rose-50 text-rose-600'}`}>
+                                   <span className={`text-[10px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest ${item.quantity > 0 ? 'bg-teal-50 text-teal-700' : 'bg-rose-50 text-rose-700'}`}>
                                        {item.quantity} Stock
                                    </span>
                                </div>
@@ -301,9 +321,6 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-8 pt-0 space-y-4 no-scrollbar">
-                    {cart.length === 0 && (
-                      <div className="text-center text-slate-300 py-10 font-bold uppercase tracking-widest text-[11px]">Cart is empty</div>
-                    )}
                     {cart.map(item => (
                         <div key={item.tempId} className="p-5 rounded-[1.5rem] border border-slate-100 bg-slate-50/50 flex flex-col gap-4 group">
                             <div className="flex justify-between items-start">
@@ -343,65 +360,77 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
            </div>
        </div>
 
-       {/* MOBILE POINT OF SALE */}
-       <div className="lg:hidden flex flex-col h-full bg-slate-50">
-          <div className="flex-1 overflow-y-auto px-6 pt-6 pb-48 no-scrollbar">
-              <div className="bg-white p-6 rounded-[2rem] shadow-soft border border-slate-100 mb-6 relative" ref={wrapperRef}>
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block ml-1">Customer Selection</span>
-                  <div className="flex items-center gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-100 focus-within:ring-2 focus-within:ring-brand-500/10 transition-all">
-                       <UserIcon className="text-slate-300" size={20} />
-                       <input 
-                          type="text"
-                          className="flex-1 bg-transparent outline-none font-bold text-slate-900 placeholder:text-slate-300"
-                          placeholder="Search or Enter Name"
-                          value={customerName}
-                          onChange={e => handleCustomerType(e.target.value)}
-                       />
-                       {mode === 'SALES' && !customerName && <AlertCircle size={18} className="text-rose-400" />}
-                  </div>
-                  {showCustomerList && customerSuggestions.length > 0 && (
-                      <div className="absolute top-full left-0 right-0 z-50 bg-white border border-slate-100 rounded-3xl shadow-premium mt-3 overflow-hidden animate-slide-up mx-2">
-                         {customerSuggestions.map(c => (
-                            <button
-                               key={c.id}
-                               onClick={() => { setCustomerName(c.name); setShowCustomerList(false); }}
-                               className="w-full text-left px-5 py-4 hover:bg-slate-50 border-b border-slate-50 last:border-0 flex justify-between items-center"
-                            >
-                               <span className="font-bold text-slate-800">{c.name}</span>
-                               <span className="text-xs text-slate-400 font-bold">{c.phone}</span>
-                            </button>
-                         ))}
-                      </div>
-                  )}
-              </div>
+       {/* ENHANCED MOBILE POINT OF SALE */}
+       <div className="lg:hidden flex flex-col h-full bg-[#F8FAFC]">
+          <div className="flex-1 overflow-y-auto px-4 pt-4 pb-48 no-scrollbar">
+              
+              {/* Customer Search Section */}
+              {mode === 'SALES' && (
+                <div className="bg-white p-5 rounded-[2rem] shadow-soft border border-slate-100 mb-6 relative" ref={wrapperRef}>
+                    <div className="flex items-center justify-between mb-3">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Customer Selection</span>
+                        {customerName && <button onClick={() => setCustomerName('')} className="text-[9px] font-black text-rose-500 uppercase">Clear</button>}
+                    </div>
+                    <div className="flex items-center gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-100 focus-within:ring-2 focus-within:ring-brand-500/10 transition-all shadow-inner">
+                        <UserIcon className="text-slate-300" size={20} />
+                        <input 
+                            type="text"
+                            className="flex-1 bg-transparent outline-none font-bold text-slate-900 placeholder:text-slate-300"
+                            placeholder="Type name or phone..."
+                            value={customerName}
+                            onChange={e => handleCustomerType(e.target.value)}
+                        />
+                    </div>
+                    {showCustomerList && customerSuggestions.length > 0 && (
+                        <div className="absolute top-full left-0 right-0 z-[60] bg-white border border-slate-100 rounded-3xl shadow-premium mt-3 overflow-hidden animate-slide-up mx-2">
+                            {customerSuggestions.map(c => (
+                                <button
+                                    key={c.id}
+                                    onClick={() => { setCustomerName(c.name); setShowCustomerList(false); }}
+                                    className="w-full text-left px-5 py-4 hover:bg-slate-50 border-b border-slate-50 last:border-0 flex justify-between items-center"
+                                >
+                                    <span className="font-bold text-slate-800">{c.name}</span>
+                                    <span className="text-xs text-slate-400 font-bold">{c.phone}</span>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+              )}
 
+              {/* Cart Items */}
               <div className="space-y-3">
+                  <div className="flex items-center justify-between px-2 mb-2">
+                     <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Cart Items ({cart.length})</h4>
+                     {cart.length > 0 && <button onClick={() => setCart([])} className="text-xs font-bold text-slate-400">Clear All</button>}
+                  </div>
+
                   {cart.length === 0 ? (
-                      <div className="text-center py-20">
-                         <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <Zap size={36} className="text-slate-300" />
+                      <div className="bg-white/50 border-2 border-dashed border-slate-200 rounded-[2rem] p-12 text-center">
+                         <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
+                            <Zap size={28} className="text-slate-300" />
                          </div>
-                         <p className="font-black text-slate-400 uppercase tracking-widest text-[11px]">Cart is Empty</p>
+                         <p className="font-black text-slate-400 uppercase tracking-widest text-[10px]">Add items to begin</p>
                       </div>
                   ) : (
                      cart.map(item => (
-                        <div key={item.tempId} className="bg-white p-5 rounded-[2rem] shadow-soft border border-slate-100 flex flex-col gap-4">
+                        <div key={item.tempId} className="bg-white p-5 rounded-[2rem] shadow-soft border border-slate-50 flex flex-col gap-5 animate-fade-in">
                            <div className="flex justify-between items-start">
                                <div className="flex-1 min-w-0 pr-4">
-                                  <div className="font-black text-slate-900 text-[16px] tracking-tight">{item.partNumber}</div>
-                                  <div className="text-[13px] text-slate-500 font-medium truncate mt-1">{item.name}</div>
-                                  <div className="text-[15px] font-black text-brand-600 mt-2">₹{item.price.toLocaleString()}</div>
+                                  <div className="font-black text-slate-900 text-lg tracking-tight leading-none mb-1">{item.partNumber}</div>
+                                  <div className="text-[12px] text-slate-400 font-medium truncate">{item.name}</div>
                                </div>
-                               <div className="text-right font-black text-slate-900 text-[17px]">
-                                  ₹{(item.price * item.quantity).toLocaleString()}
+                               <div className="text-right">
+                                  <div className="font-black text-slate-900 text-lg">₹{(item.price * item.quantity).toLocaleString()}</div>
+                                  <div className="text-[10px] text-slate-300 font-bold">@ ₹{item.price.toLocaleString()}</div>
                                </div>
                            </div>
                            <div className="flex items-center justify-between border-t border-slate-50 pt-4">
-                               <button onClick={() => removeItem(item.tempId)} className="text-rose-400 p-2.5 rounded-xl hover:bg-rose-50 transition-colors"><Trash2 size={20} /></button>
-                               <div className="flex items-center gap-4 bg-slate-50 px-2 py-1.5 rounded-2xl border border-slate-100 shadow-inner">
-                                   <button onClick={() => updateQty(item.tempId, -1)} className="w-10 h-10 bg-white shadow-soft rounded-xl flex items-center justify-center text-slate-400 active:scale-90 transition-all"><Minus size={18}/></button>
-                                   <span className="w-8 text-center font-black text-[16px] text-slate-800">{item.quantity}</span>
-                                   <button onClick={() => updateQty(item.tempId, 1)} className="w-10 h-10 bg-slate-900 text-white rounded-xl flex items-center justify-center active:scale-90 transition-all shadow-lg"><Plus size={18}/></button>
+                               <button onClick={() => removeItem(item.tempId)} className="w-11 h-11 flex items-center justify-center bg-rose-50 text-rose-500 rounded-2xl active:scale-90 transition-all"><Trash2 size={20} /></button>
+                               <div className="flex items-center gap-5 bg-slate-50 p-1 rounded-2xl border border-slate-100 shadow-inner">
+                                   <button onClick={() => updateQty(item.tempId, -1)} className="w-10 h-10 bg-white shadow-soft rounded-xl flex items-center justify-center text-slate-500 active:scale-90 transition-all"><Minus size={18}/></button>
+                                   <span className="w-6 text-center font-black text-lg text-slate-800">{item.quantity}</span>
+                                   <button onClick={() => updateQty(item.tempId, 1)} className={`w-10 h-10 ${accentColor} text-white shadow-lg rounded-xl flex items-center justify-center active:scale-90 transition-all`}><Plus size={18}/></button>
                                </div>
                            </div>
                         </div>
@@ -410,26 +439,27 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode }) => {
               </div>
           </div>
 
-          <div className="fixed bottom-[70px] left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-slate-100 p-6 shadow-premium z-40 pb-safe-bottom">
+          {/* Sticky Checkout Bar */}
+          <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-slate-100 p-5 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-[80] pb-safe">
               <button 
                  onClick={() => setShowMobileSearch(true)}
-                 className="w-full bg-slate-100 hover:bg-slate-200 text-slate-900 font-black py-4 rounded-[1.5rem] flex items-center justify-center gap-3 mb-6 transition-all active:scale-95 text-[15px] uppercase tracking-widest"
+                 className="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-black py-4 rounded-2xl flex items-center justify-center gap-3 mb-5 transition-all active:scale-95 text-[14px] uppercase tracking-widest border border-slate-200/50"
               >
-                  <PackagePlus size={22} /> Add Spare Part
+                  <PackagePlus size={20} /> Add Spare Part
               </button>
 
-              <div className="flex items-center gap-6">
-                  <div className="flex-1">
-                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Grand Total</p>
-                     <p className="text-3xl font-black text-slate-900 tracking-tight">₹{totalAmount.toLocaleString()}</p>
+              <div className="flex items-center gap-4">
+                  <div className="flex-1 pl-2">
+                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Total Amount</p>
+                     <p className="text-2xl font-black text-slate-900 tracking-tight">₹{totalAmount.toLocaleString()}</p>
                   </div>
                   <button 
                      onClick={handleSubmit}
                      disabled={loading || cart.length === 0}
-                     className={`flex-[1.5] text-white font-black py-5 rounded-[1.5rem] shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-30 text-[17px] ${accentColor}`}
+                     className={`flex-[1.5] text-white font-black py-4.5 rounded-[1.25rem] shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-30 text-[16px] ${accentColor}`}
                   >
                      {loading ? <Loader2 className="animate-spin" size={24} /> : (
-                        <>Checkout <ArrowRight size={22} /></>
+                        <>Complete {mode === 'PURCHASE' ? 'In' : 'Out'} <ArrowRight size={20} /></>
                      )}
                   </button>
               </div>
