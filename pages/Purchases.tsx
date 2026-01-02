@@ -27,7 +27,8 @@ import {
   Calculator,
   ShieldCheck,
   AlertTriangle,
-  Percent
+  Percent,
+  Building2
 } from 'lucide-react';
 import { fetchTransactions, createBulkTransactions } from '../services/transactionService';
 import { extractInvoiceData } from '../services/geminiService';
@@ -59,8 +60,9 @@ const Purchases: React.FC<Props> = ({ user }) => {
 
   // Bulk Import State
   const [importing, setImporting] = useState(false);
-  const [importLog, setImportLog] = useState<{ success: boolean; message: string; count: number; totalValue: number; errorCount: number } | null>(null);
+  const [importLog, setImportLog] = useState<{ success: boolean; message: string; count: number; totalValue: number; errorCount: number; dealer?: string } | null>(null);
   const [previewData, setPreviewData] = useState<ExtractedItem[]>([]);
+  const [extractedMetadata, setExtractedMetadata] = useState<{ dealerName?: string; invoiceDate?: string }>({});
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const STANDARD_DISCOUNT = 12;
@@ -97,16 +99,22 @@ const Purchases: React.FC<Props> = ({ user }) => {
     setImporting(true);
     setErrorMsg(null);
     setPreviewData([]);
+    setExtractedMetadata({});
     setImportLog(null);
 
     try {
       if (file.type === 'application/pdf' || file.type.startsWith('image/')) {
         const base64 = await fileToBase64(file);
-        const extracted = await extractInvoiceData(base64, file.type);
+        const result = await extractInvoiceData(base64, file.type);
         
-        if (extracted && extracted.length > 0) {
+        if (result && result.items && result.items.length > 0) {
+          setExtractedMetadata({
+            dealerName: result.dealerName,
+            invoiceDate: result.invoiceDate
+          });
+
           // Process verification logic with 12% rules
-          const verifiedItems = extracted.map((item: any) => {
+          const verifiedItems = result.items.map((item: any) => {
             const expectedPriceAt12Percent = item.mrp * (1 - (STANDARD_DISCOUNT / 100));
             const diff = Math.abs(expectedPriceAt12Percent - item.printedUnitPrice);
             
@@ -189,12 +197,16 @@ const Purchases: React.FC<Props> = ({ user }) => {
     if (previewData.length === 0) return;
     setImporting(true);
 
+    const sourceName = extractedMetadata.dealerName 
+      ? `${extractedMetadata.dealerName} (Inv: ${extractedMetadata.invoiceDate || 'N/A'})`
+      : `AI Audit Scan (${new Date().toLocaleDateString()})`;
+
     const payload = previewData.map(item => ({
       partNumber: item.partNumber,
       type: TransactionType.PURCHASE,
       quantity: item.quantity,
       price: item.printedUnitPrice,
-      customerName: `AI Audit Scan (${new Date().toLocaleDateString()})`,
+      customerName: sourceName,
       createdByRole: user.role
     }));
 
@@ -208,7 +220,8 @@ const Purchases: React.FC<Props> = ({ user }) => {
         message: "Stock successfully updated.", 
         count: payload.length,
         totalValue: total,
-        errorCount
+        errorCount,
+        dealer: extractedMetadata.dealerName
       });
       setPreviewData([]);
     } else {
@@ -221,6 +234,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
     if (!importLog) return;
     
     const summary = `🚀 *Sparezy Inbound Verification*\n\n` +
+      `🏢 *Dealer:* ${importLog.dealer || 'Unknown'}\n` +
       `📅 *Date:* ${new Date().toLocaleDateString()}\n` +
       `📦 *Items:* ${importLog.count}\n` +
       `💰 *Total:* ₹${importLog.totalValue.toLocaleString()}\n` +
@@ -267,9 +281,9 @@ const Purchases: React.FC<Props> = ({ user }) => {
                     <div className="bg-blue-50 border border-blue-100 rounded-[2.5rem] p-8 flex gap-5 items-start shadow-sm">
                         <div className="p-4 bg-blue-600 text-white rounded-3xl shadow-xl shadow-blue-100 flex-none"><Calculator size={28} /></div>
                         <div>
-                            <h3 className="font-black text-blue-900 text-lg uppercase tracking-tight">Audit: 12% B.DC Rule</h3>
+                            <h3 className="font-black text-blue-900 text-lg uppercase tracking-tight">AI Bill Audit</h3>
                             <p className="text-[14px] text-blue-700/80 mt-2 leading-relaxed font-medium">
-                                Upload your bill. Sparezy will verify if every item has at least <b>12% B.DC</b> and if the <b>Net Price</b> calculation is correct based on MRP.
+                                Upload your bill. Sparezy will automatically extract the <b>Dealer Name</b>, <b>Invoice Date</b>, and check if every item follows the <b>12% B.DC</b> rule.
                             </p>
                         </div>
                     </div>
@@ -302,7 +316,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
                         {importLog.success ? 'Import Complete' : 'Process Halted'}
                       </h3>
                       <p className="mt-4 font-bold text-slate-400 text-base max-w-sm leading-relaxed">
-                         {importLog.success ? `Stock updated. ${importLog.errorCount > 0 ? `Alert: Detected ${importLog.errorCount} discrepancies in bill math or discount rules.` : 'Audit passed: All items follow 12% rule.'}` : importLog.message}
+                         {importLog.success ? `Stock updated for ${importLog.dealer || 'Dealer'}. ${importLog.errorCount > 0 ? `Alert: Detected ${importLog.errorCount} discrepancies.` : 'Audit passed successfully.'}` : importLog.message}
                       </p>
                       {importLog.success && (
                         <div className="mt-12 space-y-4 w-full">
@@ -333,11 +347,24 @@ const Purchases: React.FC<Props> = ({ user }) => {
                            <div className="bg-blue-600 text-white p-4 rounded-3xl shadow-xl shadow-blue-100"><ShieldCheck size={28} /></div>
                            <div>
                               <h3 className="font-black text-slate-900 text-xl leading-none mb-2">Audit: {previewData.length} Items</h3>
-                              <p className="text-[11px] text-slate-400 font-black uppercase tracking-[0.2em]">Verification Rule: {STANDARD_DISCOUNT}% B.DC</p>
+                              <p className="text-[11px] text-slate-400 font-black uppercase tracking-[0.2em]">Supplier: {extractedMetadata.dealerName || 'Manual'}</p>
                            </div>
                         </div>
                         <button onClick={() => setPreviewData([])} className="p-3 text-slate-300 hover:text-rose-500 bg-white rounded-2xl shadow-sm transition-all active:scale-90"><X size={24} /></button>
                      </div>
+
+                     {extractedMetadata.dealerName && (
+                        <div className="bg-blue-50/50 px-8 py-4 border-b border-slate-100 flex flex-wrap gap-6">
+                           <div className="flex items-center gap-2">
+                              <Building2 size={16} className="text-blue-600" />
+                              <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">{extractedMetadata.dealerName}</span>
+                           </div>
+                           <div className="flex items-center gap-2">
+                              <Calendar size={16} className="text-blue-600" />
+                              <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">{extractedMetadata.invoiceDate || 'Date N/A'}</span>
+                           </div>
+                        </div>
+                     )}
 
                      <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar bg-slate-50/30">
                         {previewData.map((row, i) => (

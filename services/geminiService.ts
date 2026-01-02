@@ -1,10 +1,8 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { StockItem } from "../types";
 
 export const generateInventoryInsights = async (inventory: StockItem[]): Promise<string> => {
   try {
-    // Fix: Initialize GoogleGenAI strictly using process.env.API_KEY without fallback
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const summary = inventory.map(i => 
       `- ${i.partNumber} (${i.brand}): ${i.quantity} units (Threshold: ${i.minStockThreshold})`
@@ -31,7 +29,6 @@ export const generateInventoryInsights = async (inventory: StockItem[]): Promise
       contents: prompt,
     });
 
-    // Fix: Directly access the .text property of GenerateContentResponse
     return response.text || "No insights generated.";
   } catch (error) {
     console.error("Gemini API Error:", error);
@@ -41,7 +38,6 @@ export const generateInventoryInsights = async (inventory: StockItem[]): Promise
 
 export const extractInvoiceData = async (base64File: string, mimeType: string) => {
   try {
-    // Fix: Initialize GoogleGenAI strictly using process.env.API_KEY without fallback
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
     const filePart = {
@@ -52,17 +48,20 @@ export const extractInvoiceData = async (base64File: string, mimeType: string) =
     };
 
     const prompt = `
-      Extract line items from this car spare parts invoice. 
-      Specifically look for:
-      1. Part Number (alphanumeric, often labeled as Part ID, SKU, or Part No)
-      2. Name/Description
-      3. Quantity (Qty)
-      4. MRP (Maximum Retail Price before any discount)
-      5. B.DC % (Basic Discount percentage. Note: It is expected to be 12%. If it is different, extract the actual value shown)
-      6. Printed Net Unit Price (The price shown on the bill for ONE unit AFTER the discount is applied)
+      Extract details from this car spare parts invoice. 
+      
+      1. Identify the Dealer/Vendor Name (The company selling the parts).
+      2. Identify the Invoice Date.
+      3. Extract all line items with these specific fields:
+         - Part Number (alphanumeric SKU)
+         - Part Name/Description (the full descriptive name of the part)
+         - Quantity (Qty)
+         - MRP (Maximum Retail Price before discount)
+         - B.DC % (Basic Discount percentage, typically around 12%)
+         - Printed Net Unit Price (Final price for one unit shown on the bill)
 
-      Ensure numerical values are clean numbers. If discount isn't listed, assume 0 for extraction but the system will verify against the 12% rule.
-      Return the data strictly as a JSON array.
+      Ensure numerical values are clean numbers. 
+      Return the data strictly as a JSON object.
     `;
 
     const response = await ai.models.generateContent({
@@ -71,25 +70,32 @@ export const extractInvoiceData = async (base64File: string, mimeType: string) =
       config: {
         responseMimeType: "application/json",
         responseSchema: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              partNumber: { type: Type.STRING },
-              name: { type: Type.STRING },
-              quantity: { type: Type.NUMBER },
-              mrp: { type: Type.NUMBER },
-              discountPercent: { type: Type.NUMBER, description: "B.DC or Discount % extracted from bill" },
-              printedUnitPrice: { type: Type.NUMBER, description: "The unit price shown on the bill after discount" }
-            },
-            required: ["partNumber", "quantity", "mrp", "discountPercent", "printedUnitPrice"]
-          }
+          type: Type.OBJECT,
+          properties: {
+            dealerName: { type: Type.STRING, description: "Name of the supplier/dealer" },
+            invoiceDate: { type: Type.STRING, description: "Date on the invoice" },
+            items: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  partNumber: { type: Type.STRING },
+                  name: { type: Type.STRING, description: "Descriptive name of the part" },
+                  quantity: { type: Type.NUMBER },
+                  mrp: { type: Type.NUMBER },
+                  discountPercent: { type: Type.NUMBER, description: "B.DC percentage" },
+                  printedUnitPrice: { type: Type.NUMBER, description: "The unit price shown on the bill after discount" }
+                },
+                required: ["partNumber", "name", "quantity", "mrp", "discountPercent", "printedUnitPrice"]
+              }
+            }
+          },
+          required: ["dealerName", "items"]
         }
       }
     });
 
-    // Fix: Directly access the .text property of GenerateContentResponse
-    return JSON.parse(response.text || "[]");
+    return JSON.parse(response.text || "{}");
   } catch (error) {
     console.error("Invoice Extraction Error:", error);
     throw new Error("Failed to read the invoice. Please ensure the document is clear.");

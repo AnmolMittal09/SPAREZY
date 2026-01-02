@@ -1,8 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { User, Transaction, TransactionStatus, TransactionType, Role } from '../types';
 import DailyTransactions from './DailyTransactions'; 
-// Added missing Minus, Plus, and Loader2 icons to imports
-import { History, PlusCircle, Receipt, User as UserIcon, Undo2, Search, ArrowRight, CheckCircle2, AlertCircle, ShoppingBag, Clock, Calendar, Minus, Plus, Loader2 } from 'lucide-react';
+import { 
+  History, 
+  PlusCircle, 
+  User as UserIcon, 
+  Undo2, 
+  Search, 
+  CheckCircle2, 
+  AlertCircle, 
+  Clock, 
+  Calendar, 
+  Minus, 
+  Plus, 
+  Loader2,
+  Filter,
+  ArrowUpDown,
+  ChevronDown,
+  X,
+  TrendingDown,
+  TrendingUp,
+  Banknote
+} from 'lucide-react';
 import { createBulkTransactions, fetchTransactions } from '../services/transactionService';
 import TharLoader from '../components/TharLoader';
 
@@ -10,11 +29,24 @@ interface Props {
   user: User;
 }
 
+type SortField = 'date' | 'amount';
+type SortOrder = 'asc' | 'desc';
+
 const Billing: React.FC<Props> = ({ user }) => {
   const [activeTab, setActiveTab] = useState<'NEW' | 'RETURN' | 'HISTORY'>('NEW');
   const [history, setHistory] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [isSearchingOnMobile, setIsSearchingOnMobile] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+
+  // --- HISTORY FILTERS & SORTING STATE ---
+  const [historySearch, setHistorySearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'ALL' | TransactionType.SALE | TransactionType.RETURN>('ALL');
+  const [dateRange, setDateRange] = useState<'ALL' | 'TODAY' | 'WEEK' | 'MONTH'>('ALL');
+  const [minAmount, setMinAmount] = useState<string>('');
+  const [maxAmount, setMaxAmount] = useState<string>('');
+  const [sortBy, setSortBy] = useState<SortField>('date');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
 
   // --- RETURN TAB STATE ---
   const [salesLog, setSalesLog] = useState<Transaction[]>([]);
@@ -65,7 +97,56 @@ const Billing: React.FC<Props> = ({ user }) => {
     setLoading(false);
   };
 
-  // --- RETURN LOGIC ---
+  // --- COMPUTED FILTERED HISTORY ---
+  const filteredHistory = useMemo(() => {
+    let result = [...history];
+
+    // 1. Search filter
+    if (historySearch) {
+      const s = historySearch.toLowerCase();
+      result = result.filter(tx => 
+        tx.partNumber.toLowerCase().includes(s) || 
+        tx.customerName.toLowerCase().includes(s)
+      );
+    }
+
+    // 2. Type filter
+    if (typeFilter !== 'ALL') {
+      result = result.filter(tx => tx.type === typeFilter);
+    }
+
+    // 3. Date range filter
+    if (dateRange !== 'ALL') {
+      const now = new Date();
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+      
+      result = result.filter(tx => {
+        const txTime = new Date(tx.createdAt).getTime();
+        if (dateRange === 'TODAY') return txTime >= startOfToday;
+        if (dateRange === 'WEEK') return txTime >= (now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        if (dateRange === 'MONTH') return txTime >= (now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        return true;
+      });
+    }
+
+    // 4. Amount range filter
+    const min = parseFloat(minAmount);
+    const max = parseFloat(maxAmount);
+    if (!isNaN(min)) result = result.filter(tx => (tx.price * tx.quantity) >= min);
+    if (!isNaN(max)) result = result.filter(tx => (tx.price * tx.quantity) <= max);
+
+    // 5. Sorting
+    result.sort((a, b) => {
+      let valA = sortBy === 'date' ? new Date(a.createdAt).getTime() : (a.price * a.quantity);
+      let valB = sortBy === 'date' ? new Date(b.createdAt).getTime() : (b.price * b.quantity);
+      
+      if (sortOrder === 'asc') return valA - valB;
+      return valB - valA;
+    });
+
+    return result;
+  }, [history, historySearch, typeFilter, dateRange, minAmount, maxAmount, sortBy, sortOrder]);
+
   const handleReturnToggle = (tx: Transaction) => {
     const newSelection = { ...selectedReturns };
     if (newSelection[tx.id]) {
@@ -135,10 +216,19 @@ const Billing: React.FC<Props> = ({ user }) => {
      return acc + (tx ? (tx.price * selectedReturns[id]) : 0);
   }, 0);
 
+  const clearFilters = () => {
+    setHistorySearch('');
+    setTypeFilter('ALL');
+    setDateRange('ALL');
+    setMinAmount('');
+    setMaxAmount('');
+    setSortBy('date');
+    setSortOrder('desc');
+  };
+
   return (
     <div className="h-full flex flex-col bg-slate-50 md:bg-transparent">
        
-       {/* --- MOBILE SEGMENTED CONTROL - HIDDEN WHEN SEARCHING --- */}
        {!isSearchingOnMobile && (
          <div className="md:hidden bg-white p-4 border-b border-slate-100 z-20 sticky top-0 shadow-sm animate-fade-in">
             <div className="flex bg-slate-100 p-1 rounded-2xl">
@@ -164,7 +254,6 @@ const Billing: React.FC<Props> = ({ user }) => {
          </div>
        )}
 
-       {/* --- DESKTOP HEADER --- */}
        <div className="hidden md:flex justify-between items-center mb-6">
           <div>
              <h1 className="text-3xl font-black text-slate-900 tracking-tight">Counter Sales</h1>
@@ -174,10 +263,10 @@ const Billing: React.FC<Props> = ({ user }) => {
              <button onClick={() => setActiveTab('NEW')} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === 'NEW' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}>
                <PlusCircle size={18} /> New Sale
              </button>
-             <button onClick={() => setActiveTab('RETURN')} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === 'RETURN' ? 'bg-rose-600 text-white shadow-lg' : 'text-slate-500 hover:bg-rose-50'}`}>
+             <button onClick={() => setActiveTab('RETURN')} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === 'RETURN' ? 'bg-rose-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}>
                <Undo2 size={18} /> Process Return
              </button>
-             <button onClick={() => setActiveTab('HISTORY')} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === 'HISTORY' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:bg-rose-50'}`}>
+             <button onClick={() => setActiveTab('HISTORY')} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === 'HISTORY' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}>
                <History size={18} /> Recent History
              </button>
           </div>
@@ -234,7 +323,7 @@ const Billing: React.FC<Props> = ({ user }) => {
                                     className={`p-5 rounded-[2rem] border transition-all cursor-pointer bg-white ${isSelected ? 'border-rose-500 ring-2 ring-rose-500/10 shadow-lg' : 'border-slate-100 hover:border-slate-200 shadow-sm'}`}
                                 >
                                     <div className="flex justify-between items-start mb-4">
-                                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${isSelected ? 'bg-rose-500 border-rose-500 text-white' : 'bg-slate-50 border-slate-200 text-transparent'}`}>
+                                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${isSelected ? 'bg-rose-50 border-rose-50 text-white' : 'bg-slate-50 border-slate-200 text-transparent'}`}>
                                             <CheckCircle2 size={14} />
                                         </div>
                                         <div className="text-right">
@@ -296,23 +385,126 @@ const Billing: React.FC<Props> = ({ user }) => {
 
           {activeTab === 'HISTORY' && (
              <div className="bg-[#F8FAFC] md:bg-white md:rounded-3xl shadow-soft border border-slate-100 flex flex-col h-full overflow-hidden">
-                <div className="p-5 border-b border-slate-100 bg-white flex items-center gap-3">
-                   <div className="p-2 bg-slate-900 text-white rounded-xl"><History size={18} /></div>
-                   <span className="font-black text-slate-900 text-base uppercase tracking-tight">Approved Ledger</span>
+                <div className="p-4 md:p-6 border-b border-slate-100 bg-white flex flex-col md:flex-row justify-between items-center gap-4">
+                   <div className="flex items-center gap-3 w-full md:w-auto">
+                      <div className="p-2 bg-slate-900 text-white rounded-xl"><History size={18} /></div>
+                      <span className="font-black text-slate-900 text-base uppercase tracking-tight">Financial Journal</span>
+                   </div>
+                   
+                   <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto no-scrollbar pb-1 md:pb-0">
+                      <div className="relative flex-1 md:w-64">
+                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
+                         <input 
+                           type="text" 
+                           placeholder="Search History..." 
+                           className="w-full pl-10 pr-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold shadow-inner focus:ring-2 focus:ring-slate-200"
+                           value={historySearch}
+                           onChange={e => setHistorySearch(e.target.value)}
+                         />
+                      </div>
+                      <button 
+                        onClick={() => setShowFilters(!showFilters)}
+                        className={`p-2 rounded-xl border transition-all flex items-center gap-2 whitespace-nowrap text-xs font-bold ${showFilters ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}
+                      >
+                         <Filter size={16} /> Filters {(typeFilter !== 'ALL' || dateRange !== 'ALL' || minAmount || maxAmount) && "•"}
+                      </button>
+                      <button 
+                        onClick={loadHistory}
+                        className="p-2 bg-white text-slate-400 border border-slate-200 rounded-xl hover:text-slate-600 transition-all"
+                      >
+                         <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+                      </button>
+                   </div>
                 </div>
+
+                {showFilters && (
+                  <div className="bg-white border-b border-slate-100 p-4 md:p-6 animate-slide-down">
+                    <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-4">
+                       <div className="space-y-1.5">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tx Type</label>
+                          <select 
+                            className="w-full bg-slate-50 border-none rounded-xl text-xs font-bold p-2.5 focus:ring-2 focus:ring-slate-100"
+                            value={typeFilter}
+                            onChange={e => setTypeFilter(e.target.value as any)}
+                          >
+                             <option value="ALL">All Types</option>
+                             <option value={TransactionType.SALE}>Sales Only</option>
+                             <option value={TransactionType.RETURN}>Returns Only</option>
+                          </select>
+                       </div>
+                       <div className="space-y-1.5">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Period</label>
+                          <select 
+                            className="w-full bg-slate-50 border-none rounded-xl text-xs font-bold p-2.5 focus:ring-2 focus:ring-slate-100"
+                            value={dateRange}
+                            onChange={e => setDateRange(e.target.value as any)}
+                          >
+                             <option value="ALL">All Time</option>
+                             <option value="TODAY">Today</option>
+                             <option value="WEEK">Last 7 Days</option>
+                             <option value="MONTH">Last 30 Days</option>
+                          </select>
+                       </div>
+                       <div className="space-y-1.5">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Amount Range (₹)</label>
+                          <div className="flex items-center gap-2">
+                             <input 
+                               type="number" 
+                               placeholder="Min" 
+                               className="w-full bg-slate-50 border-none rounded-xl text-xs font-bold p-2.5 focus:ring-2 focus:ring-slate-100"
+                               value={minAmount}
+                               onChange={e => setMinAmount(e.target.value)}
+                             />
+                             <span className="text-slate-300">-</span>
+                             <input 
+                               type="number" 
+                               placeholder="Max" 
+                               className="w-full bg-slate-50 border-none rounded-xl text-xs font-bold p-2.5 focus:ring-2 focus:ring-slate-100"
+                               value={maxAmount}
+                               onChange={e => setMaxAmount(e.target.value)}
+                             />
+                          </div>
+                       </div>
+                       <div className="space-y-1.5">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Sort Order</label>
+                          <div className="flex gap-2">
+                            <select 
+                                className="flex-1 bg-slate-50 border-none rounded-xl text-xs font-bold p-2.5 focus:ring-2 focus:ring-slate-100"
+                                value={sortBy}
+                                onChange={e => setSortBy(e.target.value as any)}
+                            >
+                                <option value="date">Date</option>
+                                <option value="amount">Amount</option>
+                            </select>
+                            <button 
+                                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                                className="bg-slate-50 p-2.5 rounded-xl text-slate-500 hover:text-slate-900 transition-colors"
+                            >
+                                <ArrowUpDown size={16} />
+                            </button>
+                          </div>
+                       </div>
+                    </div>
+                    <div className="flex justify-end mt-4">
+                       <button onClick={clearFilters} className="text-[10px] font-black text-rose-500 uppercase tracking-widest hover:underline">Reset All Filters</button>
+                    </div>
+                  </div>
+                )}
                 
                 <div className="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar pb-24">
                   {loading ? (
                     <div className="flex justify-center p-12"><TharLoader /></div>
-                  ) : history.length === 0 ? (
+                  ) : filteredHistory.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-24 text-slate-300">
                         <AlertCircle size={64} className="mb-4 opacity-10" />
-                        <p className="font-black text-xs uppercase tracking-widest">No history yet</p>
+                        <p className="font-black text-xs uppercase tracking-widest">No entries found matching filters</p>
+                        <button onClick={clearFilters} className="mt-4 text-brand-600 font-bold text-xs uppercase tracking-widest">Clear All Filters</button>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {history.map(tx => {
+                      {filteredHistory.map(tx => {
                           const isReturn = tx.type === TransactionType.RETURN;
+                          const amount = tx.price * tx.quantity;
                           return (
                             <div key={tx.id} className={`p-5 rounded-[2rem] bg-white border border-slate-50 shadow-sm flex flex-col animate-fade-in relative overflow-hidden group`}>
                                 {isReturn && <div className="absolute top-0 right-0 w-16 h-16 bg-rose-500/5 rotate-45 translate-x-8 -translate-y-8"></div>}
@@ -327,6 +519,7 @@ const Billing: React.FC<Props> = ({ user }) => {
                                         </div>
                                     </div>
                                     <div className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${isReturn ? 'bg-rose-50 text-rose-600' : 'bg-teal-50 text-teal-600'}`}>
+                                        {isReturn ? <TrendingDown size={10} className="inline mr-1"/> : <TrendingUp size={10} className="inline mr-1"/>}
                                         {tx.type}
                                     </div>
                                 </div>
@@ -342,12 +535,16 @@ const Billing: React.FC<Props> = ({ user }) => {
                                 </div>
 
                                 <div className="mt-auto flex justify-between items-center">
-                                    <div className="bg-slate-100 px-3 py-1.5 rounded-xl text-[11px] font-black text-slate-500 uppercase tracking-widest">
-                                        QTY: {tx.quantity}
+                                    <div className="flex flex-col">
+                                       <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest leading-none mb-1">Quantity</span>
+                                       <span className="bg-slate-100 px-3 py-1 rounded-xl text-[11px] font-black text-slate-500 uppercase tracking-widest w-fit">
+                                          {tx.quantity} units
+                                       </span>
                                     </div>
                                     <div className="text-right">
+                                        <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest leading-none mb-1">Net Value</p>
                                         <p className={`text-xl font-black tracking-tight ${isReturn ? 'text-rose-600' : 'text-slate-900'}`}>
-                                            {isReturn ? '-' : ''}₹{(tx.price * tx.quantity).toLocaleString()}
+                                            {isReturn ? '-' : ''}₹{amount.toLocaleString()}
                                         </p>
                                     </div>
                                 </div>
@@ -363,5 +560,26 @@ const Billing: React.FC<Props> = ({ user }) => {
     </div>
   );
 };
+
+// Internal utility component for refresh icon animation
+const RefreshCw: React.FC<{ className?: string }> = ({ className }) => (
+  <svg 
+    xmlns="http://www.w3.org/2000/svg" 
+    width="24" 
+    height="24" 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className}
+  >
+    <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+    <path d="M3 3v5h5" />
+    <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+    <path d="M16 16h5v5" />
+  </svg>
+);
 
 export default Billing;
