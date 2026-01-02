@@ -1,9 +1,9 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 // @ts-ignore
 import { Link } from 'react-router-dom';
-import { StockItem, Brand, Role } from '../types';
-import { bulkArchiveItems } from '../services/inventoryService';
-import { Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, Archive, ArchiveRestore, Loader2, Eye, EyeOff, Lock } from 'lucide-react';
+import { StockItem, Brand, Role, PriceHistoryEntry } from '../types';
+import { bulkArchiveItems, fetchPriceHistory } from '../services/inventoryService';
+import { Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, Archive, ArchiveRestore, Loader2, Eye, EyeOff, Lock, Info, TrendingUp, TrendingDown, Clock } from 'lucide-react';
 
 interface StockTableProps {
   items: StockItem[];
@@ -17,11 +17,60 @@ interface StockTableProps {
   hidePriceByDefault?: boolean;
 }
 
-const PriceCell: React.FC<{ price: number; userRole?: Role }> = ({ price, userRole }) => {
+const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role }> = ({ price, partNumber, userRole }) => {
   const [visible, setVisible] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [history, setHistory] = useState<PriceHistoryEntry | null>(null);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const popoverRef = useRef<HTMLDivElement>(null);
   const isManager = userRole === Role.MANAGER;
 
-  // Logic: Managers strictly cannot reveal the MRP.
+  // Close popover when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
+        setShowHistory(false);
+      }
+    };
+    if (showHistory) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showHistory]);
+
+  const handlePriceClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+
+    if (isManager) return;
+
+    if (!visible) {
+      setVisible(true);
+      return;
+    }
+
+    // If already visible, show history popup
+    if (!showHistory) {
+      setShowHistory(true);
+      if (!history && !loadingHistory) {
+        setLoadingHistory(true);
+        try {
+          const data = await fetchPriceHistory(partNumber);
+          if (data && data.length > 0) {
+            // Get the most recent change
+            setHistory(data[0]);
+          }
+        } catch (err) {
+          console.error("Failed to load price history", err);
+        } finally {
+          setLoadingHistory(false);
+        }
+      }
+    } else {
+      setShowHistory(false);
+    }
+  };
+
   if (isManager) {
     return (
       <div className="flex items-center justify-end gap-2 text-slate-300 select-none">
@@ -34,26 +83,91 @@ const PriceCell: React.FC<{ price: number; userRole?: Role }> = ({ price, userRo
   }
 
   return (
-    <div 
-      onClick={(e) => {
-        e.stopPropagation();
-        e.preventDefault();
-        setVisible(!visible);
-      }}
-      className={`cursor-pointer select-none font-black text-[15px] transition-all duration-200 flex items-center justify-end gap-2 group/price ${visible ? 'text-slate-900' : 'text-slate-300 hover:text-slate-400'}`}
-    >
-      {visible ? (
-        <>
-          <span>₹{price.toLocaleString()}</span>
-          <EyeOff size={14} className="opacity-40 group-hover/price:opacity-100" />
-        </>
-      ) : (
-        <>
-          <span className="blur-[4px] tracking-tighter">₹88,888</span>
-          <div className="bg-slate-100 p-1 rounded-md">
-            <Eye size={12} className="text-slate-400" />
+    <div className="relative flex justify-end items-center">
+      <div 
+        onClick={handlePriceClick}
+        className={`cursor-pointer select-none font-black text-[15px] transition-all duration-200 flex items-center justify-end gap-2 group/price px-2 py-1 rounded-lg ${visible ? 'text-slate-900 bg-slate-50' : 'text-slate-300 hover:text-slate-400 hover:bg-slate-50/50'}`}
+      >
+        {visible ? (
+          <>
+            <span className="flex items-center gap-1">
+              ₹{price.toLocaleString()}
+              {history && <div className="w-1 h-1 rounded-full bg-brand-500 animate-pulse" title="History available" />}
+            </span>
+            <Info size={14} className={`opacity-40 group-hover/price:opacity-100 transition-opacity ${showHistory ? 'text-brand-600 opacity-100' : ''}`} />
+          </>
+        ) : (
+          <>
+            <span className="blur-[4px] tracking-tighter">₹88,888</span>
+            <div className="bg-slate-100 p-1 rounded-md">
+              <Eye size={12} className="text-slate-400" />
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* PRICE HISTORY POPOVER */}
+      {showHistory && (
+        <div 
+          ref={popoverRef}
+          className="absolute bottom-full right-0 mb-3 z-[100] w-64 bg-white rounded-2xl shadow-premium border border-slate-100 p-5 animate-slide-up overflow-hidden"
+        >
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-500 to-indigo-500"></div>
+          
+          <div className="flex items-center justify-between mb-4">
+            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">MRP Comparison</h4>
+            <div className="p-1 bg-slate-50 rounded-md">
+              <Clock size={12} className="text-slate-400" />
+            </div>
           </div>
-        </>
+
+          {loadingHistory ? (
+            <div className="py-4 flex flex-col items-center gap-2">
+              <Loader2 size={18} className="animate-spin text-brand-500" />
+              <span className="text-[10px] font-bold text-slate-400 uppercase">Checking History...</span>
+            </div>
+          ) : history ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Old Price</p>
+                  <p className="text-lg font-bold text-slate-400 line-through decoration-slate-300">₹{history.oldPrice.toLocaleString()}</p>
+                </div>
+                <div className="flex flex-col items-center">
+                   {history.newPrice > history.oldPrice ? (
+                     <div className="bg-rose-50 text-rose-600 p-1.5 rounded-full">
+                       <TrendingUp size={16} />
+                     </div>
+                   ) : (
+                     <div className="bg-teal-50 text-teal-600 p-1.5 rounded-full">
+                       <TrendingDown size={16} />
+                     </div>
+                   )}
+                   <span className={`text-[9px] font-black mt-1 ${history.newPrice > history.oldPrice ? 'text-rose-500' : 'text-teal-500'}`}>
+                     {history.newPrice > history.oldPrice ? '+' : '-'}{Math.abs(((history.newPrice - history.oldPrice) / history.oldPrice) * 100).toFixed(1)}%
+                   </span>
+                </div>
+                <div className="space-y-0.5 text-right">
+                  <p className="text-[10px] font-bold text-brand-500 uppercase tracking-tight">Current Price</p>
+                  <p className="text-lg font-black text-slate-900">₹{history.newPrice.toLocaleString()}</p>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-50 flex items-center justify-between">
+                 <span className="text-[9px] font-bold text-slate-400 uppercase">Last Changed</span>
+                 <span className="text-[10px] font-black text-slate-600 italic">{new Date(history.changeDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric'})}</span>
+              </div>
+            </div>
+          ) : (
+            <div className="py-4 text-center">
+               <p className="text-sm font-bold text-slate-400">No price changes recorded.</p>
+               <p className="text-[9px] font-medium text-slate-300 uppercase mt-1">Showing first entry</p>
+               <div className="mt-3 font-black text-slate-900 text-lg">₹{price.toLocaleString()}</div>
+            </div>
+          )}
+          
+          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 rotate-45 w-3 h-3 bg-white border-r border-b border-slate-100"></div>
+        </div>
       )}
     </div>
   );
@@ -291,7 +405,7 @@ const StockTable: React.FC<StockTableProps> = ({
                                     </span>
                                 </td>
                                 <td className="px-6 py-5 text-right">
-                                  {shouldHidePrice ? <PriceCell price={item.price} userRole={userRole} /> : <div className="font-black text-slate-900 text-[15px]">₹{item.price.toLocaleString()}</div>}
+                                  {shouldHidePrice ? <PriceCell price={item.price} partNumber={item.partNumber} userRole={userRole} /> : <div className="font-black text-slate-900 text-[15px]">₹{item.price.toLocaleString()}</div>}
                                 </td>
                                 {enableActions && (
                                     <td className="px-6 py-5 text-center">
@@ -360,7 +474,7 @@ const StockTable: React.FC<StockTableProps> = ({
                     <div className="mt-4 pt-3 border-t border-slate-50 flex items-center justify-between">
                         <div className="flex flex-col">
                             <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Price (MRP)</span>
-                            {shouldHidePrice ? <PriceCell price={item.price} userRole={userRole} /> : <div className="font-black text-slate-900 text-[15px]">₹{item.price.toLocaleString()}</div>}
+                            {shouldHidePrice ? <PriceCell price={item.price} partNumber={item.partNumber} userRole={userRole} /> : <div className="font-black text-slate-900 text-[15px]">₹{item.price.toLocaleString()}</div>}
                         </div>
                         <Link to={`/item/${encodeURIComponent(item.partNumber)}`} className="bg-slate-50 text-slate-500 font-bold text-[11px] px-4 py-2 rounded-xl flex items-center gap-1 active:bg-brand-50 active:text-brand-600 transition-colors">
                             Details <ChevronRight size={14} />
