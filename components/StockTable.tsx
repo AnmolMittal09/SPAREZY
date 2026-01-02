@@ -17,7 +17,7 @@ interface StockTableProps {
   hidePriceByDefault?: boolean;
 }
 
-const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role }> = ({ price, partNumber, userRole }) => {
+const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role; align?: 'left' | 'right' }> = ({ price, partNumber, userRole, align = 'right' }) => {
   const [visible, setVisible] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<PriceHistoryEntry[]>([]);
@@ -58,13 +58,10 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role }
 
     if (!visible) {
       setVisible(true);
-      return;
-    }
-
-    if (!showHistory) {
       setShowHistory(true);
       await loadHistory();
     } else {
+      setVisible(false);
       setShowHistory(false);
     }
   };
@@ -84,7 +81,7 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role }
 
   if (isManager) {
     return (
-      <div className="flex items-center justify-end gap-2 text-slate-300 select-none">
+      <div className={`flex items-center ${align === 'right' ? 'justify-end' : 'justify-start'} gap-2 text-slate-300 select-none`}>
         <span className="blur-[4px] tracking-tighter">₹88,888</span>
         <div className="bg-slate-100 p-1 rounded-md">
           <Lock size={12} className="text-slate-400" />
@@ -94,12 +91,12 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role }
   }
 
   return (
-    <div className="relative flex justify-end items-center">
+    <div className={`relative flex ${align === 'right' ? 'justify-end' : 'justify-start'} items-center`}>
       <div 
         onClick={handlePriceClick}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
-        className={`cursor-pointer select-none font-black text-[15px] transition-all duration-200 flex items-center justify-end gap-2 group/price px-2 py-1 rounded-lg ${visible ? 'text-slate-900 bg-slate-50' : 'text-slate-300 hover:text-slate-400 hover:bg-slate-50/50'}`}
+        className={`cursor-pointer select-none font-black text-[15px] transition-all duration-200 flex items-center ${align === 'right' ? 'justify-end' : 'justify-start'} gap-2 group/price px-2 py-1 rounded-lg ${visible ? 'text-slate-900 bg-slate-50' : 'text-slate-300 hover:text-slate-400 hover:bg-slate-50/50'}`}
       >
         {visible ? (
           <>
@@ -122,7 +119,7 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role }
       {showHistory && (
         <div 
           ref={popoverRef}
-          className="absolute bottom-full right-0 mb-3 z-[100] w-72 bg-white rounded-2xl shadow-premium border border-slate-100 p-5 animate-slide-up overflow-hidden"
+          className={`absolute bottom-full ${align === 'right' ? 'right-0' : 'left-0'} mb-3 z-[100] w-72 bg-white rounded-2xl shadow-premium border border-slate-100 p-5 animate-slide-up overflow-hidden`}
         >
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-500 to-indigo-500"></div>
           
@@ -197,9 +194,12 @@ interface SwipeableItemProps {
     item: StockItem;
     userRole?: Role;
     shouldHidePrice: boolean;
+    isSelected: boolean;
+    toggleSelect: (partNumber: string) => void;
+    enableSelection: boolean;
 }
 
-const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({ item, userRole, shouldHidePrice }) => {
+const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({ item, userRole, shouldHidePrice, isSelected, toggleSelect, enableSelection }) => {
     const navigate = useNavigate();
     const [startX, setStartX] = useState(0);
     const [currentX, setCurrentX] = useState(0);
@@ -211,6 +211,11 @@ const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({ item, userRole, sho
     const maxSwipe = isOwner ? -160 : -80;
 
     const onTouchStart = (e: React.TouchEvent) => {
+        if (enableSelection && isOwner) {
+            // Check if touch is in selection area to avoid swipe when checking box
+            const touchX = e.touches[0].clientX;
+            if (touchX < 80) return; 
+        }
         setStartX(e.touches[0].clientX);
         setIsSwiping(true);
     };
@@ -281,32 +286,43 @@ const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({ item, userRole, sho
                 onTouchMove={onTouchMove}
                 onTouchEnd={onTouchEnd}
                 style={{ transform: `translateX(${currentX}px)` }}
-                className={`relative bg-white border border-slate-100 p-5 rounded-[2.5rem] shadow-sm transition-transform duration-200 ease-out z-10 ${isZero ? 'bg-slate-50/50' : ''}`}
+                className={`relative bg-white border border-slate-100 p-5 rounded-[2.5rem] shadow-sm transition-transform duration-200 ease-out z-10 flex gap-4 items-center ${isZero ? 'bg-slate-50/50' : ''} ${isSelected ? 'ring-2 ring-brand-500 bg-brand-50/30 border-brand-200' : ''}`}
             >
-                <div className="flex justify-between items-start">
-                    <div className="space-y-1.5 flex-1 pr-4">
-                        <div className="flex items-center gap-2">
-                            <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-black uppercase tracking-wider ${item.brand === Brand.HYUNDAI ? 'bg-blue-600 text-white' : 'bg-red-600 text-white'}`}>
-                                {item.brand.substring(0, 3)}
-                            </span>
-                            <span className="font-black text-slate-900 text-lg tracking-tight">{item.partNumber}</span>
+                {enableSelection && isOwner && (
+                    <div 
+                        onClick={(e) => { e.stopPropagation(); toggleSelect(item.partNumber); }}
+                        className="flex-none p-1"
+                    >
+                        {isSelected ? <CheckSquare className="text-brand-600" size={24} /> : <Square className="text-slate-300" size={24} />}
+                    </div>
+                )}
+
+                <div className="flex-1">
+                    <div className="flex justify-between items-start">
+                        <div className="space-y-1.5 flex-1 pr-4">
+                            <div className="flex items-center gap-2">
+                                <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-black uppercase tracking-wider ${item.brand === Brand.HYUNDAI ? 'bg-blue-600 text-white' : 'bg-red-600 text-white'}`}>
+                                    {item.brand.substring(0, 3)}
+                                </span>
+                                <span className="font-black text-slate-900 text-lg tracking-tight">{item.partNumber}</span>
+                            </div>
+                            <p className="text-[13px] text-slate-500 font-medium line-clamp-1 leading-tight">{item.name}</p>
                         </div>
-                        <p className="text-[13px] text-slate-500 font-medium line-clamp-1 leading-tight">{item.name}</p>
-                    </div>
-                    <div className="text-right flex flex-col items-end gap-0.5">
-                        <div className={`font-black text-[20px] leading-none ${isZero ? 'text-rose-600' : isLow ? 'text-amber-500' : 'text-slate-900'}`}>
-                            {item.quantity}
-                            <span className="text-[10px] uppercase font-bold text-slate-300 ml-1">PCS</span>
+                        <div className="text-right flex flex-col items-end gap-0.5">
+                            <div className={`font-black text-[20px] leading-none ${isZero ? 'text-rose-600' : isLow ? 'text-amber-500' : 'text-slate-900'}`}>
+                                {item.quantity}
+                                <span className="text-[10px] uppercase font-bold text-slate-300 ml-1">PCS</span>
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div className="mt-4 pt-3 border-t border-slate-50 flex items-center justify-between">
-                    <div className="flex flex-col">
-                        <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Price (MRP)</span>
-                        {shouldHidePrice ? <PriceCell price={item.price} partNumber={item.partNumber} userRole={userRole} /> : <div className="font-black text-slate-900 text-[15px]">₹{item.price.toLocaleString()}</div>}
-                    </div>
-                    <div className="flex items-center gap-1.5 text-slate-300">
-                        <ChevronLeft size={14} className="animate-pulse" />
+                    <div className="mt-4 pt-3 border-t border-slate-50 flex items-center justify-between">
+                        <div className="flex flex-col">
+                            <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Price (MRP)</span>
+                            <PriceCell price={item.price} partNumber={item.partNumber} userRole={userRole} align="left" />
+                        </div>
+                        <div className="flex items-center gap-1.5 text-slate-300">
+                            <ChevronLeft size={14} className="animate-pulse" />
+                        </div>
                     </div>
                 </div>
             </div>
@@ -369,20 +385,41 @@ const StockTable: React.FC<StockTableProps> = ({
     return result;
   }, [items, effectiveSearch, brandFilter, showArchived, sortConfig, stockStatusFilter]);
 
-  // --- SELECTION LOGIC (CROSS-PAGE) ---
+  const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+  const currentItems = filteredItems.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  const [mobileLimit, setMobileLimit] = useState(20);
+  const mobileItems = filteredItems.slice(0, mobileLimit);
+
+  // --- SELECTION LOGIC ---
+  const isAllPageSelected = currentItems.length > 0 && currentItems.every(i => selectedParts.has(i.partNumber));
+  // For mobile, "page" selection applies to the currently loaded items in the scroll list
+  const isAllMobileSelected = mobileItems.length > 0 && mobileItems.every(i => selectedParts.has(i.partNumber));
+  
   const isAllFilteredSelected = filteredItems.length > 0 && filteredItems.every(i => selectedParts.has(i.partNumber));
-  const isPartiallySelected = selectedParts.size > 0 && !isAllFilteredSelected;
+  const isPartiallySelected = selectedParts.size > 0 && !isAllPageSelected;
+
+  const toggleSelectPage = () => {
+    const newSet = new Set(selectedParts);
+    // Determine target based on platform (desktop pagination vs mobile infinite scroll)
+    const itemsToToggle = window.innerWidth < 768 ? mobileItems : currentItems;
+    const isCurrentlySelected = window.innerWidth < 768 ? isAllMobileSelected : isAllPageSelected;
+
+    if (isCurrentlySelected) {
+      itemsToToggle.forEach(i => newSet.delete(i.partNumber));
+    } else {
+      itemsToToggle.forEach(i => newSet.add(i.partNumber));
+    }
+    setSelectedParts(newSet);
+  };
 
   const toggleSelectAllFiltered = () => {
-    if (isAllFilteredSelected) {
-      setSelectedParts(new Set());
-    } else {
-      setSelectedParts(new Set(filteredItems.map(i => i.partNumber)));
-    }
+    setSelectedParts(new Set(filteredItems.map(i => i.partNumber)));
   };
 
   useEffect(() => {
     setCurrentPage(1);
+    setMobileLimit(20);
     setSelectedParts(new Set());
   }, [effectiveSearch, brandFilter, showArchived, stockStatusFilter]);
 
@@ -406,11 +443,6 @@ const StockTable: React.FC<StockTableProps> = ({
         setIsArchiving(false);
       }
   };
-
-  const [mobileLimit, setMobileLimit] = useState(20);
-  const mobileItems = filteredItems.slice(0, mobileLimit);
-  const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
-  const currentItems = filteredItems.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const requestSort = (key: keyof StockItem) => {
     let direction: 'asc' | 'desc' = 'asc';
@@ -467,6 +499,19 @@ const StockTable: React.FC<StockTableProps> = ({
         </div>
       )}
 
+      {enableActions && isOwner && (
+        <div className="md:hidden p-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+           <button 
+             onClick={toggleSelectPage}
+             className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm"
+           >
+              {isAllMobileSelected ? <CheckSquare size={16} className="text-brand-600" /> : <Square size={16} />}
+              Select Loaded
+           </button>
+           {selectedParts.size > 0 && <span className="text-[10px] font-black text-brand-600">{selectedParts.size} Selected</span>}
+        </div>
+      )}
+
       {enableActions && isOwner && selectedParts.size > 0 && (
         <div className="bg-brand-600 p-3 text-center text-[13px] text-white animate-slide-up flex items-center justify-center gap-3">
            <p className="font-bold">
@@ -475,12 +520,12 @@ const StockTable: React.FC<StockTableProps> = ({
                : `${selectedParts.size} items selected.`
              }
            </p>
-           {!isAllFilteredSelected && filteredItems.length > currentItems.length && (
+           {((window.innerWidth >= 768 && isAllPageSelected) || (window.innerWidth < 768 && isAllMobileSelected)) && !isAllFilteredSelected && filteredItems.length > (window.innerWidth < 768 ? mobileItems.length : currentItems.length) && (
              <button onClick={toggleSelectAllFiltered} className="underline font-black text-white hover:text-brand-100 transition-colors">
-               Select all {filteredItems.length} items
+               Select all {filteredItems.length}
              </button>
            )}
-           <button onClick={() => setSelectedParts(new Set())} className="ml-4 px-3 py-1 bg-white/20 hover:bg-white/30 rounded-lg text-xs font-black transition-all">Deselect All</button>
+           <button onClick={() => setSelectedParts(new Set())} className="ml-4 px-3 py-1 bg-white/20 hover:bg-white/30 rounded-lg text-xs font-black transition-all">Deselect</button>
         </div>
       )}
 
@@ -491,11 +536,11 @@ const StockTable: React.FC<StockTableProps> = ({
                     {enableActions && isOwner && (
                         <th className="px-6 py-4 w-10">
                             <button 
-                              onClick={toggleSelectAllFiltered} 
+                              onClick={toggleSelectPage} 
                               className="text-slate-400 hover:text-brand-600 transition-colors"
-                              title={isAllFilteredSelected ? "Deselect All" : "Select All Filtered"}
+                              title={isAllPageSelected ? "Deselect Page" : "Select Page"}
                             >
-                              {isAllFilteredSelected ? <CheckSquare className="text-brand-600" size={20} /> : isPartiallySelected ? <MinusSquare className="text-brand-600" size={20} /> : <Square size={20} />}
+                              {isAllPageSelected ? <CheckSquare className="text-brand-600" size={20} /> : isPartiallySelected ? <MinusSquare className="text-brand-600" size={20} /> : <Square size={20} />}
                             </button>
                         </th>
                     )}
@@ -554,7 +599,7 @@ const StockTable: React.FC<StockTableProps> = ({
                                     </span>
                                 </td>
                                 <td className="px-6 py-5 text-right">
-                                  {shouldHidePrice ? <PriceCell price={item.price} partNumber={item.partNumber} userRole={userRole} /> : <div className="font-black text-slate-900 text-[15px]">₹{item.price.toLocaleString()}</div>}
+                                  <PriceCell price={item.price} partNumber={item.partNumber} userRole={userRole} />
                                 </td>
                                 {enableActions && (
                                     <td className="px-6 py-5 text-center">
@@ -593,6 +638,9 @@ const StockTable: React.FC<StockTableProps> = ({
                     item={item} 
                     userRole={userRole} 
                     shouldHidePrice={shouldHidePrice} 
+                    isSelected={selectedParts.has(item.partNumber)}
+                    toggleSelect={toggleSelect}
+                    enableSelection={enableActions}
                 />
              ))
          )}

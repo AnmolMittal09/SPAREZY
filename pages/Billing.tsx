@@ -348,7 +348,7 @@ const Billing: React.FC<Props> = ({ user }) => {
                           placeholder="Search Part No. or Customer..."
                           className="w-full pl-11 pr-4 py-3 bg-slate-50 border-none rounded-2xl text-sm font-bold shadow-inner focus:ring-2 focus:ring-rose-500/20"
                           value={returnSearch}
-                          onChange={e => setReturnSearch(e.target.value)}
+                          onChange={e => setHistorySearch(e.target.value)}
                        />
                    </div>
                 </div>
@@ -427,7 +427,7 @@ const Billing: React.FC<Props> = ({ user }) => {
                    <button 
                       onClick={submitReturns}
                       disabled={Object.keys(selectedReturns).length === 0 || processingReturns}
-                      className="bg-rose-600 hover:bg-rose-700 text-white px-8 py-4 rounded-2xl font-black shadow-xl shadow-rose-200 transition-all flex items-center gap-3 active:scale-95 disabled:opacity-30 disabled:shadow-none"
+                      className="bg-rose-600 hover:bg-rose-700 text-white px-8 py-4 rounded-2xl font-black shadow-xl shadow-rose-200 transition-all flex items-center gap-3 active:scale-[0.95] disabled:opacity-30 disabled:shadow-none"
                    >
                       {processingReturns ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle2 size={20} />}
                       Process
@@ -730,11 +730,12 @@ const Billing: React.FC<Props> = ({ user }) => {
 };
 
 // Internal utility component for refresh icon animation
-const RefreshCw: React.FC<{ className?: string }> = ({ className }) => (
+// FIXED: Added 'size' to props definition to resolve TypeScript error.
+const RefreshCw: React.FC<{ size?: number; className?: string }> = ({ size = 24, className }) => (
   <svg 
     xmlns="http://www.w3.org/2000/svg" 
-    width="24" 
-    height="24" 
+    width={size} 
+    height={size} 
     viewBox="0 0 24 24" 
     fill="none" 
     stroke="currentColor" 
