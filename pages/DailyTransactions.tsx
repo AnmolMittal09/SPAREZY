@@ -22,7 +22,8 @@ import {
   ChevronDown,
   ChevronUp,
   LayoutGrid,
-  CreditCard
+  CreditCard,
+  Percent
 } from 'lucide-react';
 
 interface Props {
@@ -37,7 +38,9 @@ interface CartItem {
   name?: string; 
   type: TransactionType;
   quantity: number;
-  price: number;
+  price: number; // This is the Net Price (MRP - Discount) saved to DB
+  mrp: number;   // Original MRP for calculation
+  discount: number; // Percentage
   customerName: string;
   stockError?: boolean;
 }
@@ -117,13 +120,21 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
       }
       if (mode === 'SALES' && item.quantity === 0) return alert("Item out of stock!");
 
+      // Standard Purchase Discount is 12% by default as per shop rule
+      const initialDiscount = mode === 'PURCHASE' ? 12 : 0;
+      const initialPrice = mode === 'PURCHASE' 
+        ? item.price * (1 - initialDiscount / 100) 
+        : item.price;
+
       const newItem: CartItem = {
           tempId: Math.random().toString(36),
           partNumber: item.partNumber,
           name: item.name, 
           type: mode === 'SALES' ? TransactionType.SALE : mode === 'PURCHASE' ? TransactionType.PURCHASE : TransactionType.RETURN,
           quantity: 1,
-          price: item.price,
+          mrp: item.price,
+          discount: initialDiscount,
+          price: initialPrice,
           customerName: customerName,
           stockError: false
       };
@@ -153,6 +164,28 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
       }));
   };
 
+  const handleDiscountChange = (id: string, val: string) => {
+    const disc = parseFloat(val) || 0;
+    setCart(prev => prev.map(item => {
+      if (item.tempId === id) {
+        const netPrice = item.mrp * (1 - disc / 100);
+        return { ...item, discount: disc, price: netPrice };
+      }
+      return item;
+    }));
+  };
+
+  const handleNetPriceChange = (id: string, val: string) => {
+    const net = parseFloat(val) || 0;
+    setCart(prev => prev.map(item => {
+      if (item.tempId === id) {
+        const disc = item.mrp > 0 ? ((item.mrp - net) / item.mrp) * 100 : 0;
+        return { ...item, price: net, discount: parseFloat(disc.toFixed(2)) };
+      }
+      return item;
+    }));
+  };
+
   const removeItem = (id: string) => {
     setCart(prev => prev.filter(item => item.tempId !== id));
   };
@@ -163,7 +196,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
 
       const payload = cart.map(c => ({
           ...c,
-          customerName: customerName || (mode === 'PURCHASE' ? 'Bulk Supplier' : 'Walk-in'),
+          customerName: customerName || (mode === 'PURCHASE' ? 'Manual Supplier' : 'Walk-in'),
           createdByRole: user.role
       }));
       setLoading(true);
@@ -395,8 +428,41 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                                     <div className="font-bold text-slate-900 text-[15px]">{item.partNumber}</div>
                                     <div className="text-xs text-slate-500 font-medium line-clamp-1">{item.name}</div>
                                 </div>
-                                <div className="font-black text-slate-900 text-[15px]">₹{(item.price * item.quantity).toLocaleString()}</div>
+                                <div className="text-right">
+                                    <div className="font-black text-slate-900 text-[15px]">₹{(item.price * item.quantity).toLocaleString()}</div>
+                                    {mode === 'PURCHASE' && (
+                                      <div className="text-[10px] text-slate-400 font-bold uppercase mt-1">MRP ₹{item.mrp}</div>
+                                    )}
+                                </div>
                             </div>
+
+                            {/* Discount Logic Row - Only for Purchase */}
+                            {mode === 'PURCHASE' && (
+                              <div className="flex gap-2 items-center bg-white p-2 rounded-xl border border-slate-100 shadow-sm">
+                                 <div className="flex-1 relative">
+                                    <Percent size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                                    <input 
+                                      type="number"
+                                      className="w-full pl-7 pr-2 py-1.5 bg-slate-50 border-none rounded-lg text-xs font-black outline-none focus:ring-1 focus:ring-slate-900"
+                                      placeholder="Disc %"
+                                      value={item.discount}
+                                      onChange={e => handleDiscountChange(item.tempId, e.target.value)}
+                                    />
+                                 </div>
+                                 <div className="w-px h-6 bg-slate-100"></div>
+                                 <div className="flex-1 relative">
+                                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-[10px]">₹</span>
+                                    <input 
+                                      type="number"
+                                      className="w-full pl-6 pr-2 py-1.5 bg-slate-50 border-none rounded-lg text-xs font-black outline-none focus:ring-1 focus:ring-slate-900"
+                                      placeholder="Net Rate"
+                                      value={item.price}
+                                      onChange={e => handleNetPriceChange(item.tempId, e.target.value)}
+                                    />
+                                 </div>
+                              </div>
+                            )}
+
                             <div className="flex justify-between items-center">
                                 <button onClick={() => removeItem(item.tempId)} className="text-slate-300 hover:text-rose-500 p-2 rounded-xl hover:bg-white transition-all"><Trash2 size={18}/></button>
                                 <div className="flex items-center gap-3 bg-white px-2 py-1.5 rounded-xl shadow-soft border border-slate-100">
@@ -492,9 +558,40 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                                </div>
                                <div className="text-right">
                                   <div className="font-black text-slate-900 text-xl">₹{(item.price * item.quantity).toLocaleString()}</div>
-                                  <div className="text-[10px] text-slate-300 font-black uppercase tracking-widest mt-1">MRP ₹{item.price}</div>
+                                  <div className="text-[10px] text-slate-300 font-black uppercase tracking-widest mt-1">Net ₹{item.price.toFixed(2)}</div>
                                </div>
                            </div>
+
+                           {/* Mobile Discount Row */}
+                           {mode === 'PURCHASE' && (
+                             <div className="flex gap-4 items-center bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                <div className="flex-1 space-y-1.5">
+                                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">Discount %</label>
+                                   <div className="relative">
+                                      <Percent size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                      <input 
+                                        type="number"
+                                        className="w-full pl-9 pr-3 py-3 bg-white border border-slate-200 rounded-xl text-[15px] font-black outline-none focus:ring-2 focus:ring-slate-900 transition-all"
+                                        value={item.discount}
+                                        onChange={e => handleDiscountChange(item.tempId, e.target.value)}
+                                      />
+                                   </div>
+                                </div>
+                                <div className="flex-1 space-y-1.5">
+                                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">Net Rate</label>
+                                   <div className="relative">
+                                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-black text-sm">₹</span>
+                                      <input 
+                                        type="number"
+                                        className="w-full pl-8 pr-3 py-3 bg-white border border-slate-200 rounded-xl text-[15px] font-black outline-none focus:ring-2 focus:ring-slate-900 transition-all"
+                                        value={item.price}
+                                        onChange={e => handleNetPriceChange(item.tempId, e.target.value)}
+                                      />
+                                   </div>
+                                </div>
+                             </div>
+                           )}
+
                            <div className="flex items-center justify-between border-t border-slate-50 pt-5">
                                <button onClick={() => removeItem(item.tempId)} className="w-12 h-12 flex items-center justify-center bg-rose-50 text-rose-500 rounded-2xl active:scale-90 transition-all"><Trash2 size={22} /></button>
                                <div className="flex items-center gap-6 bg-slate-50 p-1.5 rounded-2xl border border-slate-100 shadow-inner">
