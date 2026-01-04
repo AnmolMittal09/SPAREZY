@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { User, Transaction, ShopSettings, TransactionStatus, TransactionType, Customer } from '../types';
+import { User, Transaction, ShopSettings, TransactionStatus, TransactionType, Customer, Invoice } from '../types';
 import { fetchUninvoicedSales, generateTaxInvoiceRecord, fetchInvoices, fetchTransactions } from '../services/transactionService';
 import { fetchInventory } from '../services/inventoryService';
 import { getShopSettings, getCustomers } from '../services/masterService';
@@ -10,10 +10,13 @@ import Logo from '../components/Logo';
 // @ts-ignore
 import { useNavigate } from 'react-router-dom';
 
-const formatQty = (n: number) => {
-  const num = Math.abs(n);
-  const str = num < 10 ? `0${num}` : `${num}`;
-  return n < 0 ? `-${str}` : str;
+const formatQty = (n: number | string) => {
+  const num = typeof n === 'string' ? parseInt(n) : n;
+  if (isNaN(num)) return '00';
+  const isNeg = num < 0;
+  const abs = Math.abs(num);
+  const str = abs < 10 ? `0${abs}` : `${abs}`;
+  return isNeg ? `-${str}` : str;
 };
 
 interface Props {
@@ -35,16 +38,13 @@ const Invoices: React.FC<Props> = ({ user }) => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState('');
-  const [invoiceHistory, setInvoiceHistory] = useState<any[]>([]);
+  const [invoiceHistory, setInvoiceHistory] = useState<Invoice[]>([]);
   
   // Customer Search State
   const [allCustomers, setAllCustomers] = useState<Customer[]>([]);
   const [customerSuggestions, setCustomerSuggestions] = useState<Customer[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   
-  // Diagnostic State
-  const [pendingApprovalCount, setPendingApprovalCount] = useState(0);
-
   // Form State
   const [customerDetails, setCustomerDetails] = useState({
     name: '',
@@ -58,7 +58,6 @@ const Invoices: React.FC<Props> = ({ user }) => {
     fetchInventory().then(setInventory);
     getShopSettings().then(setShopSettings);
     getCustomers().then(setAllCustomers);
-    checkPendingApprovals();
 
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -74,27 +73,16 @@ const Invoices: React.FC<Props> = ({ user }) => {
     else loadHistory();
   }, [activeTab]);
 
-  const checkPendingApprovals = async () => {
-    try {
-      const pendingSales = await fetchTransactions(TransactionStatus.PENDING, TransactionType.SALE);
-      setPendingApprovalCount(pendingSales.length);
-    } catch (e) {
-      console.error("Error checking approvals:", e);
-    }
-  };
-
   const loadPending = async () => {
     setLoading(true);
     try {
       const data = await fetchUninvoicedSales();
       setSales(data);
     } catch (e) {
-      console.error("Error loading pending sales:", e);
       setSales([]);
     } finally {
       setLoading(false);
     }
-    checkPendingApprovals();
   };
 
   const loadHistory = async () => {
@@ -103,7 +91,6 @@ const Invoices: React.FC<Props> = ({ user }) => {
       const data = await fetchInvoices();
       setInvoiceHistory(data);
     } catch (e) {
-      console.error("Error loading history:", e);
       setInvoiceHistory([]);
     } finally {
       setLoading(false);
@@ -166,10 +153,9 @@ const Invoices: React.FC<Props> = ({ user }) => {
       user.role
     );
 
-    if (result.success && result.invoice) {
+    if (result.success) {
       window.print();
       setTimeout(() => {
-        alert("Invoice Saved & Sent to Printer!");
         setStep(1);
         setSelectedIds(new Set());
         setCustomerDetails({ name: '', phone: '', address: '', gst: '', paymentMode: 'CASH' });
@@ -183,8 +169,6 @@ const Invoices: React.FC<Props> = ({ user }) => {
   // --- BRANDED INVOICE PREVIEW ---
   const InvoicePreview = () => (
     <div id="invoice-preview" className="bg-white text-slate-800 p-10 max-w-[210mm] mx-auto min-h-[297mm] shadow-2xl print:shadow-none print:w-full print:max-w-none print:m-0 print:p-8 relative flex flex-col">
-      
-      {/* 1. Branded Header */}
       <div className="flex justify-between items-start border-b-2 border-slate-900 pb-6 mb-6">
          <div className="flex flex-col gap-4">
             <div className="scale-90 origin-top-left">
@@ -201,13 +185,11 @@ const Invoices: React.FC<Props> = ({ user }) => {
             <h1 className="text-4xl font-black text-blue-700 uppercase tracking-widest mb-2">Invoice</h1>
             <div className="space-y-1.5 text-sm">
                 <p><span className="font-bold text-slate-500 uppercase text-xs mr-3">Date:</span> <span className="font-mono font-bold">{new Date().toLocaleDateString()}</span></p>
-                <p><span className="font-bold text-slate-500 uppercase text-xs mr-3">Time:</span> <span className="font-mono">{new Date().toLocaleTimeString()}</span></p>
                 <p><span className="font-bold text-slate-500 uppercase text-xs mr-3">Mode:</span> <span className="font-bold bg-slate-100 px-2 py-0.5 rounded">{customerDetails.paymentMode}</span></p>
             </div>
          </div>
       </div>
 
-      {/* 2. Customer & Meta */}
       <div className="flex justify-between mb-8 bg-slate-50 p-6 rounded-xl border border-slate-100">
          <div>
             <h3 className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-2">Billed To</h3>
@@ -220,13 +202,12 @@ const Invoices: React.FC<Props> = ({ user }) => {
          </div>
       </div>
 
-      {/* 3. Items Table */}
       <div className="flex-1">
         <table className="w-full text-sm border-collapse">
             <thead>
                 <tr className="bg-slate-900 text-white">
                 <th className="py-3 px-4 text-left w-12 font-bold rounded-tl-lg">#</th>
-                <th className="py-3 px-4 text-left font-bold">Item Description</th>
+                <th className="py-3 px-4 text-left font-bold">Part Number</th>
                 <th className="py-3 px-4 text-center w-24 font-bold">Qty</th>
                 <th className="py-3 px-4 text-right w-32 font-bold">Price</th>
                 <th className="py-3 px-4 text-right w-32 font-bold rounded-tr-lg">Total</th>
@@ -249,7 +230,6 @@ const Invoices: React.FC<Props> = ({ user }) => {
         </table>
       </div>
 
-      {/* 4. Totals & Signature */}
       <div className="mt-8 flex flex-col md:flex-row justify-between items-end gap-12">
          <div className="w-full md:w-1/2">
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Amount In Words</p>
@@ -257,7 +237,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
                 {numberToWords(Math.round(grandTotal))}
             </div>
             <p className="text-[10px] text-slate-400 mt-4 leading-relaxed">
-               Declarations: We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct. Goods once sold will not be taken back.
+               Goods once sold will not be taken back. This is a computer generated invoice.
             </p>
          </div>
 
@@ -268,35 +248,21 @@ const Invoices: React.FC<Props> = ({ user }) => {
                     <span className="font-mono">₹{taxableValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between text-sm text-slate-600">
-                    <span>Total Tax ({(taxRate).toFixed(0)}%)</span>
+                    <span>GST ({(taxRate).toFixed(0)}%)</span>
                     <span className="font-mono">₹{taxAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
             </div>
             <div className="flex justify-between text-xl font-black text-blue-700 mt-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
-               <span>Grand Total</span>
+               <span>Net Amount</span>
                <span>₹{grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             </div>
-            
-            <div className="mt-12 text-center">
-               <p className="text-xs font-bold text-slate-900 uppercase">Authorized Signatory</p>
-            </div>
-         </div>
-      </div>
-
-      {/* 5. Branding Footer */}
-      <div className="mt-auto pt-8 text-center print:block">
-         <div className="border-t border-slate-100 pt-4">
-            <p className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold flex items-center justify-center gap-2">
-               Generated using Sparezy <span className="text-slate-300">|</span> Smart Inventory Management System
-            </p>
          </div>
       </div>
     </div>
   );
 
   return (
-    <div className="space-y-4 md:space-y-6 h-full flex flex-col relative">
-       {/* Inject Print Styles */}
+    <div className="space-y-4 md:space-y-6 h-full flex flex-col relative no-scrollbar overflow-y-auto">
        <style>{`
          @media print {
            body * { visibility: hidden; }
@@ -306,13 +272,11 @@ const Invoices: React.FC<Props> = ({ user }) => {
          }
        `}</style>
 
-       {/* --- HEADER --- */}
        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 no-print bg-white p-4 md:p-0 md:bg-transparent border-b md:border-none border-slate-100">
           <div>
              <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-                <FileText className="text-blue-600" /> Invoice Generator
+                <FileText className="text-blue-600" /> Tax Invoices
              </h1>
-             <p className="text-slate-500 text-sm">Create and print tax invoices for sales.</p>
           </div>
           
           <div className="flex bg-white p-1 rounded-xl border border-slate-200 shadow-sm w-full md:w-auto">
@@ -331,55 +295,32 @@ const Invoices: React.FC<Props> = ({ user }) => {
           </div>
        </div>
 
-       {/* PENDING APPROVAL ALERT */}
-       {pendingApprovalCount > 0 && activeTab === 'PENDING' && (
-         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between shadow-sm animate-fade-in no-print gap-3">
-            <div className="flex items-center gap-3">
-               <div className="bg-amber-100 p-2 rounded-full text-amber-600">
-                  <AlertTriangle size={20} />
-               </div>
-               <div>
-                  <h3 className="text-sm font-bold text-amber-900">Attention Needed</h3>
-                  <p className="text-xs text-amber-800">{formatQty(pendingApprovalCount)} sales need approval before invoicing.</p>
-               </div>
-            </div>
-            <button 
-               onClick={() => navigate('/approvals')}
-               className="bg-white border border-amber-200 text-amber-800 text-xs font-bold px-4 py-2 rounded-lg hover:bg-amber-50 transition-colors w-full md:w-auto"
-            >
-               Go to Approvals
-            </button>
-         </div>
-       )}
-
        <div className="flex-1 overflow-hidden flex flex-col">
           {activeTab === 'PENDING' && (
              <>
-               {/* STEPPER */}
                <div className="bg-white border-b border-slate-200 px-4 md:px-8 py-4 flex items-center justify-center gap-2 md:gap-4 no-print shadow-sm z-10">
                   <div className={`flex items-center gap-2 text-xs md:text-sm font-bold ${step >= 1 ? 'text-blue-600' : 'text-slate-300'}`}>
                      <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs border ${step >= 1 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-slate-300 text-slate-400'}`}>01</span>
-                     <span className="hidden md:inline">Select Sales</span>
+                     <span className="hidden md:inline">Selection</span>
                   </div>
                   <div className={`w-8 md:w-16 h-0.5 ${step >= 2 ? 'bg-blue-600' : 'bg-slate-100'}`}></div>
                   <div className={`flex items-center gap-2 text-xs md:text-sm font-bold ${step >= 2 ? 'text-blue-600' : 'text-slate-300'}`}>
                      <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs border ${step >= 2 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-slate-300 text-slate-400'}`}>02</span>
-                     <span className="hidden md:inline">Details</span>
+                     <span className="hidden md:inline">Billing Info</span>
                   </div>
                   <div className={`w-8 md:w-16 h-0.5 ${step >= 3 ? 'bg-blue-600' : 'bg-slate-100'}`}></div>
                   <div className={`flex items-center gap-2 text-xs md:text-sm font-bold ${step >= 3 ? 'text-blue-600' : 'text-slate-300'}`}>
                      <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs border ${step >= 3 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-slate-300 text-slate-400'}`}>03</span>
-                     <span className="hidden md:inline">Print</span>
+                     <span className="hidden md:inline">Review</span>
                   </div>
                </div>
 
-               {/* Step 1: SELECT SALES */}
                {step === 1 && (
                  <div className="flex-1 overflow-hidden flex flex-col bg-slate-50 p-4 md:p-6 animate-fade-in no-print">
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden max-w-5xl mx-auto w-full h-full">
                        <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                           <h3 className="font-bold text-slate-700 flex items-center gap-2">
-                             <RefreshCw size={16} className="text-slate-400" /> Pending Sales
+                             <RefreshCw size={16} className="text-slate-400" /> Select Approved Sales
                           </h3>
                           <div className="relative">
                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
@@ -397,8 +338,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
                           {sales.length === 0 ? (
                              <div className="flex flex-col items-center justify-center h-full text-slate-400">
                                 <AlertCircle size={48} className="mb-4 opacity-10" />
-                                <p className="font-medium">No pending sales found</p>
-                                <p className="text-xs mt-1">Sales must be APPROVED to appear here.</p>
+                                <p className="font-medium">No sales available for invoicing</p>
                              </div>
                           ) : (
                              <div className="space-y-2">
@@ -421,12 +361,9 @@ const Invoices: React.FC<Props> = ({ user }) => {
                                             <div>
                                                <div className="font-bold text-slate-900 text-sm md:text-base flex items-center gap-2">
                                                   {sale.partNumber}
-                                                  <span className="text-xs font-normal text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-                                                     {new Date(sale.createdAt).toLocaleDateString()}
-                                                  </span>
                                                </div>
                                                <div className="text-xs text-slate-500 mt-0.5 flex items-center gap-2">
-                                                  <UserIcon size={12} /> {sale.customerName || 'Walk-in Customer'}
+                                                  <UserIcon size={12} /> {sale.customerName || 'Walk-in'}
                                                </div>
                                             </div>
                                          </div>
@@ -443,13 +380,13 @@ const Invoices: React.FC<Props> = ({ user }) => {
 
                        <div className="p-4 border-t border-slate-200 bg-white flex justify-between items-center shadow-lg z-20">
                           <div>
-                             <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Total Selected</p>
+                             <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Selected</p>
                              <p className="text-xl font-bold text-slate-900">{formatQty(selectedIds.size)} <span className="text-sm font-medium text-slate-400">items</span></p>
                           </div>
                           <button 
                              disabled={selectedIds.size === 0}
                              onClick={() => setStep(2)}
-                             className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 disabled:opacity-50 disabled:shadow-none shadow-lg shadow-blue-200 transition-all active:scale-95"
+                             className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-blue-200 transition-all"
                           >
                              Next Step <ArrowRight size={18} />
                           </button>
@@ -458,49 +395,28 @@ const Invoices: React.FC<Props> = ({ user }) => {
                  </div>
                )}
 
-               {/* Step 2: CUSTOMER DETAILS */}
                {step === 2 && (
                   <div className="flex-1 overflow-auto bg-slate-50 p-4 md:p-8 animate-fade-in no-print flex justify-center">
                      <div className="w-full max-w-2xl space-y-6">
-                        
-                        {/* Summary Card */}
-                        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center">
-                           <div className="flex items-center gap-3">
-                              <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
-                                 <Wallet size={20} />
-                              </div>
-                              <div>
-                                 <p className="text-xs font-bold text-slate-400 uppercase">Invoice Value</p>
-                                 <p className="text-lg font-bold text-slate-900">₹{grandTotal.toLocaleString()}</p>
-                              </div>
-                           </div>
-                           <div className="text-right">
-                              <p className="text-xs font-bold text-slate-400 uppercase">{formatQty(selectedItems.length)} Items</p>
-                              <button onClick={() => setStep(1)} className="text-xs font-bold text-blue-600 hover:underline">Edit Selection</button>
-                           </div>
-                        </div>
-
-                        {/* Form Card */}
                         <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-visible relative">
                            <div className="p-6 border-b border-slate-100 flex items-center gap-3">
                               <UserIcon className="text-blue-600" />
                               <div>
-                                 <h3 className="font-bold text-slate-900 text-lg">Customer Profile</h3>
-                                 <p className="text-xs text-slate-500">Billing details for the invoice.</p>
+                                 <h3 className="font-bold text-slate-900 text-lg">Customer Billing Info</h3>
                               </div>
                            </div>
 
                            <div className="p-6 space-y-6">
                               <div className="space-y-4">
                                  <div className="relative" ref={dropdownRef}>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">Full Name <span className="text-red-500">*</span></label>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">Customer Name</label>
                                     <div className="relative group">
                                        <UserIcon size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
                                        <input 
                                           autoFocus
                                           type="text" 
-                                          className="w-full pl-10 pr-10 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-slate-50 focus:bg-white transition-all font-medium"
-                                          placeholder="Search existing or type new name..."
+                                          className="w-full pl-10 pr-10 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-slate-50 focus:bg-white transition-all font-medium"
+                                          placeholder="Type to search customers..."
                                           value={customerDetails.name}
                                           onChange={e => handleCustomerSearch(e.target.value)}
                                        />
@@ -514,12 +430,8 @@ const Invoices: React.FC<Props> = ({ user }) => {
                                        )}
                                     </div>
 
-                                    {/* Suggestions Dropdown */}
                                     {showSuggestions && customerSuggestions.length > 0 && (
                                       <div className="absolute top-full left-0 right-0 z-[100] bg-white border border-slate-100 rounded-2xl shadow-elevated mt-2 overflow-hidden animate-slide-up">
-                                         <div className="p-2 border-b border-slate-50 bg-slate-50/50">
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Matched from database</p>
-                                         </div>
                                          {customerSuggestions.map(c => (
                                             <button
                                                key={c.id}
@@ -528,10 +440,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
                                             >
                                                <div>
                                                   <span className="font-bold text-slate-800 block group-hover:text-blue-600">{c.name}</span>
-                                                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{c.type}</span>
-                                               </div>
-                                               <div className="text-right">
-                                                  <span className="text-xs text-slate-500 font-bold">{c.phone || 'No phone'}</span>
+                                                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{c.phone || 'No Phone'}</span>
                                                </div>
                                             </button>
                                          ))}
@@ -542,67 +451,49 @@ const Invoices: React.FC<Props> = ({ user }) => {
                                  <div className="grid grid-cols-2 gap-4">
                                     <div>
                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">Phone</label>
-                                       <div className="relative group">
-                                          <Phone size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500" />
-                                          <input 
-                                             type="text" 
-                                             className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-slate-50 focus:bg-white transition-all font-medium"
-                                             placeholder="Mobile No."
-                                             value={customerDetails.phone}
-                                             onChange={e => setCustomerDetails({...customerDetails, phone: e.target.value})}
-                                          />
-                                       </div>
+                                       <input 
+                                          type="text" 
+                                          className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-slate-50 font-medium"
+                                          value={customerDetails.phone}
+                                          onChange={e => setCustomerDetails({...customerDetails, phone: e.target.value})}
+                                       />
                                     </div>
                                     <div>
                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">GSTIN</label>
-                                       <div className="relative group">
-                                          <Building2 size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500" />
-                                          <input 
-                                             type="text" 
-                                             className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-slate-50 focus:bg-white transition-all font-medium"
-                                             placeholder="Optional"
-                                             value={customerDetails.gst}
-                                             onChange={e => setCustomerDetails({...customerDetails, gst: e.target.value})}
-                                          />
-                                       </div>
+                                       <input 
+                                          type="text" 
+                                          className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-slate-50 font-medium"
+                                          value={customerDetails.gst}
+                                          onChange={e => setCustomerDetails({...customerDetails, gst: e.target.value})}
+                                       />
                                     </div>
                                  </div>
 
                                  <div>
                                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">Address</label>
-                                    <div className="relative group">
-                                       <MapPin size={18} className="absolute left-3 top-4 text-slate-400 group-focus-within:text-blue-500" />
-                                       <textarea 
-                                          className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-slate-50 focus:bg-white transition-all resize-none font-medium"
-                                          rows={2}
-                                          placeholder="Billing Address"
-                                          value={customerDetails.address}
-                                          onChange={e => setCustomerDetails({...customerDetails, address: e.target.value})}
-                                       />
-                                    </div>
+                                    <textarea 
+                                       className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-slate-50 font-medium resize-none"
+                                       rows={2}
+                                       value={customerDetails.address}
+                                       onChange={e => setCustomerDetails({...customerDetails, address: e.target.value})}
+                                    />
                                  </div>
                               </div>
 
                               <div className="pt-4 border-t border-slate-100">
                                  <label className="block text-xs font-bold text-slate-500 uppercase mb-3">Payment Mode</label>
                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                    {[
-                                       { mode: 'CASH', icon: Banknote }, 
-                                       { mode: 'UPI', icon: Wallet }, 
-                                       { mode: 'CARD', icon: CreditCard }, 
-                                       { mode: 'CREDIT', icon: FileText }
-                                    ].map(item => (
+                                    {['CASH', 'UPI', 'CARD', 'CREDIT'].map(mode => (
                                        <button
-                                          key={item.mode}
-                                          onClick={() => setCustomerDetails({...customerDetails, paymentMode: item.mode})}
-                                          className={`flex flex-col items-center justify-center gap-2 py-3 rounded-xl border transition-all ${
-                                             customerDetails.paymentMode === item.mode 
-                                                ? 'bg-blue-600 text-white border-blue-600 shadow-md ring-2 ring-offset-2 ring-blue-500' 
-                                                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+                                          key={mode}
+                                          onClick={() => setCustomerDetails({...customerDetails, paymentMode: mode})}
+                                          className={`py-3 rounded-xl border transition-all text-xs font-bold ${
+                                             customerDetails.paymentMode === mode 
+                                                ? 'bg-blue-600 text-white border-blue-600' 
+                                                : 'bg-white text-slate-600 border-slate-200'
                                           }`}
                                        >
-                                          <item.icon size={20} />
-                                          <span className="text-xs font-bold">{item.mode}</span>
+                                          {mode}
                                        </button>
                                     ))}
                                  </div>
@@ -610,13 +501,13 @@ const Invoices: React.FC<Props> = ({ user }) => {
                            </div>
 
                            <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
-                              <button onClick={() => setStep(1)} className="text-slate-500 font-bold hover:text-slate-800 flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-white transition-colors">
+                              <button onClick={() => setStep(1)} className="text-slate-500 font-bold flex items-center gap-2 px-4 py-2 hover:bg-white rounded-lg">
                                  <ChevronLeft size={18} /> Back
                               </button>
                               <button 
                                  disabled={!customerDetails.name}
                                  onClick={() => setStep(3)}
-                                 className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 disabled:opacity-50 transition-all shadow-lg shadow-blue-200 active:scale-95"
+                                 className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2"
                               >
                                  Generate Preview <ArrowRight size={18} />
                               </button>
@@ -626,42 +517,19 @@ const Invoices: React.FC<Props> = ({ user }) => {
                   </div>
                )}
 
-               {/* Step 3: PREVIEW */}
                {step === 3 && (
                   <div className="flex-1 flex flex-col md:flex-row bg-slate-100 overflow-hidden">
-                     {/* Preview Container */}
                      <div className="flex-1 overflow-auto p-4 md:p-8 flex justify-center">
                         <InvoicePreview />
                      </div>
-
-                     {/* Sidebar Actions (No Print) */}
                      <div className="w-full md:w-80 bg-white border-l border-slate-200 p-6 flex flex-col gap-6 shadow-xl z-20 no-print">
-                        <div>
-                           <h3 className="font-bold text-slate-800 text-lg mb-1">Ready to Print</h3>
-                           <p className="text-sm text-slate-500">Please review the invoice details before saving.</p>
-                        </div>
-                        
-                        <div className="space-y-4">
-                           <button 
-                              onClick={handleConfirmAndPrint}
-                              className="w-full bg-green-600 hover:bg-green-700 text-white py-4 rounded-xl font-bold shadow-lg shadow-green-200 transition-all flex items-center justify-center gap-2 active:scale-95"
-                           >
-                              <Printer size={20} /> Confirm & Print
-                           </button>
-                           <button 
-                              onClick={() => setStep(2)}
-                              className="w-full bg-white border border-slate-300 text-slate-600 py-3 rounded-xl font-bold hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
-                           >
-                              Edit Details
-                           </button>
-                        </div>
-
-                        <div className="mt-auto pt-6 border-t border-slate-100">
-                           <div className="flex items-center gap-3 text-sm text-slate-500 bg-slate-50 p-3 rounded-lg">
-                              <AlertCircle size={16} />
-                              <p>This action will finalize the invoice and cannot be undone.</p>
-                           </div>
-                        </div>
+                        <button 
+                           onClick={handleConfirmAndPrint}
+                           className="w-full bg-green-600 text-white py-4 rounded-xl font-bold shadow-lg flex items-center justify-center gap-2"
+                        >
+                           <Printer size={20} /> Confirm & Print
+                        </button>
+                        <button onClick={() => setStep(2)} className="w-full border py-3 rounded-xl font-bold text-slate-500">Edit Details</button>
                      </div>
                   </div>
                )}
@@ -671,20 +539,14 @@ const Invoices: React.FC<Props> = ({ user }) => {
           {activeTab === 'HISTORY' && (
              <div className="bg-white rounded-xl shadow-sm border border-slate-200 h-full flex flex-col overflow-hidden m-4 no-print">
                 <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-                    <span className="font-bold text-slate-700 flex items-center gap-2">
-                       <History size={18} /> Invoice History
-                    </span>
-                    <button onClick={loadHistory} className="p-2 hover:bg-white rounded-lg text-slate-500 transition-colors">
-                        <RefreshCw size={16} />
-                    </button>
+                    <span className="font-bold text-slate-700">Invoice History</span>
                 </div>
                 <div className="flex-1 overflow-auto">
-                   {invoiceHistory.length === 0 ? <div className="p-12 text-center text-slate-400">No invoices generated yet.</div> : (
+                   {invoiceHistory.length === 0 ? <div className="p-12 text-center text-slate-400">No history found.</div> : (
                       <table className="w-full text-sm text-left">
-                         <thead className="bg-white text-slate-600 font-medium sticky top-0 border-b border-slate-200">
+                         <thead className="bg-white text-slate-600 font-medium sticky top-0 border-b">
                             <tr>
                                <th className="px-6 py-4">Invoice #</th>
-                               <th className="px-6 py-4">Date</th>
                                <th className="px-6 py-4">Customer</th>
                                <th className="px-6 py-4 text-center">Items</th>
                                <th className="px-6 py-4 text-right">Total</th>
@@ -693,15 +555,10 @@ const Invoices: React.FC<Props> = ({ user }) => {
                          <tbody className="divide-y divide-slate-100">
                             {invoiceHistory.map(inv => (
                                <tr key={inv.id} className="hover:bg-slate-50">
-                                  <td className="px-6 py-4 font-bold text-slate-800">{inv.invoiceNumber}</td>
-                                  <td className="px-6 py-4 text-slate-500">{new Date(inv.date).toLocaleDateString()}</td>
-                                  <td className="px-6 py-4">
-                                     <div className="font-medium text-slate-800">{inv.customerName}</div>
-                                  </td>
-                                  <td className="px-6 py-4 text-center">
-                                     <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs font-bold">{formatQty(inv.itemsCount)}</span>
-                                  </td>
-                                  <td className="px-6 py-4 text-right font-bold text-blue-700">₹{inv.totalAmount.toLocaleString()}</td>
+                                  <td className="px-6 py-4 font-bold">{inv.invoiceNumber}</td>
+                                  <td className="px-6 py-4">{inv.customerName}</td>
+                                  <td className="px-6 py-4 text-center">{formatQty(inv.itemsCount)}</td>
+                                  <td className="px-6 py-4 text-right font-bold">₹{inv.totalAmount.toLocaleString()}</td>
                                </tr>
                             ))}
                          </tbody>
