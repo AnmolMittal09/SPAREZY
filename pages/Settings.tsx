@@ -4,6 +4,7 @@ import UserManagement from './UserManagement';
 import CustomerManager from '../components/CustomerManager';
 import SupplierManager from '../components/SupplierManager';
 import { getShopSettings, saveShopSettings } from '../services/masterService';
+import { triggerAutoRefresh } from '../services/refreshService';
 import { Users, Building2, Truck, Contact, Layers, Save, Loader2 } from 'lucide-react';
 import TharLoader from '../components/TharLoader';
 
@@ -42,8 +43,7 @@ const Settings: React.FC<Props> = ({ user }) => {
     e.preventDefault();
     setSavingShop(true);
     await saveShopSettings(shopSettings);
-    setSavingShop(false);
-    alert("Shop settings updated successfully.");
+    triggerAutoRefresh(800);
   };
 
   return (
@@ -158,7 +158,7 @@ const Settings: React.FC<Props> = ({ user }) => {
                             className="bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 px-6 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
                           >
                              {savingShop ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
-                             Save Settings
+                             {savingShop ? 'Syncing...' : 'Save & Sync'}
                           </button>
                        </div>
                     </form>
