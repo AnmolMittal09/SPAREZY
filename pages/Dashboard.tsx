@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { User, StockItem, Role, Brand } from '../types';
 import { fetchInventory } from '../services/inventoryService';
 import StockTable from '../components/StockTable';
@@ -8,9 +8,7 @@ import {
   RefreshCw,
   LayoutGrid,
   Activity,
-  Box,
-  Layers,
-  SearchCode
+  Layers
 } from 'lucide-react';
 import TharLoader from '../components/TharLoader';
 
@@ -48,6 +46,25 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
     }
   }, []);
 
+  // --- Snapshot Calculations (Micro-UI) ---
+  const brandSnapshots = useMemo(() => {
+    const activeItems = inventory.filter(i => !i.isArchived && i.quantity > 0);
+    
+    const hyItems = activeItems.filter(i => i.brand === Brand.HYUNDAI);
+    const mhItems = activeItems.filter(i => i.brand === Brand.MAHINDRA);
+
+    return {
+      hyundai: {
+        parts: hyItems.length,
+        units: hyItems.reduce((acc, curr) => acc + curr.quantity, 0)
+      },
+      mahindra: {
+        parts: mhItems.length,
+        units: mhItems.reduce((acc, curr) => acc + curr.quantity, 0)
+      }
+    };
+  }, [inventory]);
+
   if (loading) return <TharLoader />;
 
   const filteredCount = inventory.filter(i => 
@@ -68,7 +85,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                <h1 className="text-3xl font-black text-slate-900 tracking-tight leading-none mb-2">
                   Command Center
                </h1>
-               <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-2">
+               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                  <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>
                  {user.role} TERMINAL • LIVE FEED
                </p>
@@ -97,6 +114,22 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
             >
                 <RefreshCw size={20} strokeWidth={2.5} className={refreshing ? 'animate-spin text-blue-600' : ''} />
             </button>
+         </div>
+      </div>
+
+      {/* --- BRAND SNAPSHOT TILES (MICRO-UI) --- */}
+      <div className="grid grid-cols-2 md:flex gap-3 px-1">
+         <div className="bg-white border border-slate-200/60 border-l-4 border-l-blue-600 px-3 py-2 rounded-xl shadow-soft h-[56px] min-w-[140px] flex flex-col justify-center">
+            <p className="text-[10px] font-black text-slate-900 uppercase tracking-wider leading-none mb-1">HYUNDAI</p>
+            <p className="text-[11px] font-bold text-slate-500 whitespace-nowrap">
+               {brandSnapshots.hyundai.parts} Parts · {brandSnapshots.hyundai.units.toLocaleString()} Units
+            </p>
+         </div>
+         <div className="bg-white border border-slate-200/60 border-l-4 border-l-red-600 px-3 py-2 rounded-xl shadow-soft h-[56px] min-w-[140px] flex flex-col justify-center">
+            <p className="text-[10px] font-black text-slate-900 uppercase tracking-wider leading-none mb-1">MAHINDRA</p>
+            <p className="text-[11px] font-bold text-slate-500 whitespace-nowrap">
+               {brandSnapshots.mahindra.parts} Parts · {brandSnapshots.mahindra.units.toLocaleString()} Units
+            </p>
          </div>
       </div>
 
