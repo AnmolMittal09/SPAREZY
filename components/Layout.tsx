@@ -87,7 +87,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
   ];
 
   return (
-    <div className="h-screen bg-[#F8FAFC] flex overflow-hidden">
+    <div className="h-screen bg-slate-50 flex overflow-hidden">
       
       {/* MOBILE OVERLAY */}
       {isSidebarOpen && (
@@ -99,30 +99,30 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
 
       {/* SIDEBAR */}
       <aside 
-        className={`fixed lg:static inset-y-0 left-0 z-[80] w-[280px] bg-white border-r border-slate-200/60 flex flex-col transform transition-all duration-300 ease-in-out shadow-soft ${
+        className={`fixed lg:static inset-y-0 left-0 z-[80] w-[260px] bg-white border-r border-slate-200/60 flex flex-col transform transition-all duration-300 ease-in-out shadow-soft ${
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
-        <div className="h-20 flex items-center justify-between px-6 border-b border-slate-50">
-           <Link to="/" className="flex items-center gap-3" onClick={() => setIsSidebarOpen(false)}>
-              <div className="w-10 h-10 bg-brand-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-brand-200/40 ring-4 ring-brand-50">
-                <Package size={18} strokeWidth={2.5} />
+        <div className="h-16 flex items-center justify-between px-5 border-b border-slate-50">
+           <Link to="/" className="flex items-center gap-2.5" onClick={() => setIsSidebarOpen(false)}>
+              <div className="w-8 h-8 bg-brand-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-brand-100/50">
+                <Package size={16} strokeWidth={2.5} />
               </div>
-              <span className="text-2xl font-black text-slate-900 tracking-tighter">Sparezy</span>
+              <span className="text-xl font-bold text-slate-900 tracking-tight">Sparezy</span>
            </Link>
-           <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-2 text-slate-400 hover:bg-slate-50 rounded-xl transition-colors">
-             <X size={24} />
+           <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-1.5 text-slate-400 hover:bg-slate-50 rounded-lg transition-colors">
+             <X size={20} />
            </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 py-6 space-y-9 no-scrollbar">
+        <div className="flex-1 overflow-y-auto px-3 py-5 space-y-7 no-scrollbar">
            {navGroups.map((group, idx) => (
-             <div key={idx} className="space-y-3">
-                <h3 className="px-4 text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em] mb-1">
+             <div key={idx} className="space-y-2">
+                <h3 className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 opacity-80">
                   {group.title}
                 </h3>
                 
-                <div className="space-y-1">
+                <div className="space-y-0.5">
                    {group.items.map((item, itemIdx) => {
                       if (item.requiredRole && user.role !== item.requiredRole) return null;
                       const isActive = location.pathname === item.path;
@@ -132,19 +132,19 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
                           key={itemIdx}
                           to={item.path}
                           onClick={() => setIsSidebarOpen(false)}
-                          className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-[14px] font-bold transition-all duration-200 group ${
+                          className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13.5px] font-semibold transition-all duration-200 group ${
                             isActive 
-                              ? 'bg-brand-600 text-white shadow-lg shadow-brand-100 ring-1 ring-brand-700/10' 
+                              ? 'bg-brand-50 text-brand-700 shadow-sm ring-1 ring-brand-100' 
                               : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                           }`}
                         >
                           <item.icon 
                             size={18} 
                             strokeWidth={isActive ? 2.5 : 2}
-                            className={`transition-colors ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-600'}`} 
+                            className={`transition-colors ${isActive ? 'text-brand-600' : 'text-slate-400 group-hover:text-slate-500'}`} 
                           />
                           <span>{item.label}</span>
-                          {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-white shadow-inner" />}
+                          {isActive && <div className="ml-auto w-1 h-1 rounded-full bg-brand-500 shadow-sm" />}
                         </Link>
                       );
                    })}
@@ -153,27 +153,27 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
            ))}
         </div>
 
-        <div className="p-4 border-t border-slate-100 bg-slate-50/30">
+        <div className="p-3 border-t border-slate-100 bg-slate-50/20">
            <div className="relative">
              <button 
                 onClick={() => setShowUserMenu(!showUserMenu)}
-                className="w-full flex items-center gap-3 p-3 rounded-2xl bg-white border border-slate-200/60 hover:border-brand-300 hover:shadow-soft transition-all text-left group"
+                className="w-full flex items-center gap-2.5 p-2 rounded-xl bg-white border border-slate-200/60 hover:border-brand-200 hover:shadow-soft transition-all text-left group"
              >
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white text-sm font-bold shadow-soft ${user.role === Role.OWNER ? 'bg-indigo-500' : 'bg-brand-500'}`}>
+                <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-white text-xs font-bold shadow-soft ${user.role === Role.OWNER ? 'bg-indigo-500' : 'bg-brand-500'}`}>
                     {user.name.charAt(0)}
                 </div>
                 <div className="flex-1 min-w-0">
-                    <p className="text-sm font-extrabold text-slate-900 truncate">{user.name}</p>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{user.role}</p>
+                    <p className="text-[13px] font-bold text-slate-900 truncate">{user.name}</p>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{user.role}</p>
                 </div>
-                <ChevronDown size={16} className={`text-slate-400 transition-transform duration-300 ${showUserMenu ? 'rotate-180' : ''}`} />
+                <ChevronDown size={14} className={`text-slate-400 transition-transform duration-300 ${showUserMenu ? 'rotate-180' : ''}`} />
              </button>
 
              {showUserMenu && (
-               <div className="absolute bottom-full left-0 w-full mb-3 bg-white rounded-2xl shadow-elevated border border-slate-100 overflow-hidden animate-slide-up z-50">
-                  <div className="p-2">
-                     <button onClick={onLogout} className="w-full text-left px-4 py-3 text-sm text-rose-600 hover:bg-rose-50 rounded-xl flex items-center gap-3 font-bold transition-colors">
-                        <LogOut size={18} /> Sign Out
+               <div className="absolute bottom-full left-0 w-full mb-2 bg-white rounded-xl shadow-elevated border border-slate-100 overflow-hidden animate-slide-up z-50">
+                  <div className="p-1">
+                     <button onClick={onLogout} className="w-full text-left px-3 py-2.5 text-xs text-rose-600 hover:bg-rose-50 rounded-lg flex items-center gap-2.5 font-bold transition-colors">
+                        <LogOut size={16} /> Sign Out
                      </button>
                   </div>
                </div>
@@ -188,12 +188,12 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
         {/* Mobile Menu Toggle */}
         <button 
           onClick={() => setIsSidebarOpen(true)}
-          className="lg:hidden fixed top-6 left-6 z-[60] p-2.5 bg-white shadow-premium border border-slate-200/60 rounded-2xl text-slate-600 active:scale-95 transition-all hover:bg-slate-50"
+          className="lg:hidden fixed top-4 left-4 z-[60] p-2 bg-white shadow-premium border border-slate-200/60 rounded-xl text-slate-600 active:scale-95 transition-all hover:bg-slate-50"
         >
-          <Menu size={24} />
+          <Menu size={20} />
         </button>
 
-        <main className="flex-1 overflow-y-auto px-6 lg:px-12 py-8 pt-20 lg:pt-10 scroll-smooth no-scrollbar">
+        <main className="flex-1 overflow-y-auto px-4 lg:px-10 py-6 pt-16 lg:pt-8 scroll-smooth no-scrollbar">
            <div className="max-w-7xl mx-auto">
               {children}
            </div>

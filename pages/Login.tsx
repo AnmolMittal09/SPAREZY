@@ -54,64 +54,64 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       
       {/* --- PREMIUM ABSTRACT BACKGROUND --- */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-         <div className="absolute inset-0 bg-gradient-to-br from-[#0F172A] via-[#1E293B] to-[#0F172A]"></div>
+         <div className="absolute inset-0 bg-gradient-to-br from-[#0F172A] via-[#111827] to-[#0F172A]"></div>
          
          {/* Refined Mesh Gradients */}
-         <div className="absolute top-[-30%] left-[-20%] w-[100%] h-[100%] bg-blue-600/10 rounded-full blur-[160px] animate-pulse"></div>
-         <div className="absolute bottom-[-30%] right-[-20%] w-[100%] h-[100%] bg-brand-600/10 rounded-full blur-[160px] animate-pulse delay-1000"></div>
+         <div className="absolute top-[-20%] left-[-10%] w-[80%] h-[80%] bg-blue-600/5 rounded-full blur-[140px] animate-pulse"></div>
+         <div className="absolute bottom-[-20%] right-[-10%] w-[80%] h-[80%] bg-brand-600/5 rounded-full blur-[140px] animate-pulse delay-1000"></div>
          
          {/* Refined Grid Overlay */}
-         <div className="absolute inset-0 opacity-[0.03]" style={{ 
+         <div className="absolute inset-0 opacity-[0.02]" style={{ 
              backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', 
              backgroundSize: '40px 40px' 
          }}></div>
       </div>
 
       {/* --- LOGIN CONTAINER --- */}
-      <div className="relative z-10 w-full max-w-md p-6">
-        <div className="bg-white/[0.03] backdrop-blur-3xl border border-white/10 shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)] rounded-[3rem] overflow-hidden">
+      <div className="relative z-10 w-full max-w-sm p-5">
+        <div className="bg-white/[0.02] backdrop-blur-2xl border border-white/10 shadow-elevated rounded-[2.5rem] overflow-hidden">
            
            {/* Branding Header */}
-           <div className="p-10 pb-8 text-center border-b border-white/[0.05]">
-              <div className="flex justify-center mb-8 scale-[1.15]">
-                 <Logo variant="white" />
+           <div className="p-8 pb-6 text-center border-b border-white/[0.05]">
+              <div className="flex justify-center mb-6">
+                 <Logo variant="white" className="h-14 w-auto" />
               </div>
-              <p className="text-slate-500 text-xs font-black uppercase tracking-[0.3em] opacity-80">Security Protocol</p>
+              <p className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.25em] opacity-60">Security Protocol</p>
            </div>
 
            {/* Auth Form */}
-           <div className="p-10 space-y-8">
-              <form onSubmit={handleSubmit} className="space-y-6">
+           <div className="p-8 space-y-6">
+              <form onSubmit={handleSubmit} className="space-y-5">
                   {error && (
-                    <div className="bg-rose-500/10 border border-rose-500/20 text-rose-300 text-[11px] font-black uppercase tracking-widest p-4 rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
-                        <Lock size={16} /> {error}
+                    <div className="bg-rose-500/10 border border-rose-500/20 text-rose-300 text-[10px] font-bold uppercase tracking-wider p-3.5 rounded-xl flex items-center gap-2.5 animate-in fade-in slide-in-from-top-2">
+                        <Lock size={14} /> {error}
                     </div>
                   )}
 
-                  <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2">Access Key</label>
+                  <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1.5">Access Key</label>
                       <div className="relative group">
-                          <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-brand-400 transition-colors" size={20} />
+                          <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-brand-400 transition-colors" size={18} />
                           <input 
                               type="text" 
                               value={username}
                               onChange={(e) => setUsername(e.target.value)}
-                              className="w-full bg-slate-950/40 border border-white/10 rounded-[1.25rem] px-12 py-4.5 text-white placeholder-slate-700 focus:outline-none focus:border-brand-500/40 focus:ring-4 focus:ring-brand-500/5 transition-all shadow-inner text-lg font-bold"
+                              className="w-full bg-slate-950/30 border border-white/5 rounded-xl px-11 py-3.5 text-white placeholder-slate-700 focus:outline-none focus:border-brand-500/30 focus:ring-4 focus:ring-brand-500/5 transition-all text-base font-semibold"
                               placeholder="Access ID"
                               required
                           />
                       </div>
                   </div>
 
-                  <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2">Passphrase</label>
+                  <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1.5">Passphrase</label>
                       <div className="relative group">
-                          <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-brand-400 transition-colors" size={20} />
+                          <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-brand-400 transition-colors" size={18} />
                           <input 
                               type="password" 
                               value={password}
                               onChange={(e) => setPassword(e.target.value)}
-                              className="w-full bg-slate-950/40 border border-white/10 rounded-[1.25rem] px-12 py-4.5 text-white placeholder-slate-700 focus:outline-none focus:border-brand-500/40 focus:ring-4 focus:ring-brand-500/5 transition-all shadow-inner text-lg font-bold"
+                              className="w-full bg-slate-950/30 border border-white/5 rounded-xl px-11 py-3.5 text-white placeholder-slate-700 focus:outline-none focus:border-brand-500/30 focus:ring-4 focus:ring-brand-500/5 transition-all text-base font-semibold"
                               placeholder="••••••••"
                               required
                           />
@@ -119,37 +119,35 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                   </div>
 
                   {/* Options */}
-                  <div className="flex items-center gap-3 pt-2 ml-1">
-                      <div className="relative flex items-center">
-                        <input 
-                          type="checkbox" 
-                          id="rememberMe"
-                          checked={rememberMe}
-                          onChange={(e) => setRememberMe(e.target.checked)}
-                          className="w-5 h-5 rounded-lg border-white/10 bg-slate-950/50 text-brand-600 focus:ring-brand-500 focus:ring-offset-[#0F172A] cursor-pointer"
-                        />
-                      </div>
-                      <label htmlFor="rememberMe" className="text-xs font-bold text-slate-500 select-none cursor-pointer hover:text-slate-300 transition-colors uppercase tracking-widest">
-                        Save Access Key
+                  <div className="flex items-center gap-2.5 pt-1 ml-1">
+                      <input 
+                        type="checkbox" 
+                        id="rememberMe"
+                        checked={rememberMe}
+                        onChange={(e) => setRememberMe(e.target.checked)}
+                        className="w-4 h-4 rounded border-white/10 bg-slate-950/50 text-brand-600 focus:ring-brand-500/20 focus:ring-offset-[#0F172A] cursor-pointer"
+                      />
+                      <label htmlFor="rememberMe" className="text-[11px] font-semibold text-slate-500 select-none cursor-pointer hover:text-slate-300 transition-colors uppercase tracking-wider">
+                        Remember Session
                       </label>
                   </div>
 
                   <button 
                     type="submit" 
                     disabled={loading}
-                    className="w-full bg-brand-600 hover:bg-brand-500 text-white font-black py-5 rounded-[1.5rem] shadow-2xl shadow-brand-900/40 transition-all transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 mt-4 text-[15px] uppercase tracking-[0.15em]"
+                    className="w-full bg-brand-600 hover:bg-brand-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-brand-900/20 transition-all transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-4 text-sm uppercase tracking-widest"
                   >
-                     {loading ? <Loader2 className="animate-spin" size={22} /> : (
-                        <>Establish Session <ArrowRight size={20} className="opacity-70" /></>
+                     {loading ? <Loader2 className="animate-spin" size={18} /> : (
+                        <>Sign In <ArrowRight size={18} className="opacity-60" /></>
                      )}
                   </button>
               </form>
            </div>
            
            {/* Footer Branding */}
-           <div className="bg-white/[0.02] p-6 text-center border-t border-white/[0.05]">
-              <p className="text-[9px] text-slate-600 uppercase tracking-[0.4em] font-extrabold">
-                 Core System Enterprise v4.2
+           <div className="bg-white/[0.01] p-5 text-center border-t border-white/[0.05]">
+              <p className="text-[8px] text-slate-700 uppercase tracking-[0.3em] font-bold">
+                 Enterprise Terminal v4.2
               </p>
            </div>
         </div>
