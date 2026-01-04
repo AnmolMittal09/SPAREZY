@@ -502,85 +502,81 @@ const Purchases: React.FC<Props> = ({ user }) => {
                 )}
 
                 {previewData.length > 0 && (
-                  <div className="bg-white rounded-[3rem] shadow-2xl border border-slate-100 overflow-hidden animate-slide-up flex flex-col max-h-[85vh]">
-                     <div className="p-6 md:p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/40">
+                  <div className="bg-white rounded-[2.5rem] shadow-elevated border border-slate-200/60 overflow-hidden animate-slide-up flex flex-col max-h-[85vh]">
+                     <div className="p-5 md:p-6 border-b border-slate-100 flex justify-between items-center bg-white">
                         <div className="flex items-center gap-4">
-                           <div className="bg-blue-600 text-white p-3 md:p-4 rounded-2xl md:rounded-3xl shadow-xl shadow-blue-100"><ShieldCheck size={24} /></div>
+                           <div className="bg-blue-600 text-white p-3 rounded-2xl shadow-premium shadow-blue-500/20"><ShieldCheck size={22} /></div>
                            <div>
-                              <h3 className="font-black text-slate-900 text-lg md:text-xl leading-none mb-1 md:mb-2">Extraction Review</h3>
-                              <p className="text-[9px] md:text-[11px] text-slate-400 font-black uppercase tracking-[0.2em]">Dealer: {extractedMetadata.dealerName || 'Unknown'}</p>
+                              <h3 className="font-bold text-slate-900 text-base md:text-lg leading-tight">Extraction Review</h3>
+                              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Dealer: {extractedMetadata.dealerName || 'Unknown'}</p>
                            </div>
                         </div>
-                        <button onClick={() => setPreviewData([])} className="p-2 md:p-3 text-slate-300 hover:text-rose-500 bg-white rounded-xl md:rounded-2xl shadow-sm transition-all active:scale-90"><X size={20} /></button>
+                        <button onClick={() => setPreviewData([])} className="p-2 text-slate-400 hover:text-slate-600 transition-all"><X size={20} /></button>
                      </div>
 
-                     <div className="bg-amber-50 p-4 border-b border-amber-100 flex items-start gap-3">
-                        <Zap className="text-amber-600 flex-none" size={16} />
-                        <p className="text-[10px] font-bold text-amber-800 leading-tight">Verify part numbers below. Pulsing tags indicate <b>New Parts</b> that will be added to your shop catalog.</p>
+                     <div className="bg-amber-50/50 p-3.5 border-b border-amber-100 flex items-start gap-2.5">
+                        <Zap className="text-amber-500 flex-none mt-0.5" size={14} />
+                        <p className="text-[10px] font-semibold text-amber-800 leading-tight">Verify part numbers below. <span className="text-teal-600">New Entry</span> tags indicate items not yet in your database.</p>
                      </div>
 
-                     <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-3 md:space-y-4 no-scrollbar bg-slate-50/30">
+                     <div className="flex-1 overflow-y-auto no-scrollbar bg-white">
                         {previewData.map((row, i) => {
                            const exists = inventory.some(item => item.partNumber.toLowerCase() === row.partNumber.toLowerCase());
                            return (
-                               <div key={i} className={`bg-white p-5 md:p-6 rounded-[2rem] md:rounded-[2.5rem] border shadow-soft flex flex-col gap-4 animate-fade-in transition-all ${row.hasError ? 'border-rose-200 bg-rose-50/30' : 'border-slate-100'}`} style={{ animationDelay: `${i * 0.05}s` }}>
-                                <div className="flex flex-col gap-3">
-                                    <div className="flex justify-between items-start">
+                               <div key={i} className={`px-5 py-5 border-b border-slate-50 flex flex-col gap-3 transition-all ${row.hasError ? 'bg-rose-50/10' : ''}`}>
+                                <div className="flex flex-col gap-2">
+                                    <div className="flex justify-between items-start gap-4">
                                        <div className="flex-1 space-y-1">
-                                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Part Number (Editable)</label>
                                           <div className="relative group/edit">
                                              <input 
                                                 type="text"
                                                 value={row.partNumber}
                                                 onChange={e => handleEditPartNumber(i, e.target.value)}
-                                                className="w-full bg-slate-50 px-4 py-3 rounded-2xl border-2 border-transparent font-black text-slate-900 text-[17px] md:text-lg leading-tight tracking-tight focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
+                                                className="w-full bg-slate-50/50 px-0 py-0 border-none font-bold text-slate-900 text-lg leading-tight tracking-tight focus:bg-white transition-all outline-none"
                                              />
-                                             {/* Replacing Edit2 with imported Edit3 */}
-                                             <Edit3 size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none group-focus-within/edit:text-blue-500" />
+                                          </div>
+                                          <div className="flex items-center gap-2">
+                                             {!exists && (
+                                                <span className="flex-none bg-teal-50 text-teal-600 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider border border-teal-100">
+                                                   New Entry
+                                                </span>
+                                             )}
+                                             <div className="text-[11px] text-slate-400 font-semibold truncate flex-1">{row.name}</div>
                                           </div>
                                        </div>
-                                       <div className="pl-3 pt-5">
-                                          <div className="bg-blue-600 text-white px-3 py-2 rounded-xl text-[11px] font-black uppercase shadow-lg shadow-blue-100 flex items-center gap-1.5 whitespace-nowrap">
-                                             <Check size={14} /> {row.quantity} Qty
+                                       <div className="flex-none">
+                                          <div className="bg-slate-100 text-slate-600 px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                                             <Package size={12} /> {row.quantity}
                                           </div>
                                        </div>
-                                    </div>
-                                    
-                                    <div className="flex items-center gap-2">
-                                       {!exists && (
-                                          <span className="flex-none bg-teal-500 text-white px-2 py-1 rounded-lg text-[9px] font-black uppercase shadow-sm animate-pulse flex items-center gap-1">
-                                             <Plus size={10} strokeWidth={4} /> New Entry
-                                          </span>
-                                       )}
-                                       <div className="text-[12px] md:text-[13px] text-slate-400 font-bold truncate flex-1">{row.name}</div>
                                     </div>
                                 </div>
                                 
-                                <div className="grid grid-cols-3 gap-2 md:gap-4 pt-3 border-t border-slate-100/50">
-                                    <div className="bg-slate-50/50 p-2 md:p-3 rounded-2xl border border-slate-100">
-                                        <p className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">MRP</p>
-                                        <p className="font-bold text-slate-900 text-xs md:text-sm">₹{row.mrp.toLocaleString()}</p>
+                                <div className="flex items-center justify-between gap-4 py-2 border-t border-slate-50/80">
+                                    <div className="flex-1">
+                                        <p className="text-[8px] font-bold text-slate-300 uppercase tracking-widest mb-0.5">MRP</p>
+                                        <p className="font-bold text-slate-600 text-xs">₹{row.mrp.toLocaleString()}</p>
                                     </div>
-                                    <div className={`p-2 md:p-3 rounded-2xl border ${row.errorType === 'DISCOUNT_LOW' ? 'bg-rose-50 border-rose-100' : 'bg-slate-50/50 border-slate-100'}`}>
-                                        <p className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">B.DC</p>
-                                        <p className={`font-black text-xs md:text-sm ${row.errorType === 'DISCOUNT_LOW' ? 'text-rose-600' : 'text-slate-900'}`}>
+                                    <div className="flex-1">
+                                        <p className="text-[8px] font-bold text-slate-300 uppercase tracking-widest mb-0.5">B.DC</p>
+                                        <p className={`font-bold text-xs ${row.errorType === 'DISCOUNT_LOW' ? 'text-rose-600' : 'text-slate-600'}`}>
                                           {row.discountPercent}%
                                         </p>
                                     </div>
-                                    <div className="bg-blue-50/50 p-2 md:p-3 rounded-2xl border border-blue-100 text-right">
-                                        <p className="text-[8px] md:text-[9px] font-black text-blue-400 uppercase tracking-widest mb-0.5">Net Rate</p>
-                                        <p className="font-black text-blue-700 text-xs md:text-sm">₹{row.printedUnitPrice.toLocaleString()}</p>
+                                    <div className="flex-1 text-right">
+                                        <p className="text-[8px] font-bold text-blue-300 uppercase tracking-widest mb-0.5">Net Rate</p>
+                                        <p className="font-bold text-blue-600 text-sm">₹{row.printedUnitPrice.toLocaleString()}</p>
                                     </div>
                                 </div>
 
                                 {row.hasError && (
-                                    <div className="bg-rose-500 text-white p-3 rounded-2xl shadow-lg shadow-rose-200 flex gap-3 items-center animate-slide-up">
-                                        <AlertTriangle className="flex-none" size={18} />
-                                        <div className="text-[10px] md:text-[11px] font-black leading-tight uppercase tracking-wide">
+                                    <div className="bg-rose-50 text-rose-700 p-2.5 rounded-xl border border-rose-100 flex gap-2.5 items-center">
+                                        <AlertTriangle className="flex-none text-rose-500" size={14} />
+                                        <div className="text-[10px] font-bold leading-tight uppercase tracking-wide">
                                           {row.errorType === 'DISCOUNT_LOW' ? (
-                                              <p>Scan Alert: B.DC ({row.discountPercent}%) is below 12% standard!</p>
+                                              <span>Low B.DC ({row.discountPercent}%) vs 12% standard.</span>
                                           ) : (
-                                              <p>Math Alert: Expected ₹{row.calculatedPrice.toLocaleString()} at 12% B.DC.</p>
+                                              <span>Math: Expected ₹{row.calculatedPrice.toLocaleString()} at 12% B.DC.</span>
                                           )}
                                         </div>
                                     </div>
@@ -590,9 +586,9 @@ const Purchases: React.FC<Props> = ({ user }) => {
                         })}
                      </div>
 
-                     <div className="p-6 md:p-8 border-t border-slate-100 bg-white sticky bottom-0 z-10 shadow-[0_-15px_40px_rgba(0,0,0,0.05)]">
-                        <button onClick={confirmBulkImport} disabled={importing} className="w-full bg-slate-900 hover:bg-black text-white font-black py-5 md:py-6 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.2)] flex items-center justify-center gap-4 active:scale-[0.98] transition-all disabled:opacity-50 text-[15px] md:text-[16px] uppercase tracking-widest">
-                          {importing ? <Loader2 className="animate-spin" /> : <CheckCircle2 size={24} />} Confirm & Sync Audit
+                     <div className="p-5 md:p-6 border-t border-slate-100 bg-white sticky bottom-0 z-20 shadow-[0_-10px_30px_rgba(0,0,0,0.05)]">
+                        <button onClick={confirmBulkImport} disabled={importing} className="w-full bg-slate-900 hover:bg-black text-white font-bold py-4 rounded-xl shadow-elevated flex items-center justify-center gap-3 active:scale-[0.98] transition-all disabled:opacity-50 text-sm uppercase tracking-widest">
+                          {importing ? <Loader2 className="animate-spin" size={18} /> : <CheckCircle2 size={18} />} Confirm & Sync Audit
                         </button>
                      </div>
                   </div>
