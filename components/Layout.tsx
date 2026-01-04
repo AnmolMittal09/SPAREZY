@@ -80,7 +80,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
       items: [
         { label: 'Stock Alerts', path: '/low-stock', icon: AlertTriangle },
         { label: 'Bulk Update', path: '/import-export', icon: FileUp, requiredRole: Role.OWNER },
-        { label: 'Analytics', path: '/reports', icon: BarChart3 }, // Accessible to both roles now
+        { label: 'Analytics', path: '/reports', icon: BarChart3, requiredRole: Role.OWNER },
         { label: 'Admin Settings', path: '/settings', icon: Settings, requiredRole: Role.OWNER },
       ]
     }
