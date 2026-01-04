@@ -19,6 +19,7 @@ import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import ItemDetail from './pages/ItemDetail';
 import Invoices from './pages/Invoices';
+import ProfitAnalysis from './pages/ProfitAnalysis';
 
 const INACTIVITY_LIMIT_MS = 30 * 60 * 1000; // 30 Minutes
 
@@ -90,6 +91,10 @@ const App: React.FC = () => {
           <Route 
             path="/reports" 
             element={user.role === Role.OWNER ? <Reports user={user} /> : <Navigate to="/" replace />} 
+          />
+          <Route 
+            path="/profit-analysis" 
+            element={user.role === Role.OWNER ? <ProfitAnalysis user={user} /> : <Navigate to="/" replace />} 
           />
           
           {/* ADMIN */}

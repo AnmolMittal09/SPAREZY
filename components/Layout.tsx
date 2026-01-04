@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 // @ts-ignore
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -20,7 +21,8 @@ import {
   FileText, 
   X, 
   Zap,
-  RefreshCw 
+  RefreshCw,
+  PieChart
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -90,7 +92,8 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
       items: [
         { label: 'Stock Alerts', path: '/low-stock', icon: AlertTriangle },
         { label: 'Bulk Update', path: '/import-export', icon: FileUp, requiredRole: Role.OWNER },
-        { label: 'Analytics', path: '/reports', icon: BarChart3 },
+        { label: 'Profit Analysis', path: '/profit-analysis', icon: PieChart, requiredRole: Role.OWNER },
+        { label: 'Analytics', path: '/reports', icon: BarChart3, requiredRole: Role.OWNER },
         { label: 'Admin Settings', path: '/settings', icon: Settings, requiredRole: Role.OWNER },
       ]
     }
@@ -182,7 +185,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
              {showUserMenu && (
                <div className="absolute bottom-full left-0 w-full mb-2 bg-white rounded-xl shadow-elevated border border-slate-100 overflow-hidden animate-slide-up z-50">
                   <div className="p-1">
-                     <button onClick={onLogout} className="w-full text-left px-3 py-2.5 text-xs text-rose-600 hover:bg-rose-50 rounded-lg flex items-center gap-2.5 font-bold transition-colors">
+                     <button onMouseDown={onLogout} className="w-full text-left px-3 py-2.5 text-xs text-rose-600 hover:bg-rose-50 rounded-lg flex items-center gap-2.5 font-bold transition-colors">
                         <LogOut size={16} /> Sign Out
                      </button>
                   </div>
