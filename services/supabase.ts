@@ -1,3 +1,4 @@
+
 import { createClient } from '@supabase/supabase-js';
 
 // Access environment variables safely
@@ -16,12 +17,23 @@ export const supabase = (supabaseUrl && supabaseKey)
  * SUPABASE SQL COMMANDS (Run in SQL Editor)
  * ==========================================
  * 
- * --- 🚨 IMPORTANT FIX FOR INVOICE ERROR 🚨 ---
- * Run this command to fix the "violates check constraint" error:
+ * --- 🚨 FIX FOR RLS POLICY ERROR 🚨 ---
+ * If you see "violates row-level security policy", run these commands:
  * 
- * ALTER TABLE invoices DROP CONSTRAINT IF EXISTS invoices_payment_mode_check;
- * ALTER TABLE invoices ADD CONSTRAINT invoices_payment_mode_check 
- * CHECK (payment_mode IN ('CASH', 'UPI', 'CARD', 'CREDIT'));
+ * -- Enable RLS (if not already enabled)
+ * ALTER TABLE stock_requests ENABLE ROW LEVEL SECURITY;
+ * 
+ * -- Create a policy that allows all operations (Public access for this specific table)
+ * -- In a real production app with Supabase Auth, you would restrict this to authenticated users.
+ * DROP POLICY IF EXISTS "Enable all access for everyone" ON stock_requests;
+ * CREATE POLICY "Enable all access for everyone" ON stock_requests FOR ALL USING (true) WITH CHECK (true);
+ * 
+ * -- Repeat for other tables if necessary:
+ * ALTER TABLE inventory ENABLE ROW LEVEL SECURITY;
+ * CREATE POLICY "Enable all access for everyone" ON inventory FOR ALL USING (true) WITH CHECK (true);
+ * 
+ * ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
+ * CREATE POLICY "Enable all access for everyone" ON transactions FOR ALL USING (true) WITH CHECK (true);
  * 
  * ---------------------------------------------
  * 

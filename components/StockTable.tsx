@@ -25,7 +25,6 @@ import {
   Calendar,
   ClipboardPlus,
   Check,
-  // Added Lock import to fix JSX resolution error on line 193
   Lock
 } from 'lucide-react';
 
@@ -192,7 +191,6 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role; 
                   <History size={12} strokeWidth={3} />
                 </div>
             )}
-            {/* Using Lock from lucide-react to indicate hidden state for managers */}
             {isManager && <Lock size={10} className="text-white/30 mr-1" />}
           </>
         )}
@@ -445,23 +443,27 @@ const StockTable: React.FC<StockTableProps> = ({
   const isPartiallySelected = selectedParts.size > 0 && !isAllPageSelected;
 
   const handleQuickRequest = async (pn: string) => {
-      const qtyStr = window.prompt(`How many units of ${pn} do you need?`, "5");
+      const qtyStr = window.prompt(`Requisition for ${pn}:\nEnter quantity needed:`, "5");
       if (qtyStr === null) return;
       const qty = parseInt(qtyStr);
-      if (isNaN(qty) || qty <= 0) return alert("Please enter a valid quantity.");
+      if (isNaN(qty) || qty <= 0) return alert("Please enter a valid quantity (positive number).");
 
       setRequestingPn(pn);
-      const res = await createStockRequests([{
-          partNumber: pn,
-          quantity: qty,
-          requesterName: userRole || 'User'
-      }]);
-      setRequestingPn(null);
-
-      if (res.success) {
-          alert(`Requisition for ${qty} units of ${pn} submitted successfully.`);
-      } else {
-          alert("Failed to submit request: " + res.message);
+      try {
+        const res = await createStockRequests([{
+            partNumber: pn,
+            quantity: qty,
+            requesterName: userRole || 'System User'
+        }]);
+        if (res.success) {
+            alert(`Requisition for ${qty} units of ${pn} recorded.`);
+        } else {
+            alert("Submission failed: " + res.message);
+        }
+      } catch (e: any) {
+        alert("Policy Error: Please ensure database permissions are set. " + e.message);
+      } finally {
+        setRequestingPn(null);
       }
   };
 
@@ -515,6 +517,7 @@ const StockTable: React.FC<StockTableProps> = ({
     setSortConfig({ key, direction });
   };
 
+  // Fixed invalid JSX syntax for size prop
   const SortIcon = ({ col }: { col: keyof StockItem }) => {
       if (sortConfig?.key !== col) return <ArrowUpDown size={10} className="opacity-10" />;
       return sortConfig.direction === 'asc' ? <ArrowUp size={10} className="text-brand-600" /> : <ArrowDown size={10} className="text-brand-600" />;
