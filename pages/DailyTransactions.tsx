@@ -426,7 +426,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                </div>
            </div>
 
-           <div className="col-span-4 bg-white rounded-[2.5rem] shadow-premium border border-slate-50 flex flex-col overflow-hidden">
+           <div className="col-span-4 bg-white rounded-[2.5rem] shadow-premium border border-slate-50 flex flex-col overflow-visible">
                 <div className="p-8 border-b border-slate-50 flex justify-between items-center">
                     <h2 className="font-black text-xl text-slate-900 tracking-tight flex items-center gap-2">
                         <ShoppingCart size={22} className="text-brand-600" /> Cart
@@ -436,8 +436,8 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                     )}
                 </div>
                 
-                <div className="p-8 pb-4 space-y-4" ref={wrapperRef}>
-                    <div>
+                <div className="p-8 pb-4 space-y-4 relative" ref={wrapperRef}>
+                    <div className="relative">
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-2 block ml-1">Bill To Customer</span>
                         <div className="relative group">
                             <input 
@@ -455,7 +455,10 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                                        onClick={() => { setCustomerName(c.name); setShowCustomerList(false); }}
                                        className="w-full text-left px-5 py-3.5 hover:bg-slate-50 border-b border-slate-50 last:border-0 flex justify-between items-center transition-colors"
                                     >
-                                       <span className="font-bold text-slate-800">{c.name}</span>
+                                       <div>
+                                          <span className="font-bold text-slate-800 block">{c.name}</span>
+                                          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{c.type}</span>
+                                       </div>
                                        <span className="text-xs text-slate-400 font-bold">{c.phone}</span>
                                     </button>
                                  ))}

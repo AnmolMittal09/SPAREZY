@@ -1,14 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import { User, Transaction, ShopSettings, TransactionStatus, TransactionType } from '../types';
+import React, { useState, useEffect, useRef } from 'react';
+import { User, Transaction, ShopSettings, TransactionStatus, TransactionType, Customer } from '../types';
 import { fetchUninvoicedSales, generateTaxInvoiceRecord, fetchInvoices, fetchTransactions } from '../services/transactionService';
 import { fetchInventory } from '../services/inventoryService';
-import { getShopSettings } from '../services/masterService';
+import { getShopSettings, getCustomers } from '../services/masterService';
 import { numberToWords } from '../services/invoiceService'; 
-import { FileText, Printer, Search, RefreshCw, AlertCircle, CheckCircle2, History, ArrowRight, User as UserIcon, MapPin, Phone, CreditCard, ChevronLeft, AlertTriangle, Wallet, Banknote, Building2 } from 'lucide-react';
+import { FileText, Printer, Search, RefreshCw, AlertCircle, CheckCircle2, History, ArrowRight, User as UserIcon, MapPin, Phone, CreditCard, ChevronLeft, AlertTriangle, Wallet, Banknote, Building2, X } from 'lucide-react';
 import TharLoader from '../components/TharLoader';
 import Logo from '../components/Logo';
 // @ts-ignore
 import { useNavigate } from 'react-router-dom';
+
+const formatQty = (n: number) => {
+  const num = Math.abs(n);
+  const str = num < 10 ? `0${num}` : `${num}`;
+  return n < 0 ? `-${str}` : str;
+};
 
 interface Props {
   user: User;
@@ -17,6 +23,7 @@ interface Props {
 const Invoices: React.FC<Props> = ({ user }) => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'PENDING' | 'HISTORY'>('PENDING');
+  const dropdownRef = useRef<HTMLDivElement>(null);
   
   // Workflow State
   const [step, setStep] = useState<1 | 2 | 3>(1); // 1: Select, 2: Details, 3: Preview
@@ -29,6 +36,11 @@ const Invoices: React.FC<Props> = ({ user }) => {
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState('');
   const [invoiceHistory, setInvoiceHistory] = useState<any[]>([]);
+  
+  // Customer Search State
+  const [allCustomers, setAllCustomers] = useState<Customer[]>([]);
+  const [customerSuggestions, setCustomerSuggestions] = useState<Customer[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   
   // Diagnostic State
   const [pendingApprovalCount, setPendingApprovalCount] = useState(0);
@@ -45,7 +57,16 @@ const Invoices: React.FC<Props> = ({ user }) => {
   useEffect(() => {
     fetchInventory().then(setInventory);
     getShopSettings().then(setShopSettings);
+    getCustomers().then(setAllCustomers);
     checkPendingApprovals();
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   useEffect(() => {
@@ -94,6 +115,31 @@ const Invoices: React.FC<Props> = ({ user }) => {
     if (newSet.has(id)) newSet.delete(id);
     else newSet.add(id);
     setSelectedIds(newSet);
+  };
+
+  const handleCustomerSearch = (val: string) => {
+    setCustomerDetails({ ...customerDetails, name: val });
+    if (val.length > 0) {
+      const filtered = allCustomers.filter(c => 
+        c.name.toLowerCase().includes(val.toLowerCase()) || 
+        (c.phone && c.phone.includes(val))
+      ).slice(0, 5);
+      setCustomerSuggestions(filtered);
+      setShowSuggestions(true);
+    } else {
+      setShowSuggestions(false);
+    }
+  };
+
+  const selectCustomer = (c: Customer) => {
+    setCustomerDetails({
+      name: c.name,
+      phone: c.phone || '',
+      address: c.address || '',
+      gst: c.gst || '',
+      paymentMode: 'CASH'
+    });
+    setShowSuggestions(false);
   };
 
   const selectedItems = sales.filter(s => selectedIds.has(s.id)).map(sale => {
@@ -189,12 +235,12 @@ const Invoices: React.FC<Props> = ({ user }) => {
             <tbody className="divide-y divide-slate-200 border-x border-b border-slate-200">
                 {selectedItems.map((item, idx) => (
                 <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
-                    <td className="py-3 px-4 text-slate-500 font-mono">{idx + 1}</td>
+                    <td className="py-3 px-4 text-slate-500 font-mono">{formatQty(idx + 1)}</td>
                     <td className="py-3 px-4">
                         <p className="font-bold text-slate-800 text-base">{item.partNumber}</p>
                         <p className="text-xs text-slate-500">{item.name}</p>
                     </td>
-                    <td className="py-3 px-4 text-center font-medium">{item.quantity}</td>
+                    <td className="py-3 px-4 text-center font-medium">{formatQty(item.quantity)}</td>
                     <td className="py-3 px-4 text-right text-slate-600">₹{item.price.toFixed(2)}</td>
                     <td className="py-3 px-4 text-right font-bold text-slate-900">₹{(item.price * item.quantity).toFixed(2)}</td>
                 </tr>
@@ -294,7 +340,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
                </div>
                <div>
                   <h3 className="text-sm font-bold text-amber-900">Attention Needed</h3>
-                  <p className="text-xs text-amber-800">{pendingApprovalCount} sales need approval before invoicing.</p>
+                  <p className="text-xs text-amber-800">{formatQty(pendingApprovalCount)} sales need approval before invoicing.</p>
                </div>
             </div>
             <button 
@@ -312,17 +358,17 @@ const Invoices: React.FC<Props> = ({ user }) => {
                {/* STEPPER */}
                <div className="bg-white border-b border-slate-200 px-4 md:px-8 py-4 flex items-center justify-center gap-2 md:gap-4 no-print shadow-sm z-10">
                   <div className={`flex items-center gap-2 text-xs md:text-sm font-bold ${step >= 1 ? 'text-blue-600' : 'text-slate-300'}`}>
-                     <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs border ${step >= 1 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-slate-300 text-slate-400'}`}>1</span>
+                     <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs border ${step >= 1 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-slate-300 text-slate-400'}`}>01</span>
                      <span className="hidden md:inline">Select Sales</span>
                   </div>
                   <div className={`w-8 md:w-16 h-0.5 ${step >= 2 ? 'bg-blue-600' : 'bg-slate-100'}`}></div>
                   <div className={`flex items-center gap-2 text-xs md:text-sm font-bold ${step >= 2 ? 'text-blue-600' : 'text-slate-300'}`}>
-                     <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs border ${step >= 2 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-slate-300 text-slate-400'}`}>2</span>
+                     <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs border ${step >= 2 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-slate-300 text-slate-400'}`}>02</span>
                      <span className="hidden md:inline">Details</span>
                   </div>
                   <div className={`w-8 md:w-16 h-0.5 ${step >= 3 ? 'bg-blue-600' : 'bg-slate-100'}`}></div>
                   <div className={`flex items-center gap-2 text-xs md:text-sm font-bold ${step >= 3 ? 'text-blue-600' : 'text-slate-300'}`}>
-                     <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs border ${step >= 3 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-slate-300 text-slate-400'}`}>3</span>
+                     <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs border ${step >= 3 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-slate-300 text-slate-400'}`}>03</span>
                      <span className="hidden md:inline">Print</span>
                   </div>
                </div>
@@ -386,7 +432,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
                                          </div>
                                          <div className="text-right">
                                             <div className="font-bold text-slate-900">₹{(sale.price * sale.quantity).toLocaleString()}</div>
-                                            <div className="text-xs text-slate-500">{sale.quantity} units x ₹{sale.price}</div>
+                                            <div className="text-xs text-slate-500">{formatQty(sale.quantity)} units x ₹{sale.price}</div>
                                          </div>
                                       </div>
                                    );
@@ -398,7 +444,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
                        <div className="p-4 border-t border-slate-200 bg-white flex justify-between items-center shadow-lg z-20">
                           <div>
                              <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Total Selected</p>
-                             <p className="text-xl font-bold text-slate-900">{selectedIds.size} <span className="text-sm font-medium text-slate-400">items</span></p>
+                             <p className="text-xl font-bold text-slate-900">{formatQty(selectedIds.size)} <span className="text-sm font-medium text-slate-400">items</span></p>
                           </div>
                           <button 
                              disabled={selectedIds.size === 0}
@@ -429,13 +475,13 @@ const Invoices: React.FC<Props> = ({ user }) => {
                               </div>
                            </div>
                            <div className="text-right">
-                              <p className="text-xs font-bold text-slate-400 uppercase">{selectedItems.length} Items</p>
+                              <p className="text-xs font-bold text-slate-400 uppercase">{formatQty(selectedItems.length)} Items</p>
                               <button onClick={() => setStep(1)} className="text-xs font-bold text-blue-600 hover:underline">Edit Selection</button>
                            </div>
                         </div>
 
                         {/* Form Card */}
-                        <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
+                        <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-visible relative">
                            <div className="p-6 border-b border-slate-100 flex items-center gap-3">
                               <UserIcon className="text-blue-600" />
                               <div>
@@ -446,19 +492,51 @@ const Invoices: React.FC<Props> = ({ user }) => {
 
                            <div className="p-6 space-y-6">
                               <div className="space-y-4">
-                                 <div>
+                                 <div className="relative" ref={dropdownRef}>
                                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">Full Name <span className="text-red-500">*</span></label>
                                     <div className="relative group">
                                        <UserIcon size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
                                        <input 
                                           autoFocus
                                           type="text" 
-                                          className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-slate-50 focus:bg-white transition-all font-medium"
-                                          placeholder="e.g. Rahul Sharma"
+                                          className="w-full pl-10 pr-10 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-slate-50 focus:bg-white transition-all font-medium"
+                                          placeholder="Search existing or type new name..."
                                           value={customerDetails.name}
-                                          onChange={e => setCustomerDetails({...customerDetails, name: e.target.value})}
+                                          onChange={e => handleCustomerSearch(e.target.value)}
                                        />
+                                       {customerDetails.name && (
+                                          <button 
+                                            onClick={() => { setCustomerDetails({...customerDetails, name: '', phone: '', gst: '', address: ''}); setShowSuggestions(false); }}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 hover:text-rose-500 transition-colors"
+                                          >
+                                             <X size={16} />
+                                          </button>
+                                       )}
                                     </div>
+
+                                    {/* Suggestions Dropdown */}
+                                    {showSuggestions && customerSuggestions.length > 0 && (
+                                      <div className="absolute top-full left-0 right-0 z-[100] bg-white border border-slate-100 rounded-2xl shadow-elevated mt-2 overflow-hidden animate-slide-up">
+                                         <div className="p-2 border-b border-slate-50 bg-slate-50/50">
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Matched from database</p>
+                                         </div>
+                                         {customerSuggestions.map(c => (
+                                            <button
+                                               key={c.id}
+                                               onClick={() => selectCustomer(c)}
+                                               className="w-full text-left px-5 py-3.5 hover:bg-blue-50 border-b border-slate-50 last:border-0 flex justify-between items-center transition-colors group"
+                                            >
+                                               <div>
+                                                  <span className="font-bold text-slate-800 block group-hover:text-blue-600">{c.name}</span>
+                                                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{c.type}</span>
+                                               </div>
+                                               <div className="text-right">
+                                                  <span className="text-xs text-slate-500 font-bold">{c.phone || 'No phone'}</span>
+                                               </div>
+                                            </button>
+                                         ))}
+                                      </div>
+                                    )}
                                  </div>
 
                                  <div className="grid grid-cols-2 gap-4">
@@ -621,7 +699,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
                                      <div className="font-medium text-slate-800">{inv.customerName}</div>
                                   </td>
                                   <td className="px-6 py-4 text-center">
-                                     <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs font-bold">{inv.itemsCount}</span>
+                                     <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs font-bold">{formatQty(inv.itemsCount)}</span>
                                   </td>
                                   <td className="px-6 py-4 text-right font-bold text-blue-700">₹{inv.totalAmount.toLocaleString()}</td>
                                </tr>
