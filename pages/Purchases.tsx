@@ -33,10 +33,13 @@ import {
   List,
   ArrowLeft,
   Package,
-  ArrowUpDown
+  ArrowUpDown,
+  Plus,
+  Trash2,
+  Image as ImageIcon
 } from 'lucide-react';
 import { fetchTransactions, createBulkTransactions } from '../services/transactionService';
-import { extractInvoiceData } from '../services/geminiService';
+import { extractInvoiceData, InvoiceFile } from '../services/geminiService';
 import TharLoader from '../components/TharLoader';
 import * as XLSX from 'xlsx';
 
@@ -60,9 +63,15 @@ interface ExtractedItem {
 interface GroupedInbound {
   id: string;
   createdAt: string;
-  customerName: string; // Dealer name
+  customerName: string; 
   items: Transaction[];
   totalValue: number;
+}
+
+interface QueuedFile {
+  id: string;
+  file: File;
+  preview: string;
 }
 
 const Purchases: React.FC<Props> = ({ user }) => {
@@ -71,6 +80,9 @@ const Purchases: React.FC<Props> = ({ user }) => {
   const [history, setHistory] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [isSearchingOnMobile, setIsSearchingOnMobile] = useState(false);
+  
+  // Multi-page queue
+  const [queuedFiles, setQueuedFiles] = useState<QueuedFile[]>([]);
   
   // Sort for History
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -98,7 +110,6 @@ const Purchases: React.FC<Props> = ({ user }) => {
     setLoading(false);
   };
 
-  // --- GROUPING FOR STACKED HISTORY ---
   const stackedHistory = useMemo(() => {
     const groups: Record<string, GroupedInbound> = {};
     history.forEach(tx => {
@@ -147,10 +158,34 @@ const Purchases: React.FC<Props> = ({ user }) => {
     });
   };
 
-  const handleInvoiceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
 
+    const newQueued: QueuedFile[] = [];
+    Array.from(files).forEach(f => {
+      newQueued.push({
+        id: Math.random().toString(36).substring(7),
+        file: f,
+        preview: URL.createObjectURL(f)
+      });
+    });
+
+    setQueuedFiles(prev => [...prev, ...newQueued]);
+    e.target.value = ''; // Reset input
+  };
+
+  const removeFileFromQueue = (id: string) => {
+    setQueuedFiles(prev => {
+      const target = prev.find(f => f.id === id);
+      if (target) URL.revokeObjectURL(target.preview);
+      return prev.filter(f => f.id !== id);
+    });
+  };
+
+  const startAiAudit = async () => {
+    if (queuedFiles.length === 0) return;
+    
     setImporting(true);
     setErrorMsg(null);
     setPreviewData([]);
@@ -158,46 +193,11 @@ const Purchases: React.FC<Props> = ({ user }) => {
     setImportLog(null);
 
     try {
-      if (file.type === 'application/pdf' || file.type.startsWith('image/')) {
-        const base64 = await fileToBase64(file);
-        const result = await extractInvoiceData(base64, file.type);
-        
-        if (result && result.items && result.items.length > 0) {
-          setExtractedMetadata({
-            dealerName: result.dealerName,
-            invoiceDate: result.invoiceDate
-          });
-
-          // Process verification logic with 12% rules
-          const verifiedItems = result.items.map((item: any) => {
-            const expectedPriceAt12Percent = item.mrp * (1 - (STANDARD_DISCOUNT / 100));
-            const diff = Math.abs(expectedPriceAt12Percent - item.printedUnitPrice);
-            
-            let hasError = false;
-            let errorType: 'DISCOUNT_LOW' | 'CALC_MISMATCH' | 'NONE' = 'NONE';
-
-            if (item.discountPercent < STANDARD_DISCOUNT) {
-              hasError = true;
-              errorType = 'DISCOUNT_LOW';
-            } else if (diff > 0.5) {
-              hasError = true;
-              errorType = 'CALC_MISMATCH';
-            }
-
-            return {
-              ...item,
-              calculatedPrice: parseFloat(expectedPriceAt12Percent.toFixed(2)),
-              hasError,
-              errorType,
-              diff: parseFloat((item.printedUnitPrice - expectedPriceAt12Percent).toFixed(2))
-            };
-          });
-          setPreviewData(verifiedItems);
-        } else {
-          throw new Error("No items detected in invoice.");
-        }
-      } else if (file.name.match(/\.(xlsx|xls|xlsb|xlsm|csv)$/i)) {
-        const data = await file.arrayBuffer();
+      const excelFile = queuedFiles.find(q => q.file.name.match(/\.(xlsx|xls|xlsb|xlsm|csv)$/i));
+      
+      if (excelFile) {
+        // Handle Excel (Existing logic)
+        const data = await excelFile.file.arrayBuffer();
         const workbook = XLSX.read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
@@ -213,38 +213,55 @@ const Purchases: React.FC<Props> = ({ user }) => {
           
           let hasError = false;
           let errorType: 'DISCOUNT_LOW' | 'CALC_MISMATCH' | 'NONE' = 'NONE';
-
-          if (disc < STANDARD_DISCOUNT) {
-            hasError = true;
-            errorType = 'DISCOUNT_LOW';
-          } else if (Math.abs(printed - calculatedAt12) > 0.5) {
-            hasError = true;
-            errorType = 'CALC_MISMATCH';
-          }
+          if (disc < STANDARD_DISCOUNT) { hasError = true; errorType = 'DISCOUNT_LOW'; } 
+          else if (Math.abs(printed - calculatedAt12) > 0.5) { hasError = true; errorType = 'CALC_MISMATCH'; }
 
           return {
             partNumber: String(row[0] || ''),
             name: String(row[1] || 'Excel Row'),
             quantity: Number(row[5] || 1),
-            mrp,
-            discountPercent: disc,
-            printedUnitPrice: printed,
-            calculatedPrice: calculatedAt12,
-            hasError,
-            errorType,
-            diff: printed - calculatedAt12
+            mrp, discountPercent: disc, printedUnitPrice: printed, calculatedPrice: calculatedAt12, hasError, errorType, diff: printed - calculatedAt12
           };
         }).filter(i => i.partNumber && i.quantity > 0);
         
         setPreviewData(parsed as any);
       } else {
-        throw new Error("Invalid file format.");
+        // Multi-page Image/PDF Logic
+        const payload: InvoiceFile[] = [];
+        for (const q of queuedFiles) {
+          const base64 = await fileToBase64(q.file);
+          payload.push({ data: base64, mimeType: q.file.type });
+        }
+
+        const result = await extractInvoiceData(payload);
+        
+        if (result && result.items && result.items.length > 0) {
+          setExtractedMetadata({ dealerName: result.dealerName, invoiceDate: result.invoiceDate });
+          
+          const verifiedItems = result.items.map((item: any) => {
+            const expectedPriceAt12Percent = item.mrp * (1 - (STANDARD_DISCOUNT / 100));
+            const diff = Math.abs(expectedPriceAt12Percent - item.printedUnitPrice);
+            let hasError = false;
+            let errorType: 'DISCOUNT_LOW' | 'CALC_MISMATCH' | 'NONE' = 'NONE';
+            if (item.discountPercent < STANDARD_DISCOUNT) { hasError = true; errorType = 'DISCOUNT_LOW'; } 
+            else if (diff > 0.5) { hasError = true; errorType = 'CALC_MISMATCH'; }
+
+            return {
+              ...item,
+              calculatedPrice: parseFloat(expectedPriceAt12Percent.toFixed(2)),
+              hasError, errorType,
+              diff: parseFloat((item.printedUnitPrice - expectedPriceAt12Percent).toFixed(2))
+            };
+          });
+          setPreviewData(verifiedItems);
+        } else {
+          throw new Error("No items detected in invoice.");
+        }
       }
     } catch (err: any) {
       setErrorMsg(err.message || "Extraction failed.");
     } finally {
       setImporting(false);
-      e.target.value = '';
     }
   };
 
@@ -279,6 +296,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
         dealer: extractedMetadata.dealerName
       });
       setPreviewData([]);
+      setQueuedFiles([]);
     } else {
       setImportLog({ success: false, message: res.message || "Sync failed.", count: 0, totalValue: 0, errorCount: 0 });
     }
@@ -287,7 +305,6 @@ const Purchases: React.FC<Props> = ({ user }) => {
 
   const shareToWhatsApp = () => {
     if (!importLog) return;
-    
     const summary = `🚀 *Sparezy Inbound Verification*\n\n` +
       `🏢 *Dealer:* ${importLog.dealer || 'Unknown'}\n` +
       `📅 *Date:* ${new Date().toLocaleDateString()}\n` +
@@ -296,9 +313,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
       `📏 *Standard B.DC:* ${STANDARD_DISCOUNT}%\n` +
       `⚠️ *Discrepancies:* ${importLog.errorCount === 0 ? 'None (Verified ✅)' : importLog.errorCount + ' Issues Found 🚨'}\n\n` +
       `_Automated AI verification completed._`;
-      
-    const url = `https://wa.me/?text=${encodeURIComponent(summary)}`;
-    window.open(url, '_blank');
+    window.open(`https://wa.me/?text=${encodeURIComponent(summary)}`, '_blank');
   };
 
   return (
@@ -336,29 +351,75 @@ const Purchases: React.FC<Props> = ({ user }) => {
                     <div className="bg-blue-50 border border-blue-100 rounded-[2.5rem] p-8 flex gap-5 items-start shadow-sm">
                         <div className="p-4 bg-blue-600 text-white rounded-3xl shadow-xl shadow-blue-100 flex-none"><Calculator size={28} /></div>
                         <div>
-                            <h3 className="font-black text-blue-900 text-lg uppercase tracking-tight">AI Bill Audit</h3>
+                            <h3 className="font-black text-blue-900 text-lg uppercase tracking-tight">Multi-Page AI Bill Audit</h3>
                             <p className="text-[14px] text-blue-700/80 mt-2 leading-relaxed font-medium">
-                                Upload your bill. Sparezy will automatically extract the <b>Dealer Name</b>, <b>Invoice Date</b>, and check if every item follows the <b>12% B.DC</b> rule.
+                                Add all pages of your bill (as images or PDF). Sparezy will collectively analyze them for <b>12% B.DC</b> rule compliance across the entire document.
                             </p>
                         </div>
                     </div>
 
-                    <div className="bg-white border-4 border-dashed border-slate-100 rounded-[3rem] p-12 text-center hover:border-blue-400 hover:bg-blue-50/20 transition-all group shadow-soft">
-                        {importing ? (
-                          <div className="py-8"><TharLoader /><p className="mt-8 font-black text-blue-600 animate-pulse text-sm uppercase tracking-widest">Auditing Bill Calculations...</p></div>
-                        ) : (
-                          <>
-                            <div className="w-24 h-24 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mx-auto mb-8 group-hover:bg-blue-50 group-hover:text-blue-500 transition-all shadow-inner"><FileText size={44} /></div>
-                            <h2 className="text-2xl font-black text-slate-900 mb-2">Import Invoice</h2>
-                            <p className="text-slate-400 mb-10 max-w-xs mx-auto text-[14px] font-bold">PDF / Images / Excel supported</p>
-                            <label className="inline-flex items-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-black px-12 py-5 rounded-[2rem] cursor-pointer transition-all active:scale-95 shadow-2xl shadow-blue-200 uppercase text-[13px] tracking-widest">
-                               <Upload size={24} /> Select Bill File
-                               <input type="file" accept="application/pdf, image/*, .xlsx, .xls, .xlsb, .csv" className="hidden" onChange={handleInvoiceUpload} />
-                            </label>
-                          </>
-                        )}
-                        {errorMsg && <div className="mt-10 p-5 bg-red-50 text-red-600 rounded-3xl border border-red-100 text-sm font-black flex items-center gap-3 justify-center animate-shake"><AlertCircle size={20} /> {errorMsg}</div>}
-                    </div>
+                    {/* Queued Files Area */}
+                    {queuedFiles.length > 0 && (
+                      <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-soft">
+                        <div className="flex justify-between items-center mb-6">
+                           <h4 className="font-black text-slate-900 uppercase tracking-widest text-xs">Scanning Queue ({queuedFiles.length} Pages)</h4>
+                           <button onClick={() => setQueuedFiles([])} className="text-rose-500 font-black text-[10px] uppercase tracking-widest hover:underline">Clear Queue</button>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                           {queuedFiles.map((q) => (
+                             <div key={q.id} className="relative group aspect-[3/4] rounded-2xl overflow-hidden border-2 border-slate-100 shadow-sm bg-slate-50">
+                                {q.file.type.startsWith('image/') ? (
+                                  <img src={q.preview} className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className="w-full h-full flex flex-col items-center justify-center text-slate-300">
+                                     <FileText size={32} />
+                                     <span className="text-[8px] font-black uppercase mt-2 px-2 text-center truncate w-full">{q.file.name}</span>
+                                  </div>
+                                )}
+                                <button 
+                                  onClick={() => removeFileFromQueue(q.id)}
+                                  className="absolute top-2 right-2 p-1.5 bg-rose-600 text-white rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                                <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/60 to-transparent">
+                                   <p className="text-white text-[9px] font-bold truncate">Page {queuedFiles.indexOf(q) + 1}</p>
+                                </div>
+                             </div>
+                           ))}
+                           <label className="aspect-[3/4] rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 hover:bg-slate-50 cursor-pointer transition-all active:scale-95">
+                              <Plus size={24} />
+                              <span className="text-[10px] font-black uppercase tracking-widest mt-1">Add Page</span>
+                              <input type="file" multiple accept="application/pdf, image/*" className="hidden" onChange={handleFileSelect} />
+                           </label>
+                        </div>
+                        
+                        <div className="mt-8 border-t border-slate-50 pt-6">
+                          <button 
+                            onClick={startAiAudit}
+                            disabled={importing}
+                            className="w-full bg-slate-900 hover:bg-black text-white font-black py-5 rounded-2xl shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all"
+                          >
+                            {importing ? <Loader2 className="animate-spin" /> : <ScanLine size={20} />}
+                            {importing ? 'Analyzing Documents...' : 'Start AI Audit Extraction'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {queuedFiles.length === 0 && (
+                      <div className="bg-white border-4 border-dashed border-slate-100 rounded-[3rem] p-12 text-center hover:border-blue-400 hover:bg-blue-50/20 transition-all group shadow-soft">
+                        <div className="w-24 h-24 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mx-auto mb-8 group-hover:bg-blue-50 group-hover:text-blue-500 transition-all shadow-inner"><ImageIcon size={44} /></div>
+                        <h2 className="text-2xl font-black text-slate-900 mb-2">Import Invoice</h2>
+                        <p className="text-slate-400 mb-10 max-w-xs mx-auto text-[14px] font-bold">PDF / Images / Excel supported</p>
+                        <label className="inline-flex items-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-black px-12 py-5 rounded-[2rem] cursor-pointer transition-all active:scale-95 shadow-2xl shadow-blue-200 uppercase text-[13px] tracking-widest">
+                           <Upload size={24} /> Select Documents
+                           <input type="file" multiple accept="application/pdf, image/*, .xlsx, .xls, .xlsb, .csv" className="hidden" onChange={handleFileSelect} />
+                        </label>
+                      </div>
+                    )}
+                    
+                    {errorMsg && <div className="mt-10 p-5 bg-red-50 text-red-600 rounded-3xl border border-red-100 text-sm font-black flex items-center gap-3 justify-center animate-shake"><AlertCircle size={20} /> {errorMsg}</div>}
                   </div>
                 )}
 
@@ -391,7 +452,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
                             </div>
                         </div>
                       )}
-                      <button onClick={() => { setImportLog(null); setPreviewData([]); setErrorMsg(null); }} className="mt-14 text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] hover:text-brand-600 transition-colors">Start New Scan</button>
+                      <button onClick={() => { setImportLog(null); setPreviewData([]); setErrorMsg(null); setQueuedFiles([]); }} className="mt-14 text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] hover:text-brand-600 transition-colors">Start New Scan</button>
                   </div>
                 )}
 
@@ -407,19 +468,6 @@ const Purchases: React.FC<Props> = ({ user }) => {
                         </div>
                         <button onClick={() => setPreviewData([])} className="p-3 text-slate-300 hover:text-rose-500 bg-white rounded-2xl shadow-sm transition-all active:scale-90"><X size={24} /></button>
                      </div>
-
-                     {extractedMetadata.dealerName && (
-                        <div className="bg-blue-50/50 px-8 py-4 border-b border-slate-100 flex flex-wrap gap-6">
-                           <div className="flex items-center gap-2">
-                              <Building2 size={16} className="text-blue-600" />
-                              <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">{extractedMetadata.dealerName}</span>
-                           </div>
-                           <div className="flex items-center gap-2">
-                              <Calendar size={16} className="text-blue-600" />
-                              <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">{extractedMetadata.invoiceDate || 'Date N/A'}</span>
-                           </div>
-                        </div>
-                     )}
 
                      <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar bg-slate-50/30">
                         {previewData.map((row, i) => (

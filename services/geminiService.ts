@@ -36,23 +36,29 @@ export const generateInventoryInsights = async (inventory: StockItem[]): Promise
   }
 };
 
-export const extractInvoiceData = async (base64File: string, mimeType: string) => {
+export interface InvoiceFile {
+  data: string;
+  mimeType: string;
+}
+
+export const extractInvoiceData = async (files: InvoiceFile[]) => {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
-    const filePart = {
+    // Convert multiple files into inlineData parts
+    const fileParts = files.map(f => ({
       inlineData: {
-        data: base64File,
-        mimeType: mimeType,
+        data: f.data,
+        mimeType: f.mimeType,
       },
-    };
+    }));
 
     const prompt = `
-      Extract details from this car spare parts invoice. 
+      Analyze these car spare parts invoice pages. They may be multiple images of the same bill.
       
       1. Identify the Dealer/Vendor Name (The company selling the parts).
       2. Identify the Invoice Date.
-      3. Extract all line items with these specific fields:
+      3. Extract ALL line items across ALL provided pages with these specific fields:
          - Part Number (alphanumeric SKU)
          - Part Name/Description (the full descriptive name of the part)
          - Quantity (Qty)
@@ -61,12 +67,13 @@ export const extractInvoiceData = async (base64File: string, mimeType: string) =
          - Printed Net Unit Price (Final price for one unit shown on the bill)
 
       Ensure numerical values are clean numbers. 
+      If a part appears across a page break, combine it.
       Return the data strictly as a JSON object.
     `;
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: { parts: [filePart, { text: prompt }] },
+      contents: { parts: [...fileParts, { text: prompt }] },
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -98,6 +105,6 @@ export const extractInvoiceData = async (base64File: string, mimeType: string) =
     return JSON.parse(response.text || "{}");
   } catch (error) {
     console.error("Invoice Extraction Error:", error);
-    throw new Error("Failed to read the invoice. Please ensure the document is clear.");
+    throw new Error("Failed to read the invoice. Please ensure all document pages are clear.");
   }
 };
