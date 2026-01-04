@@ -4,7 +4,30 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { StockItem, Brand, Role, PriceHistoryEntry } from '../types';
 import { bulkArchiveItems, fetchPriceHistory, toggleArchiveStatus } from '../services/inventoryService';
-import { Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, Archive, ArchiveRestore, Loader2, Eye, EyeOff, Lock, TrendingUp, TrendingDown, Clock, ArrowRight, CheckSquare, Square, MinusSquare, X, History, Calendar, ChevronDown } from 'lucide-react';
+import { createStockRequests } from '../services/requestService';
+import { 
+  Search, 
+  ChevronLeft, 
+  ChevronRight, 
+  ArrowUp, 
+  ArrowDown, 
+  ArrowUpDown, 
+  Archive, 
+  ArchiveRestore, 
+  Loader2, 
+  Eye, 
+  History, 
+  Clock, 
+  ArrowRight, 
+  CheckSquare, 
+  Square, 
+  MinusSquare, 
+  Calendar,
+  ClipboardPlus,
+  Check,
+  // Added Lock import to fix JSX resolution error on line 193
+  Lock
+} from 'lucide-react';
 
 const formatQty = (n: number) => {
   const isNeg = n < 0;
@@ -164,11 +187,12 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role; 
             {isOwner && !isMobile && (
                 <div 
                   onClick={handleToggleHistory}
-                  className={`p-1 rounded-md transition-all active:scale-90 ${showHistory ? 'bg-indigo-600 text-white shadow-inner' : 'bg-indigo-500 text-white hover:bg-indigo-400'}`}
+                  className={`p-1 rounded-md transition-all active:scale-90 ${showHistory ? 'bg-indigo-600 text-white shadow-inner' : 'bg-indigo-50 text-white hover:bg-indigo-400'}`}
                 >
                   <History size={12} strokeWidth={3} />
                 </div>
             )}
+            {/* Using Lock from lucide-react to indicate hidden state for managers */}
             {isManager && <Lock size={10} className="text-white/30 mr-1" />}
           </>
         )}
@@ -194,9 +218,10 @@ interface SwipeableItemProps {
     isSelected: boolean;
     toggleSelect: (partNumber: string) => void;
     enableSelection: boolean;
+    onQuickRequest: (pn: string) => void;
 }
 
-const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({ item, userRole, shouldHidePrice, isSelected, toggleSelect, enableSelection }) => {
+const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({ item, userRole, shouldHidePrice, isSelected, toggleSelect, enableSelection, onQuickRequest }) => {
     const navigate = useNavigate();
     const [startX, setStartX] = useState(0);
     const [currentX, setCurrentX] = useState(0);
@@ -206,7 +231,7 @@ const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({ item, userRole, sho
     const [history, setHistory] = useState<PriceHistoryEntry[]>([]);
     const [loadingHistory, setLoadingHistory] = useState(false);
 
-    const maxSwipe = -70; 
+    const maxSwipe = -140; 
 
     const onTouchStart = (e: React.TouchEvent) => {
         if (enableSelection && userRole === Role.OWNER) {
@@ -258,12 +283,18 @@ const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({ item, userRole, sho
 
     return (
         <div className="relative overflow-visible rounded-2xl animate-fade-in group">
-            {/* Background Layer Action */}
             <div className="absolute inset-0 flex justify-end rounded-2xl overflow-hidden">
                 <div className="flex h-full">
                     <button 
+                        onClick={() => onQuickRequest(item.partNumber)}
+                        className="bg-indigo-600 text-white w-[70px] flex flex-col items-center justify-center gap-1 shadow-inner"
+                    >
+                        <ClipboardPlus size={18} />
+                        <span className="text-[8px] font-bold uppercase">Req.</span>
+                    </button>
+                    <button 
                         onClick={() => navigate(`/item/${encodeURIComponent(item.partNumber)}`)}
-                        className="bg-brand-600 text-white w-16 flex flex-col items-center justify-center gap-1 shadow-inner"
+                        className="bg-brand-600 text-white w-[70px] flex flex-col items-center justify-center gap-1 shadow-inner border-l border-white/10"
                     >
                         <Eye size={18} />
                         <span className="text-[8px] font-bold uppercase">Detail</span>
@@ -271,7 +302,6 @@ const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({ item, userRole, sho
                 </div>
             </div>
 
-            {/* Foreground Content Card */}
             <div 
                 onTouchStart={onTouchStart}
                 onTouchMove={onTouchMove}
@@ -324,47 +354,16 @@ const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({ item, userRole, sho
                             </button>
                         )}
                     </div>
-                    <ChevronRight size={16} className="text-slate-300" />
-                </div>
-
-                {showHistory && userRole === Role.OWNER && (
-                    <div className="mt-1 p-4 bg-slate-50 rounded-xl border border-slate-100 animate-slide-up shadow-inner-soft">
-                        <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-200/60">
-                            <Clock size={10} className="text-indigo-500" />
-                            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Pricing Ledger</span>
-                        </div>
-                        
-                        {loadingHistory ? (
-                            <div className="py-4 flex justify-center"><Loader2 className="animate-spin text-indigo-400" size={18} /></div>
-                        ) : history.length > 0 ? (
-                            <div className="space-y-2">
-                                {history.map(entry => (
-                                    <div key={entry.id} className="flex items-center justify-between bg-white p-2.5 rounded-lg border border-slate-100 shadow-sm">
-                                        <div className="flex flex-col">
-                                            <span className="text-[8px] font-bold text-slate-400 uppercase mb-0.5">{new Date(entry.changeDate).toLocaleDateString()}</span>
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-[10px] font-bold text-slate-400 line-through">₹{entry.oldPrice}</span>
-                                                <ArrowRight size={8} className="text-slate-300" />
-                                                <span className="text-[13px] font-bold text-slate-900">₹{entry.newPrice}</span>
-                                            </div>
-                                        </div>
-                                        <div className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${entry.newPrice > entry.oldPrice ? 'bg-rose-50 text-rose-600' : 'bg-teal-50 text-teal-600'}`}>
-                                            {entry.newPrice > entry.oldPrice ? '+' : ''}{(((entry.newPrice - entry.oldPrice) / (entry.oldPrice || 1)) * 100).toFixed(1)}%
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <p className="text-center py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest">No records</p>
-                        )}
+                    <div className="flex items-center gap-1.5">
+                       <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">Slide to Req</span>
+                       <ChevronRight size={16} className="text-slate-300" />
                     </div>
-                )}
+                </div>
             </div>
         </div>
     );
 };
 
-/* Define StockTableProps interface */
 interface StockTableProps {
   items: StockItem[];
   title?: string;
@@ -395,6 +394,7 @@ const StockTable: React.FC<StockTableProps> = ({
   const itemsPerPage = 50;
   const [selectedParts, setSelectedParts] = useState<Set<string>>(new Set());
   const [isArchiving, setIsArchiving] = useState(false);
+  const [requestingPn, setRequestingPn] = useState<string | null>(null);
 
   const isOwner = userRole === Role.OWNER;
   const isManager = userRole === Role.MANAGER;
@@ -443,6 +443,27 @@ const StockTable: React.FC<StockTableProps> = ({
   
   const isAllFilteredSelected = filteredItems.length > 0 && filteredItems.every(i => selectedParts.has(i.partNumber));
   const isPartiallySelected = selectedParts.size > 0 && !isAllPageSelected;
+
+  const handleQuickRequest = async (pn: string) => {
+      const qtyStr = window.prompt(`How many units of ${pn} do you need?`, "5");
+      if (qtyStr === null) return;
+      const qty = parseInt(qtyStr);
+      if (isNaN(qty) || qty <= 0) return alert("Please enter a valid quantity.");
+
+      setRequestingPn(pn);
+      const res = await createStockRequests([{
+          partNumber: pn,
+          quantity: qty,
+          requesterName: userRole || 'User'
+      }]);
+      setRequestingPn(null);
+
+      if (res.success) {
+          alert(`Requisition for ${qty} units of ${pn} submitted successfully.`);
+      } else {
+          alert("Failed to submit request: " + res.message);
+      }
+  };
 
   const toggleSelectPage = () => {
     const newSet = new Set(selectedParts);
@@ -602,17 +623,18 @@ const StockTable: React.FC<StockTableProps> = ({
                     <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-widest text-[9px] text-right cursor-pointer group/h" onClick={() => requestSort('price')}>
                          <div className="flex items-center justify-end gap-1.5 group-hover/h:text-slate-600 transition-colors">MRP <SortIcon col="price"/></div>
                     </th>
-                    {enableActions && <th className="px-6 py-4 text-center text-slate-400 font-bold uppercase tracking-widest text-[9px] w-20">View</th>}
+                    {enableActions && <th className="px-6 py-4 text-center text-slate-400 font-bold uppercase tracking-widest text-[9px] w-28">Actions</th>}
                 </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
                 {currentItems.length === 0 ? (
-                    <tr><td colSpan={7} className="p-20 text-center text-slate-400 font-medium text-base italic">No records found.</td></tr>
+                    <tr><td colSpan={8} className="p-20 text-center text-slate-400 font-medium text-base italic">No records found.</td></tr>
                 ) : (
                     currentItems.map((item) => {
                         const isLow = item.quantity > 0 && item.quantity <= item.minStockThreshold;
                         const isZero = item.quantity === 0;
                         const isSelected = selectedParts.has(item.partNumber);
+                        const isBeingRequested = requestingPn === item.partNumber;
 
                         return (
                             <tr key={item.id} className={`group hover:bg-slate-50/40 transition-colors ${isSelected ? 'bg-brand-50/30' : ''}`}>
@@ -650,9 +672,23 @@ const StockTable: React.FC<StockTableProps> = ({
                                 </td>
                                 {enableActions && (
                                     <td className="px-6 py-3 text-center">
-                                         <Link to={`/item/${encodeURIComponent(item.partNumber)}`} className="text-slate-300 group-hover:text-brand-600 transition-all p-2 rounded-lg inline-block">
-                                            <Eye size={16} strokeWidth={2.5} />
-                                         </Link>
+                                         <div className="flex justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button 
+                                                onClick={() => handleQuickRequest(item.partNumber)}
+                                                disabled={isBeingRequested}
+                                                className="p-2 rounded-lg text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all active:scale-90"
+                                                title="Quick Requisition"
+                                            >
+                                                {isBeingRequested ? <Loader2 size={16} className="animate-spin"/> : <ClipboardPlus size={16} strokeWidth={2.5} />}
+                                            </button>
+                                            <Link 
+                                                to={`/item/${encodeURIComponent(item.partNumber)}`} 
+                                                className="text-slate-300 hover:text-brand-600 hover:bg-brand-50 transition-all p-2 rounded-lg inline-block"
+                                                title="View Details"
+                                            >
+                                                <Eye size={16} strokeWidth={2.5} />
+                                            </Link>
+                                         </div>
                                     </td>
                                 )}
                             </tr>
@@ -691,6 +727,7 @@ const StockTable: React.FC<StockTableProps> = ({
                     isSelected={selectedParts.has(item.partNumber)}
                     toggleSelect={toggleSelect}
                     enableSelection={enableActions}
+                    onQuickRequest={handleQuickRequest}
                 />
              ))
          )}
