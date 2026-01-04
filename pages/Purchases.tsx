@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { User, Transaction, TransactionStatus, TransactionType } from '../types';
+import { User, Transaction, TransactionStatus, TransactionType, Brand } from '../types';
 import DailyTransactions from './DailyTransactions';
 import { 
   History, 
@@ -36,9 +36,11 @@ import {
   ArrowUpDown,
   Plus,
   Trash2,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Edit2
 } from 'lucide-react';
 import { fetchTransactions, createBulkTransactions } from '../services/transactionService';
+import { fetchInventory, updateOrAddItems } from '../services/inventoryService';
 import { extractInvoiceData, InvoiceFile } from '../services/geminiService';
 import TharLoader from '../components/TharLoader';
 import * as XLSX from 'xlsx';
@@ -78,6 +80,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
   const [activeTab, setActiveTab] = useState<'NEW' | 'IMPORT' | 'HISTORY'>('NEW');
   const [viewMode, setViewMode] = useState<'STACKED' | 'LIST'>('STACKED');
   const [history, setHistory] = useState<Transaction[]>([]);
+  const [inventory, setInventory] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [isSearchingOnMobile, setIsSearchingOnMobile] = useState(false);
   
@@ -90,7 +93,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
 
   // Bulk Import State
   const [importing, setImporting] = useState(false);
-  const [importLog, setImportLog] = useState<{ success: boolean; message: string; count: number; totalValue: number; errorCount: number; dealer?: string } | null>(null);
+  const [importLog, setImportLog] = useState<{ success: boolean; message: string; count: number; totalValue: number; errorCount: number; addedCount?: number; updatedCount?: number; dealer?: string } | null>(null);
   const [previewData, setPreviewData] = useState<ExtractedItem[]>([]);
   const [extractedMetadata, setExtractedMetadata] = useState<{ dealerName?: string; invoiceDate?: string }>({});
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -101,6 +104,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
     if (activeTab === 'HISTORY') {
       loadHistory();
     }
+    fetchInventory().then(setInventory);
   }, [activeTab]);
 
   const loadHistory = async () => {
@@ -183,6 +187,12 @@ const Purchases: React.FC<Props> = ({ user }) => {
     });
   };
 
+  const handleEditPartNumber = (index: number, newVal: string) => {
+    setPreviewData(prev => prev.map((item, idx) => 
+        idx === index ? { ...item, partNumber: newVal.toUpperCase().trim() } : item
+    ));
+  };
+
   const startAiAudit = async () => {
     if (queuedFiles.length === 0) return;
     
@@ -196,7 +206,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
       const excelFile = queuedFiles.find(q => q.file.name.match(/\.(xlsx|xls|xlsb|xlsm|csv)$/i));
       
       if (excelFile) {
-        // Handle Excel (Existing logic)
+        // Handle Excel
         const data = await excelFile.file.arrayBuffer();
         const workbook = XLSX.read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
@@ -217,7 +227,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
           else if (Math.abs(printed - calculatedAt12) > 0.5) { hasError = true; errorType = 'CALC_MISMATCH'; }
 
           return {
-            partNumber: String(row[0] || ''),
+            partNumber: String(row[0] || '').toUpperCase().trim(),
             name: String(row[1] || 'Excel Row'),
             quantity: Number(row[5] || 1),
             mrp, discountPercent: disc, printedUnitPrice: printed, calculatedPrice: calculatedAt12, hasError, errorType, diff: printed - calculatedAt12
@@ -248,6 +258,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
 
             return {
               ...item,
+              partNumber: item.partNumber.toUpperCase().trim(),
               calculatedPrice: parseFloat(expectedPriceAt12Percent.toFixed(2)),
               hasError, errorType,
               diff: parseFloat((item.printedUnitPrice - expectedPriceAt12Percent).toFixed(2))
@@ -271,36 +282,63 @@ const Purchases: React.FC<Props> = ({ user }) => {
 
     const sourceName = extractedMetadata.dealerName 
       ? `${extractedMetadata.dealerName} (Inv: ${extractedMetadata.invoiceDate || 'N/A'})`
-      : `AI Audit Scan (${new Date().toLocaleDateString()})`;
+      : `AI Scan (${new Date().toLocaleDateString()})`;
 
-    const payload = previewData.map(item => ({
-      partNumber: item.partNumber,
-      type: TransactionType.PURCHASE,
-      quantity: item.quantity,
-      price: item.printedUnitPrice,
-      customerName: sourceName,
-      createdByRole: user.role
-    }));
+    try {
+        // 1. Sync to Inventory (Handles adding new parts automatically)
+        const inventoryPayload = previewData.map(item => {
+            const existing = inventory.find(i => i.partNumber.toLowerCase() === item.partNumber.toLowerCase());
+            return {
+                partNumber: item.partNumber,
+                name: item.name,
+                price: item.mrp, // Store MRP as price
+                quantity: (existing?.quantity || 0) + item.quantity, // Increment current quantity
+                brand: item.partNumber.startsWith('HY') ? Brand.HYUNDAI : item.partNumber.startsWith('MH') ? Brand.MAHINDRA : undefined
+            };
+        });
 
-    const res = await createBulkTransactions(payload);
-    
-    if (res.success) {
-      const total = payload.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-      const errorCount = previewData.filter(i => i.hasError).length;
-      setImportLog({ 
-        success: true, 
-        message: "Stock successfully updated.", 
-        count: payload.length,
-        totalValue: total,
-        errorCount,
-        dealer: extractedMetadata.dealerName
-      });
-      setPreviewData([]);
-      setQueuedFiles([]);
-    } else {
-      setImportLog({ success: false, message: res.message || "Sync failed.", count: 0, totalValue: 0, errorCount: 0 });
+        const syncRes = await updateOrAddItems(inventoryPayload, { 
+            fileName: `Bill: ${sourceName}`, 
+            mode: 'AI_AUDIT_PURCHASE' 
+        });
+
+        if (syncRes.errors.length > 0 && syncRes.added === 0 && syncRes.updated === 0) {
+            throw new Error(syncRes.errors[0]);
+        }
+
+        // 2. Log Transactions for history trail
+        const txPayload = previewData.map(item => ({
+            partNumber: item.partNumber,
+            type: TransactionType.PURCHASE,
+            quantity: item.quantity,
+            price: item.printedUnitPrice,
+            customerName: sourceName,
+            createdByRole: user.role
+        }));
+
+        await createBulkTransactions(txPayload);
+
+        const totalValue = txPayload.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        const errorCount = previewData.filter(i => i.hasError).length;
+
+        setImportLog({ 
+            success: true, 
+            message: "Purchase Audit Successful.", 
+            count: previewData.length,
+            totalValue: totalValue,
+            errorCount,
+            addedCount: syncRes.added,
+            updatedCount: syncRes.updated,
+            dealer: extractedMetadata.dealerName
+        });
+        setPreviewData([]);
+        setQueuedFiles([]);
+    } catch (err: any) {
+        setImportLog({ success: false, message: err.message || "Process failed.", count: 0, totalValue: 0, errorCount: 0 });
+    } finally {
+        setImporting(false);
+        fetchInventory().then(setInventory);
     }
-    setImporting(false);
   };
 
   const shareToWhatsApp = () => {
@@ -309,10 +347,10 @@ const Purchases: React.FC<Props> = ({ user }) => {
       `🏢 *Dealer:* ${importLog.dealer || 'Unknown'}\n` +
       `📅 *Date:* ${new Date().toLocaleDateString()}\n` +
       `📦 *Items:* ${importLog.count}\n` +
+      `🆕 *New SKUs:* ${importLog.addedCount}\n` +
       `💰 *Total:* ₹${importLog.totalValue.toLocaleString()}\n` +
-      `📏 *Standard B.DC:* ${STANDARD_DISCOUNT}%\n` +
       `⚠️ *Discrepancies:* ${importLog.errorCount === 0 ? 'None (Verified ✅)' : importLog.errorCount + ' Issues Found 🚨'}\n\n` +
-      `_Automated AI verification completed._`;
+      `_Automated AI audit and inventory sync completed._`;
     window.open(`https://wa.me/?text=${encodeURIComponent(summary)}`, '_blank');
   };
 
@@ -332,7 +370,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
        <div className="hidden md:flex justify-between items-center mb-8 px-1">
           <div>
              <h1 className="text-3xl font-black text-slate-900 tracking-tight">Purchase Inbound</h1>
-             <p className="text-slate-500 font-medium">Verify bill against standard 12% discount rule.</p>
+             <p className="text-slate-500 font-medium">Scan documents to audit 12% B.DC compliance.</p>
           </div>
           <div className="flex bg-white p-1.5 rounded-2xl border border-slate-200 shadow-soft">
              <button onClick={() => { setActiveTab('NEW'); setErrorMsg(null); }} className={`px-6 py-2.5 text-sm font-bold rounded-xl transition-all flex items-center gap-2 ${activeTab === 'NEW' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}><PlusCircle size={18} /> Manual</button>
@@ -351,14 +389,13 @@ const Purchases: React.FC<Props> = ({ user }) => {
                     <div className="bg-blue-50 border border-blue-100 rounded-[2.5rem] p-8 flex gap-5 items-start shadow-sm">
                         <div className="p-4 bg-blue-600 text-white rounded-3xl shadow-xl shadow-blue-100 flex-none"><Calculator size={28} /></div>
                         <div>
-                            <h3 className="font-black text-blue-900 text-lg uppercase tracking-tight">Multi-Page AI Bill Audit</h3>
+                            <h3 className="font-black text-blue-900 text-lg uppercase tracking-tight">Smart Document Processing</h3>
                             <p className="text-[14px] text-blue-700/80 mt-2 leading-relaxed font-medium">
-                                Add all pages of your bill (as images or PDF). Sparezy will collectively analyze them for <b>12% B.DC</b> rule compliance across the entire document.
+                                Upload multi-page bills. Sparezy will audit every line for <b>12% B.DC</b> rule compliance and auto-sync with inventory.
                             </p>
                         </div>
                     </div>
 
-                    {/* Queued Files Area */}
                     {queuedFiles.length > 0 && (
                       <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-soft">
                         <div className="flex justify-between items-center mb-6">
@@ -401,7 +438,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
                             className="w-full bg-slate-900 hover:bg-black text-white font-black py-5 rounded-2xl shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all"
                           >
                             {importing ? <Loader2 className="animate-spin" /> : <ScanLine size={20} />}
-                            {importing ? 'Analyzing Documents...' : 'Start AI Audit Extraction'}
+                            {importing ? 'Extracting Data...' : 'Start Audit Analysis'}
                           </button>
                         </div>
                       </div>
@@ -429,30 +466,36 @@ const Purchases: React.FC<Props> = ({ user }) => {
                         {importLog.success ? <CheckCircle2 size={48} /> : <AlertCircle size={48} />}
                       </div>
                       <h3 className={`text-3xl font-black ${importLog.success ? 'text-slate-900' : 'text-red-900'}`}>
-                        {importLog.success ? 'Import Complete' : 'Process Halted'}
+                        {importLog.success ? 'Audit & Sync Done' : 'Audit Interrupted'}
                       </h3>
                       <p className="mt-4 font-bold text-slate-400 text-base max-w-sm leading-relaxed">
-                         {importLog.success ? `Stock updated for ${importLog.dealer || 'Dealer'}. ${importLog.errorCount > 0 ? `Alert: Detected ${importLog.errorCount} discrepancies.` : 'Audit passed successfully.'}` : importLog.message}
+                         {importLog.success 
+                            ? `Processed ${importLog.count} items. ${importLog.addedCount || 0} new parts were added to your catalog.` 
+                            : importLog.message}
                       </p>
                       {importLog.success && (
                         <div className="mt-12 space-y-4 w-full">
-                            <div className="grid grid-cols-2 gap-5">
-                                <div className="bg-slate-50 p-6 rounded-[2.5rem] border border-slate-100 shadow-inner">
-                                    <span className="block text-3xl font-black text-slate-900">{importLog.count}</span>
-                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] mt-1 block">SKUs Synced</span>
+                            <div className="grid grid-cols-3 gap-3">
+                                <div className="bg-slate-50 p-4 rounded-3xl border border-slate-100">
+                                    <span className="block text-2xl font-black text-slate-900">{importLog.count}</span>
+                                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1 block">Items</span>
                                 </div>
-                                <div className="bg-blue-50 p-6 rounded-[2.5rem] border border-blue-100 shadow-inner">
-                                    <span className="block text-2xl font-black text-blue-900">₹{importLog.totalValue.toLocaleString()}</span>
-                                    <span className="text-[10px] font-black text-blue-400 uppercase tracking-[0.25em] mt-1 block">Net Value</span>
+                                <div className="bg-teal-50 p-4 rounded-3xl border border-teal-100">
+                                    <span className="block text-2xl font-black text-teal-600">{importLog.addedCount}</span>
+                                    <span className="text-[8px] font-black text-teal-400 uppercase tracking-widest mt-1 block">New SKUs</span>
+                                </div>
+                                <div className="bg-blue-50 p-4 rounded-3xl border border-blue-100">
+                                    <span className="block text-xl font-black text-blue-900">₹{Math.round(importLog.totalValue / 1000)}k</span>
+                                    <span className="text-[8px] font-black text-blue-400 uppercase tracking-widest mt-1 block">Net Value</span>
                                 </div>
                             </div>
-                            <div className="flex gap-3">
-                                <button onClick={shareToWhatsApp} className="flex-1 bg-green-500 hover:bg-green-600 text-white font-black py-5 rounded-[2rem] shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95"><MessageCircle size={24} /> Share Audit Summary</button>
+                            <div className="flex gap-3 pt-2">
+                                <button onClick={shareToWhatsApp} className="flex-1 bg-green-500 hover:bg-green-600 text-white font-black py-5 rounded-[2rem] shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95"><MessageCircle size={24} /> Share Audit Report</button>
                                 <button onClick={() => setActiveTab('HISTORY')} className="bg-slate-900 text-white p-5 rounded-[2rem] shadow-xl transition-all active:scale-95"><History size={24} /></button>
                             </div>
                         </div>
                       )}
-                      <button onClick={() => { setImportLog(null); setPreviewData([]); setErrorMsg(null); setQueuedFiles([]); }} className="mt-14 text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] hover:text-brand-600 transition-colors">Start New Scan</button>
+                      <button onClick={() => { setImportLog(null); setPreviewData([]); setErrorMsg(null); setQueuedFiles([]); }} className="mt-14 text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] hover:text-brand-600 transition-colors">Process Next Bill</button>
                   </div>
                 )}
 
@@ -462,57 +505,77 @@ const Purchases: React.FC<Props> = ({ user }) => {
                         <div className="flex items-center gap-5">
                            <div className="bg-blue-600 text-white p-4 rounded-3xl shadow-xl shadow-blue-100"><ShieldCheck size={28} /></div>
                            <div>
-                              <h3 className="font-black text-slate-900 text-xl leading-none mb-2">Audit: {previewData.length} Items</h3>
-                              <p className="text-[11px] text-slate-400 font-black uppercase tracking-[0.2em]">Supplier: {extractedMetadata.dealerName || 'Manual'}</p>
+                              <h3 className="font-black text-slate-900 text-xl leading-none mb-2">Extraction Review</h3>
+                              <p className="text-[11px] text-slate-400 font-black uppercase tracking-[0.2em]">Dealer: {extractedMetadata.dealerName || 'Unknown'}</p>
                            </div>
                         </div>
                         <button onClick={() => setPreviewData([])} className="p-3 text-slate-300 hover:text-rose-500 bg-white rounded-2xl shadow-sm transition-all active:scale-90"><X size={24} /></button>
                      </div>
 
-                     <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar bg-slate-50/30">
-                        {previewData.map((row, i) => (
-                           <div key={i} className={`bg-white p-6 rounded-[2.5rem] border shadow-sm flex flex-col gap-4 animate-fade-in ${row.hasError ? 'border-rose-200 bg-rose-50/30' : 'border-slate-100'}`} style={{ animationDelay: `${i * 0.05}s` }}>
-                              <div className="flex justify-between items-start">
-                                 <div className="flex-1 min-w-0 pr-4">
-                                    <div className="font-black text-slate-900 text-lg leading-tight tracking-tight mb-1">{row.partNumber}</div>
-                                    <div className="text-[12px] text-slate-400 font-bold truncate">{row.name}</div>
-                                 </div>
-                                 <div className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase shadow-sm">+{row.quantity} Qty</div>
-                              </div>
-                              
-                              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 pt-4 border-t border-slate-100/50">
-                                 <div>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">MRP</p>
-                                    <p className="font-bold text-slate-900">₹{row.mrp.toLocaleString()}</p>
-                                 </div>
-                                 <div>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">B.DC Detected</p>
-                                    <p className={`font-bold ${row.errorType === 'DISCOUNT_LOW' ? 'text-rose-600' : 'text-slate-900'}`}>
-                                      {row.discountPercent}%
-                                      {row.errorType === 'DISCOUNT_LOW' && <span className="text-[9px] block">Less than {STANDARD_DISCOUNT}%!</span>}
-                                    </p>
-                                 </div>
-                                 <div className="md:text-right">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Bill Unit Price</p>
-                                    <p className={`font-black text-lg ${row.hasError ? 'text-rose-600' : 'text-teal-600'}`}>₹{row.printedUnitPrice.toLocaleString()}</p>
-                                 </div>
-                              </div>
+                     <div className="bg-amber-50 p-4 border-b border-amber-100 flex items-start gap-3">
+                        <Info className="text-amber-600 flex-none" size={18} />
+                        <p className="text-[11px] font-bold text-amber-800 leading-tight">Review extracted part numbers. New parts will be auto-added to your inventory on confirmation.</p>
+                     </div>
 
-                              {row.hasError && (
-                                 <div className="bg-rose-100/50 p-4 rounded-2xl border border-rose-200 flex gap-3 items-center">
-                                    <AlertTriangle className="text-rose-600" size={20} />
-                                    <div className="text-[12px] font-bold text-rose-800 leading-tight">
-                                       {row.errorType === 'DISCOUNT_LOW' ? (
-                                          <p>Error: Bill discount ({row.discountPercent}%) is lower than standard ({STANDARD_DISCOUNT}%).</p>
-                                       ) : (
-                                          <p>Price Mismatch! At {STANDARD_DISCOUNT}% B.DC, expected ₹{row.calculatedPrice.toLocaleString()}</p>
-                                       )}
-                                       <p className="opacity-70 mt-1">Discrepancy of ₹{row.diff.toLocaleString()} detected per unit.</p>
+                     <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar bg-slate-50/30">
+                        {previewData.map((row, i) => {
+                           const exists = inventory.some(item => item.partNumber.toLowerCase() === row.partNumber.toLowerCase());
+                           return (
+                               <div key={i} className={`bg-white p-6 rounded-[2.5rem] border shadow-sm flex flex-col gap-4 animate-fade-in ${row.hasError ? 'border-rose-200 bg-rose-50/30' : 'border-slate-100'}`} style={{ animationDelay: `${i * 0.05}s` }}>
+                                <div className="flex justify-between items-start">
+                                    <div className="flex-1 min-w-0 pr-4">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <div className="relative group/edit flex-1">
+                                                <input 
+                                                    type="text"
+                                                    value={row.partNumber}
+                                                    onChange={e => handleEditPartNumber(i, e.target.value)}
+                                                    className="w-full bg-slate-100 px-3 py-2 rounded-xl border-none font-black text-slate-900 text-lg leading-tight tracking-tight focus:ring-2 focus:ring-blue-500"
+                                                />
+                                                <Edit2 size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                                            </div>
+                                            {!exists && (
+                                                <span className="flex-none bg-teal-50 text-teal-600 px-2 py-1 rounded-lg text-[9px] font-black uppercase border border-teal-100">New Part</span>
+                                            )}
+                                        </div>
+                                        <div className="text-[12px] text-slate-400 font-bold truncate pl-3">{row.name}</div>
                                     </div>
-                                 </div>
-                              )}
-                           </div>
-                        ))}
+                                    <div className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase shadow-sm flex-none">+{row.quantity} Qty</div>
+                                </div>
+                                
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 pt-2 border-t border-slate-100/50">
+                                    <div>
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">MRP Detected</p>
+                                        <p className="font-bold text-slate-900">₹{row.mrp.toLocaleString()}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">B.DC Detected</p>
+                                        <p className={`font-bold ${row.errorType === 'DISCOUNT_LOW' ? 'text-rose-600' : 'text-slate-900'}`}>
+                                        {row.discountPercent}%
+                                        {row.errorType === 'DISCOUNT_LOW' && <span className="text-[9px] block">Alert: Low Discount</span>}
+                                        </p>
+                                    </div>
+                                    <div className="md:text-right">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Bill Unit Price</p>
+                                        <p className={`font-black text-lg ${row.hasError ? 'text-rose-600' : 'text-teal-600'}`}>₹{row.printedUnitPrice.toLocaleString()}</p>
+                                    </div>
+                                </div>
+
+                                {row.hasError && (
+                                    <div className="bg-rose-100/50 p-3 rounded-2xl border border-rose-200 flex gap-3 items-center">
+                                        <AlertTriangle className="text-rose-600 flex-none" size={16} />
+                                        <div className="text-[11px] font-bold text-rose-800 leading-tight">
+                                        {row.errorType === 'DISCOUNT_LOW' ? (
+                                            <p>Error: Bill discount ({row.discountPercent}%) is lower than 12% standard.</p>
+                                        ) : (
+                                            <p>Mismatch: Expected ₹{row.calculatedPrice.toLocaleString()} at 12% B.DC.</p>
+                                        )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                           );
+                        })}
                      </div>
 
                      <div className="p-8 border-t border-slate-100 bg-white sticky bottom-0">

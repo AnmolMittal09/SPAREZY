@@ -273,6 +273,10 @@ export const updateOrAddItems = async (
       // Merge logic for stats
       if (existingItem) {
         let itemChanged = false;
+        
+        // Stock increment or absolute set? 
+        // For scan confirmed, it's usually incremental but newItems should contain absolute final or we handle increment here.
+        // Assuming updateOrAddItems takes absolute targets.
         if (newItem.quantity !== undefined && newItem.quantity !== existingItem.quantity) {
           result.stockUpdates++;
           itemChanged = true;
@@ -316,10 +320,16 @@ export const updateOrAddItems = async (
         // New Item
         result.added++;
         
+        // Brand Detection from Part Number
+        let detectedBrand = Brand.UNKNOWN;
+        const upperPN = newItem.partNumber.toUpperCase();
+        if (upperPN.startsWith('HY')) detectedBrand = Brand.HYUNDAI;
+        else if (upperPN.startsWith('MH')) detectedBrand = Brand.MAHINDRA;
+
         upsertPayload.push({
           part_number: newItem.partNumber,
-          name: newItem.name || 'Unknown Part',
-          brand: (newItem.brand || Brand.UNKNOWN) as string,
+          name: newItem.name || 'AI Added Part',
+          brand: (newItem.brand || detectedBrand) as string,
           hsn_code: newItem.hsnCode || 'N/A',
           quantity: newItem.quantity !== undefined ? newItem.quantity : 0,
           min_stock_threshold: newItem.minStockThreshold !== undefined ? newItem.minStockThreshold : 3,
@@ -353,7 +363,7 @@ export const updateOrAddItems = async (
     return result;
   }
 
-  // --- LOCAL STORAGE FALLBACK (Original Logic) ---
+  // --- LOCAL STORAGE FALLBACK ---
   const currentInventory = getFromLS();
 
   newItems.forEach((newItem, index) => {
