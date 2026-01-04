@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { createBulkTransactions, fetchTransactions } from '../services/transactionService';
 import TharLoader from '../components/TharLoader';
+import ConfirmModal from '../components/ConfirmModal';
 
 interface Props {
   user: User;
@@ -55,8 +56,9 @@ const Billing: React.FC<Props> = ({ user }) => {
   const [isSearchingOnMobile, setIsSearchingOnMobile] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   
-  // Modal for Bill Detail
+  // Modal states
   const [selectedBill, setSelectedBill] = useState<GroupedBill | null>(null);
+  const [showReturnConfirm, setShowReturnConfirm] = useState(false);
 
   // --- HISTORY FILTERS & SORTING STATE ---
   const [historySearch, setHistorySearch] = useState('');
@@ -230,7 +232,6 @@ const Billing: React.FC<Props> = ({ user }) => {
   const submitReturns = async () => {
     const ids = Object.keys(selectedReturns);
     if (ids.length === 0) return;
-    if (!confirm(`Process returns for ${ids.length} items?`)) return;
 
     setProcessingReturns(true);
     const returnPayload = ids.map(id => {
@@ -249,6 +250,7 @@ const Billing: React.FC<Props> = ({ user }) => {
 
     const res = await createBulkTransactions(returnPayload);
     setProcessingReturns(false);
+    setShowReturnConfirm(false);
 
     if (res.success) {
        alert("Returns processed successfully.");
@@ -425,7 +427,7 @@ const Billing: React.FC<Props> = ({ user }) => {
                    </div>
 
                    <button 
-                      onClick={submitReturns}
+                      onClick={() => setShowReturnConfirm(true)}
                       disabled={Object.keys(selectedReturns).length === 0 || processingReturns}
                       className="bg-rose-600 hover:bg-rose-700 text-white px-8 py-4 rounded-2xl font-black shadow-xl shadow-rose-200 transition-all flex items-center gap-3 active:scale-[0.95] disabled:opacity-30 disabled:shadow-none"
                    >
@@ -725,12 +727,23 @@ const Billing: React.FC<Props> = ({ user }) => {
               </div>
           </div>
        )}
+
+       {/* STOCK RETURN CONFIRMATION */}
+       <ConfirmModal
+         isOpen={showReturnConfirm}
+         onClose={() => setShowReturnConfirm(false)}
+         onConfirm={submitReturns}
+         loading={processingReturns}
+         variant="danger"
+         title="Process Stock Return?"
+         message={`You are about to process returns for ${Object.keys(selectedReturns).length} items. Total refund amount is ₹${totalRefundAmount.toLocaleString()}. This will add units back to inventory. Please verify the physical condition of parts before proceeding.`}
+         confirmLabel="Confirm Return"
+       />
     </div>
   );
 };
 
 // Internal utility component for refresh icon animation
-// FIXED: Added 'size' to props definition to resolve TypeScript error.
 const RefreshCw: React.FC<{ size?: number; className?: string }> = ({ size = 24, className }) => (
   <svg 
     xmlns="http://www.w3.org/2000/svg" 

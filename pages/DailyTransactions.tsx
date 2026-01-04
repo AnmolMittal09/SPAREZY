@@ -25,6 +25,7 @@ import {
   CreditCard,
   Percent
 } from 'lucide-react';
+import ConfirmModal from '../components/ConfirmModal';
 
 interface Props {
   user: User;
@@ -60,6 +61,9 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [showMobileSearch, setShowMobileSearch] = useState(false);
   
+  // Confirmation state
+  const [showConfirm, setShowConfirm] = useState(false);
+
   const [hideFilters, setHideFilters] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -190,10 +194,19 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
     setCart(prev => prev.filter(item => item.tempId !== id));
   };
 
-  const handleSubmit = async () => {
-      if (cart.length === 0) return;
-      if (mode === 'SALES' && !customerName.trim()) return alert("Customer Name is required.");
+  const handleCheckoutClick = () => {
+    if (cart.length === 0) return;
+    if (mode === 'SALES' && !customerName.trim()) return alert("Customer Name is required.");
+    
+    // For Returns, we show a confirmation dialog
+    if (mode === 'RETURN') {
+      setShowConfirm(true);
+    } else {
+      executeSubmit();
+    }
+  };
 
+  const executeSubmit = async () => {
       const payload = cart.map(c => ({
           ...c,
           customerName: customerName || (mode === 'PURCHASE' ? 'Manual Supplier' : 'Walk-in'),
@@ -202,6 +215,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
       setLoading(true);
       const res = await createBulkTransactions(payload);
       setLoading(false);
+      setShowConfirm(false);
       
       if (res.success) {
           alert(user.role === Role.MANAGER ? "Sent for approval." : "Transaction successful.");
@@ -430,14 +444,12 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                                 </div>
                                 <div className="text-right">
                                     <div className="font-black text-slate-900 text-[15px]">₹{(item.price * item.quantity).toLocaleString()}</div>
-                                    {mode === 'PURCHASE' && (
-                                      <div className="text-[10px] text-slate-400 font-bold uppercase mt-1">MRP ₹{item.mrp}</div>
-                                    )}
+                                    <div className="text-[10px] text-slate-400 font-bold uppercase mt-1">MRP ₹{item.mrp}</div>
                                 </div>
                             </div>
 
-                            {/* Discount Logic Row - Only for Purchase */}
-                            {mode === 'PURCHASE' && (
+                            {/* Discount Logic Row - Enabled for Sales and Purchase */}
+                            {(mode === 'PURCHASE' || mode === 'SALES') && (
                               <div className="flex gap-2 items-center bg-white p-2 rounded-xl border border-slate-100 shadow-sm">
                                  <div className="flex-1 relative">
                                     <Percent size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -455,7 +467,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                                     <input 
                                       type="number"
                                       className="w-full pl-6 pr-2 py-1.5 bg-slate-50 border-none rounded-lg text-xs font-black outline-none focus:ring-1 focus:ring-slate-900"
-                                      placeholder="Net Rate"
+                                      placeholder={mode === 'SALES' ? "Selling Rate" : "Net Rate"}
                                       value={item.price}
                                       onChange={e => handleNetPriceChange(item.tempId, e.target.value)}
                                     />
@@ -481,7 +493,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                         <span className="text-3xl font-black text-slate-900 tracking-tight">₹{totalAmount.toLocaleString()}</span>
                     </div>
                     <button 
-                       onClick={handleSubmit} 
+                       onClick={handleCheckoutClick} 
                        disabled={loading || cart.length === 0} 
                        className={`w-full py-5 rounded-[1.5rem] font-black text-white text-[17px] shadow-xl transition-all active:scale-[0.98] disabled:opacity-30 flex items-center justify-center gap-3 ${accentColor}`}
                     >
@@ -562,8 +574,8 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                                </div>
                            </div>
 
-                           {/* Mobile Discount Row */}
-                           {mode === 'PURCHASE' && (
+                           {/* Mobile Discount Row - Enabled for Sales and Purchase */}
+                           {(mode === 'PURCHASE' || mode === 'SALES') && (
                              <div className="flex gap-4 items-center bg-slate-50 p-4 rounded-2xl border border-slate-100">
                                 <div className="flex-1 space-y-1.5">
                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">Discount %</label>
@@ -578,7 +590,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                                    </div>
                                 </div>
                                 <div className="flex-1 space-y-1.5">
-                                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">Net Rate</label>
+                                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">{mode === 'SALES' ? 'Selling Rate' : 'Net Rate'}</label>
                                    <div className="relative">
                                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-black text-sm">₹</span>
                                       <input 
@@ -621,7 +633,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                      <p className="text-3xl font-black text-slate-900 tracking-tighter">₹{totalAmount.toLocaleString()}</p>
                   </div>
                   <button 
-                     onClick={handleSubmit}
+                     onClick={handleCheckoutClick}
                      disabled={loading || cart.length === 0}
                      className={`flex-[1.4] text-white font-black py-5 rounded-[1.5rem] shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-30 text-[18px] ${accentColor}`}
                   >
@@ -632,6 +644,18 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
               </div>
           </div>
        </div>
+
+       {/* RETURN CONFIRMATION MODAL */}
+       <ConfirmModal
+         isOpen={showConfirm}
+         onClose={() => setShowConfirm(false)}
+         onConfirm={executeSubmit}
+         loading={loading}
+         variant="danger"
+         title="Verify Return?"
+         message={`You are processing a return for ${cart.length} items. Total refund value: ₹${totalAmount.toLocaleString()}. This action will increase your inventory stock. Please ensure the items are in sellable condition.`}
+         confirmLabel="Confirm & Restock"
+       />
     </div>
   );
 };
