@@ -117,22 +117,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
          </div>
       </div>
 
-      {/* --- BRAND SNAPSHOT TILES (MICRO-UI) --- */}
-      <div className="grid grid-cols-2 md:flex gap-3 px-1">
-         <div className="bg-white border border-slate-200/60 border-l-4 border-l-blue-600 px-3 py-2 rounded-xl shadow-soft h-[56px] min-w-[140px] flex flex-col justify-center">
-            <p className="text-[10px] font-black text-slate-900 uppercase tracking-wider leading-none mb-1">HYUNDAI</p>
-            <p className="text-[11px] font-bold text-slate-500 whitespace-nowrap">
-               {brandSnapshots.hyundai.parts} Parts · {brandSnapshots.hyundai.units.toLocaleString()} Units
-            </p>
-         </div>
-         <div className="bg-white border border-slate-200/60 border-l-4 border-l-red-600 px-3 py-2 rounded-xl shadow-soft h-[56px] min-w-[140px] flex flex-col justify-center">
-            <p className="text-[10px] font-black text-slate-900 uppercase tracking-wider leading-none mb-1">MAHINDRA</p>
-            <p className="text-[11px] font-bold text-slate-500 whitespace-nowrap">
-               {brandSnapshots.mahindra.parts} Parts · {brandSnapshots.mahindra.units.toLocaleString()} Units
-            </p>
-         </div>
-      </div>
-
       {/* INTELLIGENT SEARCH AREA */}
       <div className="relative group no-print">
          <div className="bg-white rounded-[2.5rem] p-6 md:p-8 shadow-premium border border-slate-200/80 transition-all duration-300 group-focus-within:shadow-elevated group-focus-within:border-blue-200 group-focus-within:-translate-y-1">
@@ -180,7 +164,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
 
       {/* MASTER INVENTORY TABLE CONTAINER */}
       <div className="bg-white rounded-[2.5rem] shadow-premium border border-slate-200/60 overflow-hidden flex flex-col flex-1 min-h-[700px] transition-all">
-         <div className="px-10 py-7 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
+         <div className="px-10 py-7 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/30">
             <div className="flex items-center gap-4">
                 <div className="p-3 bg-white rounded-2xl shadow-soft border border-slate-100 text-blue-600">
                     <LayoutGrid size={22} strokeWidth={2.5} />
@@ -191,6 +175,22 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                    </h3>
                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Real-time Stock Registry</p>
                 </div>
+            </div>
+
+            {/* --- BRAND SNAPSHOT TILES (MICRO-UI) --- */}
+            <div className="flex gap-3">
+               <div className="bg-white border border-slate-200/60 border-l-4 border-l-blue-600 px-3 py-2 rounded-xl shadow-soft h-[56px] min-w-[140px] flex flex-col justify-center">
+                  <p className="text-[10px] font-black text-slate-900 uppercase tracking-wider leading-none mb-1">HYUNDAI</p>
+                  <p className="text-[11px] font-bold text-slate-500 whitespace-nowrap">
+                     {brandSnapshots.hyundai.parts} Parts · {brandSnapshots.hyundai.units.toLocaleString()} Units
+                  </p>
+               </div>
+               <div className="bg-white border border-slate-200/60 border-l-4 border-l-red-600 px-3 py-2 rounded-xl shadow-soft h-[56px] min-w-[140px] flex flex-col justify-center">
+                  <p className="text-[10px] font-black text-slate-900 uppercase tracking-wider leading-none mb-1">MAHINDRA</p>
+                  <p className="text-[11px] font-bold text-slate-500 whitespace-nowrap">
+                     {brandSnapshots.mahindra.parts} Parts · {brandSnapshots.mahindra.units.toLocaleString()} Units
+                  </p>
+               </div>
             </div>
          </div>
          <div className="flex-1 min-h-0">
