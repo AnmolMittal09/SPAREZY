@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 // @ts-ignore
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
@@ -86,11 +85,8 @@ const App: React.FC = () => {
             element={user.role === Role.OWNER ? <ImportExport /> : <Navigate to="/" replace />} 
           />
           
-          {/* REPORTS */}
-          <Route 
-            path="/reports" 
-            element={user.role === Role.OWNER ? <Reports user={user} /> : <Navigate to="/" replace />} 
-          />
+          {/* REPORTS - Now accessible to both Roles for strategic alignment */}
+          <Route path="/reports" element={<Reports user={user} />} />
           
           {/* ADMIN */}
           <Route 
