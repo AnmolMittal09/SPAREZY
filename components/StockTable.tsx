@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 // @ts-ignore
 import { Link, useNavigate } from 'react-router-dom';
 import { StockItem, Brand, Role, PriceHistoryEntry } from '../types';
-import { bulkArchiveItems, fetchPriceHistory } from '../services/inventoryService';
+import { bulkArchiveItems, fetchPriceHistory, updateOrAddItems } from '../services/inventoryService';
 import { createStockRequests } from '../services/requestService';
 import { 
   Search, 
@@ -25,7 +25,9 @@ import {
   Calendar,
   ClipboardPlus,
   Lock,
-  Box
+  Box,
+  Edit3,
+  Check
 } from 'lucide-react';
 
 const formatQty = (n: number) => {
@@ -378,6 +380,11 @@ const StockTable: React.FC<StockTableProps> = ({
   const [isArchiving, setIsArchiving] = useState(false);
   const [requestingPn, setRequestingPn] = useState<string | null>(null);
 
+  // Edit Mode States (Admin only)
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [updatingPn, setUpdatingPn] = useState<string | null>(null);
+  const [editedQtys, setEditedQtys] = useState<Record<string, number>>({});
+
   const isOwner = userRole === Role.OWNER;
   const isManager = userRole === Role.MANAGER;
   const effectiveSearch = externalSearch !== undefined ? externalSearch : internalSearch;
@@ -422,7 +429,6 @@ const StockTable: React.FC<StockTableProps> = ({
 
   const isAllPageSelected = currentItems.length > 0 && currentItems.every(i => selectedParts.has(i.partNumber));
   const isAllMobileSelected = mobileItems.length > 0 && mobileItems.every(i => selectedParts.has(i.partNumber));
-  const isAllFilteredSelected = filteredItems.length > 0 && filteredItems.every(i => selectedParts.has(i.partNumber));
   const isPartiallySelected = selectedParts.size > 0 && !isAllPageSelected;
 
   const handleQuickRequest = async (pn: string) => {
@@ -447,6 +453,28 @@ const StockTable: React.FC<StockTableProps> = ({
       }
   };
 
+  const handleInlineQtyUpdate = async (pn: string) => {
+      const newQty = editedQtys[pn];
+      if (newQty === undefined) return;
+      
+      setUpdatingPn(pn);
+      try {
+          const result = await updateOrAddItems([{ partNumber: pn, quantity: newQty }]);
+          if (result.errors.length > 0) {
+              alert("Error updating: " + result.errors[0]);
+          } else {
+              // Successfully updated
+              // Refresh is needed here to update the local state of items
+              // In a real production app, we would update the state locally or use a refresh callback
+              window.location.reload(); 
+          }
+      } catch (e) {
+          alert("Failed to update stock quantity.");
+      } finally {
+          setUpdatingPn(null);
+      }
+  };
+
   const toggleSelectPage = () => {
     const newSet = new Set(selectedParts);
     const itemsToToggle = window.innerWidth < 768 ? mobileItems : currentItems;
@@ -455,10 +483,6 @@ const StockTable: React.FC<StockTableProps> = ({
     if (isCurrentlySelected) itemsToToggle.forEach(i => newSet.delete(i.partNumber));
     else itemsToToggle.forEach(i => newSet.add(i.partNumber));
     setSelectedParts(newSet);
-  };
-
-  const toggleSelectAllFiltered = () => {
-    setSelectedParts(new Set(filteredItems.map(i => i.partNumber)));
   };
 
   useEffect(() => {
@@ -495,7 +519,7 @@ const StockTable: React.FC<StockTableProps> = ({
   };
 
   const SortIcon = ({ col }: { col: keyof StockItem }) => {
-      if (sortConfig?.key !== col) return <ArrowUpDown size={10} className="opacity-10" />;
+      if (sortConfig?.key !== col) return <ArrowUpDown size={10} className="opacity(10)" />;
       return sortConfig.direction === 'asc' ? <ArrowUp size={10} className="text-blue-600" /> : <ArrowDown size={10} className="text-blue-600" />;
   };
 
@@ -509,6 +533,20 @@ const StockTable: React.FC<StockTableProps> = ({
             </div>
             
             <div className="flex items-center gap-3">
+                {isOwner && (
+                    <button 
+                        onClick={() => setIsEditMode(!isEditMode)}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm ring-1 ${
+                            isEditMode 
+                                ? 'bg-indigo-600 text-white border-indigo-700 ring-indigo-400' 
+                                : 'bg-white text-indigo-600 border-slate-200 hover:bg-indigo-50 ring-transparent'
+                        }`}
+                    >
+                        <Edit3 size={14} />
+                        {isEditMode ? 'Exit Edit Mode' : 'Edit Mode'}
+                    </button>
+                )}
+
                 {selectedParts.size > 0 && isOwner && (
                     <button 
                     onClick={handleBulkArchive} 
@@ -592,6 +630,7 @@ const StockTable: React.FC<StockTableProps> = ({
                         const isZero = item.quantity === 0;
                         const isSelected = selectedParts.has(item.partNumber);
                         const isBeingRequested = requestingPn === item.partNumber;
+                        const isUpdating = updatingPn === item.partNumber;
 
                         return (
                             <tr key={item.id} className={`group hover:bg-slate-50/50 transition-colors ${isSelected ? 'bg-blue-50/40' : ''}`}>
@@ -619,10 +658,34 @@ const StockTable: React.FC<StockTableProps> = ({
                                 </td>
                                 <td className="px-8 py-5 text-center">
                                     <div className="flex flex-col items-center">
-                                        <span className={`font-black text-[16px] tracking-tighter ${isZero ? 'text-rose-600' : isLow ? 'text-amber-500' : 'text-slate-900'}`}>
-                                            {formatQty(item.quantity)}
-                                        </span>
-                                        {isLow && !isZero && <span className="text-[7px] font-black text-amber-600/50 uppercase tracking-widest">Low</span>}
+                                        {isEditMode && isOwner ? (
+                                            <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-200 shadow-inner-soft group/edit-cell">
+                                                <input 
+                                                    type="number"
+                                                    disabled={isUpdating}
+                                                    defaultValue={item.quantity}
+                                                    className="w-16 bg-white border border-slate-200 rounded-lg py-1 px-2 text-[15px] font-black text-slate-900 outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-400 disabled:opacity-50"
+                                                    onChange={(e) => setEditedQtys({...editedQtys, [item.partNumber]: parseInt(e.target.value) || 0})}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') handleInlineQtyUpdate(item.partNumber);
+                                                    }}
+                                                />
+                                                <button 
+                                                    onClick={() => handleInlineQtyUpdate(item.partNumber)}
+                                                    disabled={isUpdating || editedQtys[item.partNumber] === undefined}
+                                                    className="p-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-30 transition-all active:scale-90"
+                                                >
+                                                    {isUpdating ? <Loader2 size={12} className="animate-spin"/> : <Check size={12} strokeWidth={4} />}
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <span className={`font-black text-[16px] tracking-tighter ${isZero ? 'text-rose-600' : isLow ? 'text-amber-500' : 'text-slate-900'}`}>
+                                                    {formatQty(item.quantity)}
+                                                </span>
+                                                {isLow && !isZero && <span className="text-[7px] font-black text-amber-600/50 uppercase tracking-widest">Low</span>}
+                                            </>
+                                        )}
                                     </div>
                                 </td>
                                 <td className="px-8 py-5 text-right">
