@@ -1,4 +1,3 @@
-
 import { supabase } from './supabase';
 import { Invoice, Role, Transaction, TransactionStatus, TransactionType } from '../types';
 
@@ -72,7 +71,6 @@ export const createBulkTransactions = async (
       type: t.type,
       quantity: t.quantity,
       price: t.price,
-      // Fix: Use t.customerName (from Transaction type) instead of t.customer_name
       customer_name: t.customerName,
       status: initialStatus,
       created_by_role: t.createdByRole,
@@ -126,20 +124,29 @@ export const fetchTransactions = async (
   return data.map(mapDBToTransaction);
 };
 
+export const fetchItemTransactions = async (partNumber: string): Promise<Transaction[]> => {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('transactions')
+    .select('*')
+    .ilike('part_number', partNumber)
+    .order('created_at', { ascending: false });
+  
+  if (error || !data) return [];
+  return data.map(mapDBToTransaction);
+};
+
 export const approveTransaction = async (id: string, partNumber: string, type: TransactionType, quantity: number): Promise<void> => {
   if (!supabase) throw new Error("Database not connected");
 
-  // 1. Stock Check (Double Check)
   if (type === TransactionType.SALE) {
       const { data: item } = await supabase.from('inventory').select('quantity').ilike('part_number', partNumber).single();
       if (!item || item.quantity < quantity) throw new Error(`Insufficient stock for approval.`);
   }
 
-  // 2. Update Status
   const { error: txError } = await supabase.from('transactions').update({ status: TransactionStatus.APPROVED }).eq('id', id);
   if (txError) throw new Error(txError.message);
 
-  // 3. Update Stock
   if (type !== TransactionType.PURCHASE_ORDER) await updateStockForTransaction(partNumber, type, quantity);
 };
 
@@ -149,11 +156,9 @@ export const rejectTransaction = async (id: string): Promise<void> => {
   if (error) throw new Error(error.message);
 };
 
-// Helper to adjust stock levels (Supabase only)
 const updateStockForTransaction = async (partNumber: string, type: TransactionType, quantity: number) => {
   if (!supabase) return;
   
-  // Fetch current state including archive status
   const { data: items } = await supabase
     .from('inventory')
     .select('quantity, part_number, is_archived')
@@ -174,8 +179,6 @@ const updateStockForTransaction = async (partNumber: string, type: TransactionTy
 
   if (newQty < 0 && type === TransactionType.SALE) newQty = 0;
 
-  // Logic: Unarchive if stock is being added to an archived item
-  // This triggers if type is PURCHASE or RETURN and newQty is positive
   const shouldUnarchive = dbItem.is_archived && newQty > 0;
 
   const updatePayload: any = { 
@@ -192,8 +195,6 @@ const updateStockForTransaction = async (partNumber: string, type: TransactionTy
     .update(updatePayload)
     .eq('part_number', dbItem.part_number);
 };
-
-// --- ANALYTICS ---
 
 export interface SoldItemStats {
   partNumber: string;
@@ -263,12 +264,9 @@ export const fetchAnalytics = async (startDate: Date, endDate: Date): Promise<An
   };
 };
 
-// --- INVOICE RELATED FUNCTIONS (STRICTLY SUPABASE) ---
-
 export const fetchUninvoicedSales = async (): Promise<Transaction[]> => {
   if (!supabase) return [];
 
-  // 1. Fetch Sales
   const { data, error } = await supabase
     .from('transactions')
     .select('*')
@@ -284,7 +282,6 @@ export const fetchUninvoicedSales = async (): Promise<Transaction[]> => {
   
   if (!data || data.length === 0) return [];
 
-  // 2. Filter out items that have been fully returned
   const saleIds = data.map(s => s.id);
   
   const { data: returns } = await supabase
@@ -302,7 +299,6 @@ export const fetchUninvoicedSales = async (): Promise<Transaction[]> => {
       });
   }
 
-  // Filter: Keep only sales where quantity > returned quantity
   const validData = data.filter((s: any) => {
       const returned = returnMap.get(s.id) || 0;
       return s.quantity > returned;
@@ -348,7 +344,6 @@ export const generateTaxInvoiceRecord = async (
   const invoiceNumber = `INV-${Date.now().toString().slice(-8)}`;
 
   try {
-    // 1. Create Invoice Record
     const { data: invoiceData, error: invError } = await supabase
       .from('invoices')
       .insert({
@@ -359,7 +354,7 @@ export const generateTaxInvoiceRecord = async (
         customer_gst: customerDetails.gst,
         total_amount: totals.amount,
         tax_amount: totals.tax,
-        payment_mode: customerDetails.paymentMode.toUpperCase(), // Ensure uppercase to match constraint
+        payment_mode: customerDetails.paymentMode.toUpperCase(), 
         items_count: transactionIds.length,
         generated_by: userRole
       })
@@ -368,7 +363,6 @@ export const generateTaxInvoiceRecord = async (
 
     if (invError || !invoiceData) throw new Error(invError?.message || "Failed to create invoice");
 
-    // 2. Link Transactions
     const { error: txError } = await supabase
       .from('transactions')
       .update({ invoice_id: invoiceData.id })
