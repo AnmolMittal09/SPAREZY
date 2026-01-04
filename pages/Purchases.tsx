@@ -37,7 +37,9 @@ import {
   Plus,
   Trash2,
   Image as ImageIcon,
-  Edit2
+  Edit3,
+  Zap,
+  Check
 } from 'lucide-react';
 import { fetchTransactions, createBulkTransactions } from '../services/transactionService';
 import { fetchInventory, updateOrAddItems } from '../services/inventoryService';
@@ -336,8 +338,8 @@ const Purchases: React.FC<Props> = ({ user }) => {
     } catch (err: any) {
         setImportLog({ success: false, message: err.message || "Process failed.", count: 0, totalValue: 0, errorCount: 0 });
     } finally {
-        setImporting(false);
-        fetchInventory().then(setInventory);
+      setImporting(false);
+      fetchInventory().then(setInventory);
     }
   };
 
@@ -501,75 +503,85 @@ const Purchases: React.FC<Props> = ({ user }) => {
 
                 {previewData.length > 0 && (
                   <div className="bg-white rounded-[3rem] shadow-2xl border border-slate-100 overflow-hidden animate-slide-up flex flex-col max-h-[85vh]">
-                     <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/40">
-                        <div className="flex items-center gap-5">
-                           <div className="bg-blue-600 text-white p-4 rounded-3xl shadow-xl shadow-blue-100"><ShieldCheck size={28} /></div>
+                     <div className="p-6 md:p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/40">
+                        <div className="flex items-center gap-4">
+                           <div className="bg-blue-600 text-white p-3 md:p-4 rounded-2xl md:rounded-3xl shadow-xl shadow-blue-100"><ShieldCheck size={24} /></div>
                            <div>
-                              <h3 className="font-black text-slate-900 text-xl leading-none mb-2">Extraction Review</h3>
-                              <p className="text-[11px] text-slate-400 font-black uppercase tracking-[0.2em]">Dealer: {extractedMetadata.dealerName || 'Unknown'}</p>
+                              <h3 className="font-black text-slate-900 text-lg md:text-xl leading-none mb-1 md:mb-2">Extraction Review</h3>
+                              <p className="text-[9px] md:text-[11px] text-slate-400 font-black uppercase tracking-[0.2em]">Dealer: {extractedMetadata.dealerName || 'Unknown'}</p>
                            </div>
                         </div>
-                        <button onClick={() => setPreviewData([])} className="p-3 text-slate-300 hover:text-rose-500 bg-white rounded-2xl shadow-sm transition-all active:scale-90"><X size={24} /></button>
+                        <button onClick={() => setPreviewData([])} className="p-2 md:p-3 text-slate-300 hover:text-rose-500 bg-white rounded-xl md:rounded-2xl shadow-sm transition-all active:scale-90"><X size={20} /></button>
                      </div>
 
                      <div className="bg-amber-50 p-4 border-b border-amber-100 flex items-start gap-3">
-                        <Info className="text-amber-600 flex-none" size={18} />
-                        <p className="text-[11px] font-bold text-amber-800 leading-tight">Review extracted part numbers. New parts will be auto-added to your inventory on confirmation.</p>
+                        <Zap className="text-amber-600 flex-none" size={16} />
+                        <p className="text-[10px] font-bold text-amber-800 leading-tight">Verify part numbers below. Pulsing tags indicate <b>New Parts</b> that will be added to your shop catalog.</p>
                      </div>
 
-                     <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar bg-slate-50/30">
+                     <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-3 md:space-y-4 no-scrollbar bg-slate-50/30">
                         {previewData.map((row, i) => {
                            const exists = inventory.some(item => item.partNumber.toLowerCase() === row.partNumber.toLowerCase());
                            return (
-                               <div key={i} className={`bg-white p-6 rounded-[2.5rem] border shadow-sm flex flex-col gap-4 animate-fade-in ${row.hasError ? 'border-rose-200 bg-rose-50/30' : 'border-slate-100'}`} style={{ animationDelay: `${i * 0.05}s` }}>
-                                <div className="flex justify-between items-start">
-                                    <div className="flex-1 min-w-0 pr-4">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <div className="relative group/edit flex-1">
-                                                <input 
-                                                    type="text"
-                                                    value={row.partNumber}
-                                                    onChange={e => handleEditPartNumber(i, e.target.value)}
-                                                    className="w-full bg-slate-100 px-3 py-2 rounded-xl border-none font-black text-slate-900 text-lg leading-tight tracking-tight focus:ring-2 focus:ring-blue-500"
-                                                />
-                                                <Edit2 size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                                            </div>
-                                            {!exists && (
-                                                <span className="flex-none bg-teal-50 text-teal-600 px-2 py-1 rounded-lg text-[9px] font-black uppercase border border-teal-100">New Part</span>
-                                            )}
-                                        </div>
-                                        <div className="text-[12px] text-slate-400 font-bold truncate pl-3">{row.name}</div>
+                               <div key={i} className={`bg-white p-5 md:p-6 rounded-[2rem] md:rounded-[2.5rem] border shadow-soft flex flex-col gap-4 animate-fade-in transition-all ${row.hasError ? 'border-rose-200 bg-rose-50/30' : 'border-slate-100'}`} style={{ animationDelay: `${i * 0.05}s` }}>
+                                <div className="flex flex-col gap-3">
+                                    <div className="flex justify-between items-start">
+                                       <div className="flex-1 space-y-1">
+                                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Part Number (Editable)</label>
+                                          <div className="relative group/edit">
+                                             <input 
+                                                type="text"
+                                                value={row.partNumber}
+                                                onChange={e => handleEditPartNumber(i, e.target.value)}
+                                                className="w-full bg-slate-50 px-4 py-3 rounded-2xl border-2 border-transparent font-black text-slate-900 text-[17px] md:text-lg leading-tight tracking-tight focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
+                                             />
+                                             {/* Replacing Edit2 with imported Edit3 */}
+                                             <Edit3 size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none group-focus-within/edit:text-blue-500" />
+                                          </div>
+                                       </div>
+                                       <div className="pl-3 pt-5">
+                                          <div className="bg-blue-600 text-white px-3 py-2 rounded-xl text-[11px] font-black uppercase shadow-lg shadow-blue-100 flex items-center gap-1.5 whitespace-nowrap">
+                                             <Check size={14} /> {row.quantity} Qty
+                                          </div>
+                                       </div>
                                     </div>
-                                    <div className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase shadow-sm flex-none">+{row.quantity} Qty</div>
+                                    
+                                    <div className="flex items-center gap-2">
+                                       {!exists && (
+                                          <span className="flex-none bg-teal-500 text-white px-2 py-1 rounded-lg text-[9px] font-black uppercase shadow-sm animate-pulse flex items-center gap-1">
+                                             <Plus size={10} strokeWidth={4} /> New Entry
+                                          </span>
+                                       )}
+                                       <div className="text-[12px] md:text-[13px] text-slate-400 font-bold truncate flex-1">{row.name}</div>
+                                    </div>
                                 </div>
                                 
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 pt-2 border-t border-slate-100/50">
-                                    <div>
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">MRP Detected</p>
-                                        <p className="font-bold text-slate-900">₹{row.mrp.toLocaleString()}</p>
+                                <div className="grid grid-cols-3 gap-2 md:gap-4 pt-3 border-t border-slate-100/50">
+                                    <div className="bg-slate-50/50 p-2 md:p-3 rounded-2xl border border-slate-100">
+                                        <p className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">MRP</p>
+                                        <p className="font-bold text-slate-900 text-xs md:text-sm">₹{row.mrp.toLocaleString()}</p>
                                     </div>
-                                    <div>
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">B.DC Detected</p>
-                                        <p className={`font-bold ${row.errorType === 'DISCOUNT_LOW' ? 'text-rose-600' : 'text-slate-900'}`}>
-                                        {row.discountPercent}%
-                                        {row.errorType === 'DISCOUNT_LOW' && <span className="text-[9px] block">Alert: Low Discount</span>}
+                                    <div className={`p-2 md:p-3 rounded-2xl border ${row.errorType === 'DISCOUNT_LOW' ? 'bg-rose-50 border-rose-100' : 'bg-slate-50/50 border-slate-100'}`}>
+                                        <p className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">B.DC</p>
+                                        <p className={`font-black text-xs md:text-sm ${row.errorType === 'DISCOUNT_LOW' ? 'text-rose-600' : 'text-slate-900'}`}>
+                                          {row.discountPercent}%
                                         </p>
                                     </div>
-                                    <div className="md:text-right">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Bill Unit Price</p>
-                                        <p className={`font-black text-lg ${row.hasError ? 'text-rose-600' : 'text-teal-600'}`}>₹{row.printedUnitPrice.toLocaleString()}</p>
+                                    <div className="bg-blue-50/50 p-2 md:p-3 rounded-2xl border border-blue-100 text-right">
+                                        <p className="text-[8px] md:text-[9px] font-black text-blue-400 uppercase tracking-widest mb-0.5">Net Rate</p>
+                                        <p className="font-black text-blue-700 text-xs md:text-sm">₹{row.printedUnitPrice.toLocaleString()}</p>
                                     </div>
                                 </div>
 
                                 {row.hasError && (
-                                    <div className="bg-rose-100/50 p-3 rounded-2xl border border-rose-200 flex gap-3 items-center">
-                                        <AlertTriangle className="text-rose-600 flex-none" size={16} />
-                                        <div className="text-[11px] font-bold text-rose-800 leading-tight">
-                                        {row.errorType === 'DISCOUNT_LOW' ? (
-                                            <p>Error: Bill discount ({row.discountPercent}%) is lower than 12% standard.</p>
-                                        ) : (
-                                            <p>Mismatch: Expected ₹{row.calculatedPrice.toLocaleString()} at 12% B.DC.</p>
-                                        )}
+                                    <div className="bg-rose-500 text-white p-3 rounded-2xl shadow-lg shadow-rose-200 flex gap-3 items-center animate-slide-up">
+                                        <AlertTriangle className="flex-none" size={18} />
+                                        <div className="text-[10px] md:text-[11px] font-black leading-tight uppercase tracking-wide">
+                                          {row.errorType === 'DISCOUNT_LOW' ? (
+                                              <p>Scan Alert: B.DC ({row.discountPercent}%) is below 12% standard!</p>
+                                          ) : (
+                                              <p>Math Alert: Expected ₹{row.calculatedPrice.toLocaleString()} at 12% B.DC.</p>
+                                          )}
                                         </div>
                                     </div>
                                 )}
@@ -578,9 +590,9 @@ const Purchases: React.FC<Props> = ({ user }) => {
                         })}
                      </div>
 
-                     <div className="p-8 border-t border-slate-100 bg-white sticky bottom-0">
-                        <button onClick={confirmBulkImport} disabled={importing} className="w-full bg-slate-900 hover:bg-black text-white font-black py-5.5 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.15)] flex items-center justify-center gap-4 active:scale-[0.98] transition-all disabled:opacity-50 text-[16px] uppercase tracking-widest">
-                          {importing ? <Loader2 className="animate-spin" /> : <CheckCircle2 size={24} />} Confirm Audit & Sync
+                     <div className="p-6 md:p-8 border-t border-slate-100 bg-white sticky bottom-0 z-10 shadow-[0_-15px_40px_rgba(0,0,0,0.05)]">
+                        <button onClick={confirmBulkImport} disabled={importing} className="w-full bg-slate-900 hover:bg-black text-white font-black py-5 md:py-6 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.2)] flex items-center justify-center gap-4 active:scale-[0.98] transition-all disabled:opacity-50 text-[15px] md:text-[16px] uppercase tracking-widest">
+                          {importing ? <Loader2 className="animate-spin" /> : <CheckCircle2 size={24} />} Confirm & Sync Audit
                         </button>
                      </div>
                   </div>
