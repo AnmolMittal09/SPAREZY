@@ -525,7 +525,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
                            return (
                                <div key={i} className={`bg-white p-5 md:p-6 rounded-[2rem] md:rounded-[2.5rem] border shadow-soft flex flex-col gap-4 animate-fade-in transition-all ${row.hasError ? 'border-rose-200 bg-rose-50/30' : 'border-slate-100'}`} style={{ animationDelay: `${i * 0.05}s` }}>
                                 <div className="flex flex-col gap-3">
-                                    <div className="flex justify-between items-start">
+                                    <div className="flex justify-between items-start gap-4">
                                        <div className="flex-1 space-y-1">
                                           <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Part Number (Editable)</label>
                                           <div className="relative group/edit">
@@ -533,23 +533,22 @@ const Purchases: React.FC<Props> = ({ user }) => {
                                                 type="text"
                                                 value={row.partNumber}
                                                 onChange={e => handleEditPartNumber(i, e.target.value)}
-                                                className="w-full bg-slate-50 px-4 py-3 rounded-2xl border-2 border-transparent font-black text-slate-900 text-[17px] md:text-lg leading-tight tracking-tight focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
+                                                className="w-full bg-slate-50 px-4 py-3.5 pr-11 rounded-2xl border-2 border-transparent font-black text-slate-900 text-[15px] md:text-lg leading-tight tracking-tight focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
                                              />
-                                             {/* Replacing Edit2 with imported Edit3 */}
                                              <Edit3 size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none group-focus-within/edit:text-blue-500" />
                                           </div>
                                        </div>
-                                       <div className="pl-3 pt-5">
-                                          <div className="bg-blue-600 text-white px-3 py-2 rounded-xl text-[11px] font-black uppercase shadow-lg shadow-blue-100 flex items-center gap-1.5 whitespace-nowrap">
-                                             <Check size={14} /> {row.quantity} Qty
+                                       <div className="flex-none pt-5">
+                                          <div className="bg-blue-600 text-white px-3 py-2.5 rounded-xl text-[10px] font-black uppercase shadow-lg shadow-blue-100 flex items-center justify-center gap-1 whitespace-nowrap min-w-[65px]">
+                                             <Check size={12} strokeWidth={3} /> {row.quantity} Qty
                                           </div>
                                        </div>
                                     </div>
                                     
                                     <div className="flex items-center gap-2">
                                        {!exists && (
-                                          <span className="flex-none bg-teal-500 text-white px-2 py-1 rounded-lg text-[9px] font-black uppercase shadow-sm animate-pulse flex items-center gap-1">
-                                             <Plus size={10} strokeWidth={4} /> New Entry
+                                          <span className="flex-none bg-teal-500 text-white px-2 py-1 rounded-lg text-[8px] font-black uppercase shadow-sm animate-pulse flex items-center gap-1">
+                                             <Plus size={8} strokeWidth={4} /> New SKU
                                           </span>
                                        )}
                                        <div className="text-[12px] md:text-[13px] text-slate-400 font-bold truncate flex-1">{row.name}</div>
