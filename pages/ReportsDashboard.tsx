@@ -9,7 +9,8 @@ import {
   AlertTriangle, 
   AlertCircle, 
   Banknote, 
-  ArrowRight
+  ArrowRight,
+  RefreshCw
 } from 'lucide-react';
 
 const formatQty = (n: number) => {
@@ -26,10 +27,13 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
   const [inventory, setInventory] = useState<StockItem[]>([]);
   const [analytics, setAnalytics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
+  const loadData = async (isManual = false) => {
+    if (isManual) setRefreshing(true);
+    else setLoading(true);
+    
+    try {
       const today = new Date();
       const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
       const [invData, analyticsData] = await Promise.all([
@@ -38,18 +42,36 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
       ]);
       setInventory(invData);
       setAnalytics(analyticsData);
+    } catch (e) {
+      console.error(e);
+    } finally {
       setLoading(false);
-    };
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
     loadData();
   }, []);
 
   const stats = getStats(inventory);
   const sortedByValue = [...inventory].sort((a, b) => (b.price * b.quantity) - (a.price * a.quantity)).slice(0, 5);
 
-  if (loading) return <TharLoader />;
+  if (loading && !refreshing) return <TharLoader />;
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-end px-1">
+          <button 
+             onClick={() => loadData(true)}
+             disabled={refreshing}
+             className={`flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-brand-600 transition-all active:scale-95 shadow-sm text-xs font-bold ${refreshing ? 'opacity-50' : ''}`}
+          >
+             <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
+             {refreshing ? 'Syncing...' : 'Refresh Stats'}
+          </button>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard 
           title="Total Stock Value" 

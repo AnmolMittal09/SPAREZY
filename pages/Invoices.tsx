@@ -37,6 +37,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
   const [shopSettings, setShopSettings] = useState<ShopSettings | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState('');
   const [invoiceHistory, setInvoiceHistory] = useState<Invoice[]>([]);
   
@@ -73,8 +74,10 @@ const Invoices: React.FC<Props> = ({ user }) => {
     else loadHistory();
   }, [activeTab]);
 
-  const loadPending = async () => {
-    setLoading(true);
+  const loadPending = async (isManual = false) => {
+    if (isManual) setRefreshing(true);
+    else setLoading(true);
+    
     try {
       const data = await fetchUninvoicedSales();
       setSales(data);
@@ -82,11 +85,14 @@ const Invoices: React.FC<Props> = ({ user }) => {
       setSales([]);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  const loadHistory = async () => {
-    setLoading(true);
+  const loadHistory = async (isManual = false) => {
+    if (isManual) setRefreshing(true);
+    else setLoading(true);
+    
     try {
       const data = await fetchInvoices();
       setInvoiceHistory(data);
@@ -94,6 +100,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
       setInvoiceHistory([]);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -273,10 +280,19 @@ const Invoices: React.FC<Props> = ({ user }) => {
        `}</style>
 
        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 no-print bg-white p-4 md:p-0 md:bg-transparent border-b md:border-none border-slate-100">
-          <div>
-             <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-                <FileText className="text-blue-600" /> Tax Invoices
-             </h1>
+          <div className="flex items-center gap-4">
+             <div>
+                <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                   <FileText className="text-blue-600" /> Tax Invoices
+                </h1>
+             </div>
+             <button 
+                onClick={() => activeTab === 'PENDING' ? loadPending(true) : loadHistory(true)}
+                disabled={refreshing}
+                className={`p-2 rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-brand-600 transition-all active:scale-95 shadow-sm ${refreshing ? 'opacity-50' : ''}`}
+             >
+                <RefreshCw size={18} className={refreshing ? 'animate-spin' : ''} />
+             </button>
           </div>
           
           <div className="flex bg-white p-1 rounded-xl border border-slate-200 shadow-sm w-full md:w-auto">
