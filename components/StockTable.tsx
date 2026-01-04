@@ -213,16 +213,15 @@ const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({ item, userRole, sho
     const [currentX, setCurrentX] = useState(0);
     const [isSwiping, setIsSwiping] = useState(false);
     const [swipedOpen, setSwipedOpen] = useState(false);
-    const [archiving, setArchiving] = useState(false);
     const [showHistory, setShowHistory] = useState(false);
     const [history, setHistory] = useState<PriceHistoryEntry[]>([]);
     const [loadingHistory, setLoadingHistory] = useState(false);
 
-    const isOwner = userRole === Role.OWNER;
-    const maxSwipe = isOwner ? -160 : -80;
+    // Mobile: Archiving removed. Only "Detail" action remains on swipe.
+    const maxSwipe = -80; 
 
     const onTouchStart = (e: React.TouchEvent) => {
-        if (enableSelection && isOwner) {
+        if (enableSelection && userRole === Role.OWNER) {
             const touchX = e.touches[0].clientX;
             if (touchX < 80) return; 
         }
@@ -250,20 +249,6 @@ const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({ item, userRole, sho
         }
     };
 
-    const handleArchive = async (e: React.MouseEvent) => {
-        e.stopPropagation();
-        if (!confirm(`Archive ${item.partNumber}?`)) return;
-        setArchiving(true);
-        try {
-            await toggleArchiveStatus(item.partNumber, true);
-            window.location.reload();
-        } catch (err) {
-            alert("Failed to archive item.");
-        } finally {
-            setArchiving(false);
-        }
-    };
-
     const toggleMobileHistory = async (e: React.MouseEvent) => {
         e.stopPropagation();
         if (!showHistory && history.length === 0) {
@@ -285,7 +270,7 @@ const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({ item, userRole, sho
 
     return (
         <div className="relative overflow-visible rounded-[2rem] animate-fade-in">
-            {/* Background Layer (Swipe Actions) */}
+            {/* Background Layer (Swipe Actions - Archive Removed for Mobile) */}
             <div className="absolute inset-0 flex justify-end rounded-[2rem] overflow-hidden">
                 <div className="flex h-full">
                     <button 
@@ -295,16 +280,6 @@ const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({ item, userRole, sho
                         <Eye size={20} />
                         <span className="text-[8px] font-black uppercase tracking-widest">Detail</span>
                     </button>
-                    {isOwner && (
-                        <button 
-                            onClick={handleArchive}
-                            disabled={archiving}
-                            className="bg-rose-600 text-white w-20 flex flex-col items-center justify-center gap-1"
-                        >
-                            {archiving ? <Loader2 size={20} className="animate-spin" /> : <Archive size={20} />}
-                            <span className="text-[8px] font-black uppercase tracking-widest">Archive</span>
-                        </button>
-                    )}
                 </div>
             </div>
 
@@ -317,7 +292,7 @@ const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({ item, userRole, sho
                 className={`relative bg-white border border-slate-100 p-5 rounded-[2rem] shadow-sm transition-all duration-200 ease-out z-10 flex flex-col gap-3 ${isZero ? 'bg-slate-50/50' : ''} ${isSelected ? 'ring-2 ring-brand-500 bg-brand-50 border-brand-200' : ''}`}
             >
                 <div className="flex gap-4 items-center">
-                    {enableSelection && isOwner && (
+                    {enableSelection && userRole === Role.OWNER && (
                         <div 
                             onClick={(e) => { e.stopPropagation(); toggleSelect(item.partNumber); }}
                             className="flex-none active:scale-90 transition-transform"
@@ -352,7 +327,7 @@ const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({ item, userRole, sho
                 <div className="pt-3 border-t border-slate-50 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <PriceCell price={item.price} partNumber={item.partNumber} userRole={userRole} align="left" />
-                        {isOwner && (
+                        {userRole === Role.OWNER && (
                             <button 
                                 onClick={toggleMobileHistory}
                                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[8px] font-black uppercase tracking-widest transition-all ${showHistory ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-400 border border-slate-100'}`}
@@ -364,7 +339,7 @@ const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({ item, userRole, sho
                     </div>
                 </div>
 
-                {showHistory && isOwner && (
+                {showHistory && userRole === Role.OWNER && (
                     <div className="mt-1 p-4 bg-slate-50 rounded-2xl border border-slate-100 animate-slide-up">
                         <div className="flex items-center gap-2 mb-3 border-b border-slate-200 pb-2">
                             <Clock size={11} className="text-indigo-500" />
@@ -536,11 +511,12 @@ const StockTable: React.FC<StockTableProps> = ({
             </div>
             
             <div className="flex items-center gap-3">
+                {/* Desktop-only Archive Button */}
                 {selectedParts.size > 0 && isOwner && (
                     <button 
                     onClick={handleBulkArchive} 
                     disabled={isArchiving}
-                    className="bg-rose-50 text-rose-600 hover:bg-rose-100 px-4 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 active:scale-95 shadow-sm"
+                    className="hidden md:flex bg-rose-50 text-rose-600 hover:bg-rose-100 px-4 py-2 rounded-2xl text-xs font-bold transition-all items-center gap-2 active:scale-95 shadow-sm"
                     >
                         {isArchiving ? <Loader2 className="animate-spin" size={14} /> : null}
                         Archive ({selectedParts.size})
@@ -558,10 +534,11 @@ const StockTable: React.FC<StockTableProps> = ({
                     />
                 </div>
 
+                {/* Desktop-only Archive Toggle */}
                 {isOwner && (
                     <button 
                         onClick={() => setShowArchived(!showArchived)}
-                        className={`p-2.5 rounded-2xl border transition-all active:scale-95 ${showArchived ? 'bg-amber-50 border-amber-200 text-amber-600' : 'bg-white border-slate-100 text-slate-400 hover:bg-slate-50'}`}
+                        className={`hidden md:flex p-2.5 rounded-2xl border transition-all active:scale-95 ${showArchived ? 'bg-amber-50 border-amber-200 text-amber-600' : 'bg-white border-slate-100 text-slate-400 hover:bg-slate-50'}`}
                     >
                         {showArchived ? <ArchiveRestore size={18} /> : <Archive size={18} />}
                     </button>
