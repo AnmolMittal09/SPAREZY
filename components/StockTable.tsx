@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 // @ts-ignore
 import { Link, useNavigate } from 'react-router-dom';
@@ -5,17 +6,12 @@ import { StockItem, Brand, Role, PriceHistoryEntry } from '../types';
 import { bulkArchiveItems, fetchPriceHistory, toggleArchiveStatus } from '../services/inventoryService';
 import { Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, Archive, ArchiveRestore, Loader2, Eye, EyeOff, Lock, TrendingUp, TrendingDown, Clock, ArrowRight, CheckSquare, Square, MinusSquare, X, History, Calendar, ChevronDown } from 'lucide-react';
 
-interface StockTableProps {
-  items: StockItem[];
-  title?: string;
-  brandFilter?: Brand; 
-  userRole?: Role;
-  enableActions?: boolean;
-  externalSearch?: string;
-  hideToolbar?: boolean;
-  stockStatusFilter?: 'ALL' | 'LOW' | 'OUT';
-  hidePriceByDefault?: boolean;
-}
+const formatQty = (n: number) => {
+  const isNeg = n < 0;
+  const abs = Math.abs(n);
+  const str = abs < 10 ? `0${abs}` : `${abs}`;
+  return isNeg ? `-${str}` : str;
+};
 
 const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role; align?: 'left' | 'right' }> = ({ price, partNumber, userRole, align = 'right' }) => {
   const [visible, setVisible] = useState(false);
@@ -308,7 +304,7 @@ const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({ item, userRole, sho
                             </div>
                             <div className="text-right flex flex-col items-end flex-none">
                                 <div className={`font-bold text-lg leading-none ${isZero ? 'text-rose-600' : isLow ? 'text-amber-500' : 'text-slate-900'}`}>
-                                    {item.quantity}
+                                    {formatQty(item.quantity)}
                                     <span className="text-[9px] uppercase font-bold text-slate-400 ml-1">PCS</span>
                                 </div>
                             </div>
@@ -367,6 +363,19 @@ const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({ item, userRole, sho
         </div>
     );
 };
+
+/* Define StockTableProps interface */
+interface StockTableProps {
+  items: StockItem[];
+  title?: string;
+  brandFilter?: Brand;
+  userRole?: Role;
+  enableActions?: boolean;
+  externalSearch?: string;
+  hideToolbar?: boolean;
+  stockStatusFilter?: 'ALL' | 'LOW' | 'OUT';
+  hidePriceByDefault?: boolean;
+}
 
 const StockTable: React.FC<StockTableProps> = ({ 
     items, 
@@ -633,7 +642,7 @@ const StockTable: React.FC<StockTableProps> = ({
                                 </td>
                                 <td className="px-6 py-3 text-center">
                                     <span className={`font-bold text-[15px] tracking-tight ${isZero ? 'text-rose-600' : isLow ? 'text-amber-500' : 'text-slate-900'}`}>
-                                        {item.quantity}
+                                        {formatQty(item.quantity)}
                                     </span>
                                 </td>
                                 <td className="px-6 py-3 text-right">

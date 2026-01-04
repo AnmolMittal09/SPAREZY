@@ -1,8 +1,13 @@
-
 import React, { useEffect, useState } from 'react';
 import { Transaction, TransactionStatus, TransactionType } from '../types';
 import { fetchTransactions, approveTransaction, rejectTransaction } from '../services/transactionService';
 import { CheckCircle2, XCircle, Clock, AlertCircle } from 'lucide-react';
+
+const formatQty = (n: number) => {
+  const abs = Math.abs(n);
+  const str = abs < 10 ? `0${abs}` : `${abs}`;
+  return n < 0 ? `-${str}` : str;
+};
 
 interface Props {
   type: TransactionType;
@@ -66,7 +71,7 @@ const PendingTransactions: React.FC<Props> = ({ type }) => {
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
       <div className="p-4 bg-yellow-50 border-b border-yellow-100 flex items-center gap-2 text-yellow-800 text-sm">
          <Clock size={16} />
-         <span className="font-bold">{items.length} Pending Transactions</span>
+         <span className="font-bold">{formatQty(items.length)} Pending Transactions</span>
          <span className="opacity-75">- Requires Admin Approval</span>
       </div>
       
@@ -91,7 +96,7 @@ const PendingTransactions: React.FC<Props> = ({ type }) => {
                 </td>
                 <td className="px-6 py-4 font-medium text-slate-700">Manager ({tx.createdByRole})</td>
                 <td className="px-6 py-4 font-bold text-slate-900">{tx.partNumber}</td>
-                <td className="px-6 py-4 text-center">{tx.quantity}</td>
+                <td className="px-6 py-4 text-center">{formatQty(tx.quantity)}</td>
                 <td className="px-6 py-4 text-right">₹{(tx.quantity * tx.price).toLocaleString()}</td>
                 <td className="px-6 py-4 text-right">
                   <div className="flex justify-end gap-2">

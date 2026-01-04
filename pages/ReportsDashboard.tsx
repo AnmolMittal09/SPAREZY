@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { User, StockItem } from '../types';
 import { fetchInventory, getStats } from '../services/inventoryService';
@@ -12,6 +11,12 @@ import {
   Banknote, 
   ArrowRight
 } from 'lucide-react';
+
+const formatQty = (n: number) => {
+  const abs = Math.abs(n);
+  const str = abs < 10 ? `0${abs}` : `${abs}`;
+  return n < 0 ? `-${str}` : str;
+};
 
 interface Props {
   user: User;
@@ -57,18 +62,18 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
           title="Net Revenue (Month)" 
           value={`₹${(analytics?.netRevenue || 0).toLocaleString()}`} 
           icon={TrendingUp} 
-          trend={`${analytics?.salesCount || 0} Transactions`}
+          trend={`${formatQty(analytics?.salesCount || 0)} Transactions`}
           colorClass="bg-white border-b-4 border-green-500"
         />
         <StatCard 
           title="Low Stock" 
-          value={stats.lowStockCount} 
+          value={formatQty(stats.lowStockCount)} 
           icon={AlertTriangle} 
           colorClass="bg-white border-b-4 border-yellow-400"
         />
         <StatCard 
           title="Out of Stock" 
-          value={stats.zeroStockCount} 
+          value={formatQty(stats.zeroStockCount)} 
           icon={AlertCircle} 
           colorClass="bg-white border-b-4 border-red-500"
         />
@@ -83,7 +88,7 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
                 {sortedByValue.map((item, idx) => (
                    <div key={item.id} className="flex items-center justify-between p-4 border-b border-slate-50">
                       <div className="flex items-center gap-3">
-                         <span className="text-slate-400 font-mono text-xs w-4">0{idx + 1}</span>
+                         <span className="text-slate-400 font-mono text-xs w-4">{formatQty(idx + 1)}</span>
                          <div>
                             <div className="font-bold text-sm text-slate-900">{item.partNumber}</div>
                             <div className="text-xs text-slate-500">{item.name}</div>
@@ -91,7 +96,7 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
                       </div>
                       <div className="text-right">
                          <div className="font-bold text-sm text-slate-900">₹{(item.price * item.quantity).toLocaleString()}</div>
-                         <div className="text-xs text-slate-400">{item.quantity} units</div>
+                         <div className="text-xs text-slate-400">{formatQty(item.quantity)} units</div>
                       </div>
                    </div>
                 ))}
@@ -111,7 +116,7 @@ const ReportsDashboard: React.FC<Props> = ({ user }) => {
                       </div>
                       <div className="text-right">
                          <div className="font-bold text-sm text-green-700">₹{item.totalRevenue.toLocaleString()}</div>
-                         <div className="text-xs text-slate-400">{item.quantitySold} sold</div>
+                         <div className="text-xs text-slate-400">{formatQty(item.quantitySold)} sold</div>
                       </div>
                    </div>
                 ))}

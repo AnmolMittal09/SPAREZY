@@ -25,6 +25,13 @@ import {
 } from 'lucide-react';
 import TharLoader from '../components/TharLoader';
 
+const formatQty = (n: number) => {
+  const isNeg = n < 0;
+  const abs = Math.abs(n);
+  const str = abs < 10 ? `0${abs}` : `${abs}`;
+  return isNeg ? `-${str}` : str;
+};
+
 const ItemDetail: React.FC = () => {
   const { partNumber } = useParams<{ partNumber: string }>();
   const [item, setItem] = useState<StockItem | null>(null);
@@ -130,7 +137,7 @@ const ItemDetail: React.FC = () => {
             <div className={`text-3xl font-black relative z-10 tracking-tight ${
                 isZeroStock ? 'text-rose-900' : isLowStock ? 'text-amber-900' : 'text-slate-900'
             }`}>
-                {item.quantity} <span className="text-sm font-bold opacity-60 uppercase ml-1">PCS</span>
+                {formatQty(item.quantity)} <span className="text-sm font-bold opacity-60 uppercase ml-1">PCS</span>
             </div>
          </div>
 
@@ -225,7 +232,7 @@ const ItemDetail: React.FC = () => {
                                    tx.type === TransactionType.PURCHASE ? 'text-blue-600' : 
                                    'text-rose-600'
                                  }`}>
-                                    {tx.type === TransactionType.SALE ? '-' : '+'}{tx.quantity}
+                                    {tx.type === TransactionType.SALE ? '-' : '+'}{formatQty(tx.quantity)}
                                  </span>
                               </div>
                            </div>

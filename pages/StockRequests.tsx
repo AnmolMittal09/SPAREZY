@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { User, Role, StockItem, StockRequest, RequestStatus } from '../types';
 import { fetchInventory } from '../services/inventoryService';
@@ -17,6 +16,12 @@ import {
   History
 } from 'lucide-react';
 import TharLoader from '../components/TharLoader';
+
+const formatQty = (n: number) => {
+  const abs = Math.abs(n);
+  const str = abs < 10 ? `0${abs}` : `${abs}`;
+  return n < 0 ? `-${str}` : str;
+};
 
 interface Props {
   user: User;
@@ -170,7 +175,7 @@ const StockRequests: React.FC<Props> = ({ user }) => {
                        <div key={item.id} className="bg-white p-3 rounded-lg border border-orange-200 flex justify-between items-center group">
                           <div className="min-w-0">
                              <div className="font-bold text-sm text-gray-800 truncate">{item.partNumber}</div>
-                             <div className="text-xs text-red-600 font-bold">{item.quantity} in stock</div>
+                             <div className="text-xs text-red-600 font-bold">{formatQty(item.quantity)} in stock</div>
                           </div>
                           <button 
                             onClick={() => addToRequest(item)}
@@ -217,7 +222,7 @@ const StockRequests: React.FC<Props> = ({ user }) => {
             {/* 3. Request Cart */}
             <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm flex flex-col h-fit">
                <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
-                  <ShoppingCart size={18} /> Request List ({cart.length})
+                  <ShoppingCart size={18} /> Request List ({formatQty(cart.length)})
                </h3>
                
                {cart.length === 0 ? (
@@ -234,7 +239,7 @@ const StockRequests: React.FC<Props> = ({ user }) => {
                               type="number" 
                               min="1"
                               className="w-16 px-2 py-1 border rounded text-center text-sm"
-                              value={item.requestQty}
+                              value={item.requestQty === 0 ? '' : formatQty(item.requestQty)}
                               onChange={(e) => updateCartQty(item.partNumber, parseInt(e.target.value) || 1)}
                            />
                            <button onClick={() => removeFromCart(item.partNumber)} className="ml-2 text-gray-400 hover:text-red-500">
@@ -303,7 +308,7 @@ const StockRequests: React.FC<Props> = ({ user }) => {
                                     <div className="text-xs text-gray-500">{new Date(req.createdAt).toLocaleDateString()}</div>
                                  </td>
                                  <td className="px-6 py-4 font-mono font-medium">{req.partNumber}</td>
-                                 <td className="px-6 py-4 text-center font-bold">{req.quantityNeeded}</td>
+                                 <td className="px-6 py-4 text-center font-bold">{formatQty(req.quantityNeeded)}</td>
                                  <td className="px-6 py-4 text-center">
                                     <span className={`px-2 py-1 rounded-full text-xs font-bold ${
                                        req.status === RequestStatus.PENDING ? 'bg-yellow-100 text-yellow-800' :

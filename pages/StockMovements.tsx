@@ -1,9 +1,15 @@
-
 import React, { useEffect, useState } from 'react';
 import { User, Transaction, TransactionType } from '../types';
 import { fetchTransactions } from '../services/transactionService';
 import TharLoader from '../components/TharLoader';
 import { ArrowRightLeft } from 'lucide-react';
+
+const formatQty = (n: number) => {
+  const isNeg = n < 0;
+  const abs = Math.abs(n);
+  const str = abs < 10 ? `0${abs}` : `${abs}`;
+  return isNeg ? `-${str}` : str;
+};
 
 interface Props {
   user: User;
@@ -59,7 +65,7 @@ const StockMovements: React.FC<Props> = ({ user }) => {
                       </span>
                    </td>
                    <td className="px-6 py-4 text-center font-mono">
-                      {tx.type === TransactionType.SALE ? '-' : '+'}{tx.quantity}
+                      {tx.type === TransactionType.SALE ? '-' : '+'}{formatQty(tx.quantity)}
                    </td>
                    <td className="px-6 py-4 text-slate-500">{tx.customerName || 'N/A'}</td>
                 </tr>

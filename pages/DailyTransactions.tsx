@@ -27,6 +27,11 @@ import {
 } from 'lucide-react';
 import ConfirmModal from '../components/ConfirmModal';
 
+const formatQty = (n: number | string) => {
+  const num = parseInt(n.toString()) || 0;
+  return num >= 0 && num < 10 ? `0${num}` : `${num}`;
+};
+
 interface Props {
   user: User;
   forcedMode?: 'SALES' | 'PURCHASE' | 'RETURN';
@@ -166,6 +171,32 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
           }
           return item;
       }));
+  };
+
+  const handleManualQtyChange = (id: string, val: string) => {
+    let newQty = parseInt(val);
+    if (isNaN(newQty)) newQty = 0; // Allow zero or empty temporarily while typing
+
+    setCart(prev => prev.map(item => {
+        if (item.tempId === id) {
+            // Apply maximum validation immediately
+            if (mode === 'SALES') {
+                const stockItem = inventory.find(i => i.partNumber === item.partNumber);
+                if (stockItem && newQty > stockItem.quantity) newQty = stockItem.quantity;
+            }
+            return { ...item, quantity: newQty };
+        }
+        return item;
+    }));
+  };
+
+  const handleManualQtyBlur = (id: string) => {
+    setCart(prev => prev.map(item => {
+        if (item.tempId === id && item.quantity < 1) {
+            return { ...item, quantity: 1 };
+        }
+        return item;
+    }));
   };
 
   const handleDiscountChange = (id: string, val: string) => {
@@ -316,7 +347,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                             <div className="text-[13px] text-slate-400 font-bold truncate mb-3 pl-4">{item.name}</div>
                             <div className="flex items-center gap-3 pl-4">
                                 <div className="text-[10px] font-black uppercase text-slate-300 tracking-widest">
-                                   Stock: <span className={item.quantity > 0 ? 'text-slate-600' : 'text-rose-500'}>{item.quantity} units</span>
+                                   Stock: <span className={item.quantity > 0 ? 'text-slate-600' : 'text-rose-500'}>{formatQty(item.quantity)} units</span>
                                 </div>
                             </div>
                         </div>
@@ -378,7 +409,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                                <div className="flex justify-between items-start mb-3">
                                    <span className="font-black text-lg text-slate-900 group-hover:text-brand-600 transition-colors">{item.partNumber}</span>
                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest ${item.quantity > 0 ? 'bg-teal-50 text-teal-700' : 'bg-rose-50 text-rose-700'}`}>
-                                       {item.quantity} Stock
+                                       {formatQty(item.quantity)} Stock
                                    </span>
                                </div>
                                <div className="text-[14px] text-slate-500 font-medium truncate mb-4">{item.name}</div>
@@ -479,7 +510,13 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                                 <button onClick={() => removeItem(item.tempId)} className="text-slate-300 hover:text-rose-500 p-2 rounded-xl hover:bg-white transition-all"><Trash2 size={18}/></button>
                                 <div className="flex items-center gap-3 bg-white px-2 py-1.5 rounded-xl shadow-soft border border-slate-100">
                                     <button onClick={() => updateQty(item.tempId, -1)} className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-900 active:scale-90 transition-all"><Minus size={18}/></button>
-                                    <span className="font-black w-6 text-center text-sm">{item.quantity}</span>
+                                    <input 
+                                      type="number"
+                                      className="font-black w-10 text-center text-sm border-none focus:ring-0 p-0"
+                                      value={item.quantity === 0 ? '' : formatQty(item.quantity)}
+                                      onChange={e => handleManualQtyChange(item.tempId, e.target.value)}
+                                      onBlur={() => handleManualQtyBlur(item.tempId)}
+                                    />
                                     <button onClick={() => updateQty(item.tempId, 1)} className="w-8 h-8 bg-slate-900 text-white rounded-lg flex items-center justify-center active:scale-90 transition-all"><Plus size={18}/></button>
                                 </div>
                             </div>
@@ -549,7 +586,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
               {/* Shopping Cart List Mobile */}
               <div className="space-y-4">
                   <div className="flex items-center justify-between px-3 mb-3">
-                     <h4 className="text-[12px] font-black text-slate-400 uppercase tracking-[0.2em]">Current Cart ({cart.length})</h4>
+                     <h4 className="text-[12px] font-black text-slate-400 uppercase tracking-[0.2em]">Current Cart ({formatQty(cart.length)})</h4>
                      {cart.length > 0 && <button onClick={() => setCart([])} className="text-[11px] font-black text-rose-500 uppercase tracking-widest">Empty</button>}
                   </div>
 
@@ -608,7 +645,13 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                                <button onClick={() => removeItem(item.tempId)} className="w-12 h-12 flex items-center justify-center bg-rose-50 text-rose-500 rounded-2xl active:scale-90 transition-all"><Trash2 size={22} /></button>
                                <div className="flex items-center gap-6 bg-slate-50 p-1.5 rounded-2xl border border-slate-100 shadow-inner">
                                    <button onClick={() => updateQty(item.tempId, -1)} className="w-11 h-11 bg-white shadow-soft rounded-xl flex items-center justify-center text-slate-600 active:scale-90 transition-all"><Minus size={20} strokeWidth={3}/></button>
-                                   <span className="w-8 text-center font-black text-2xl text-slate-900">{item.quantity}</span>
+                                   <input 
+                                      type="number"
+                                      className="w-12 text-center font-black text-2xl text-slate-900 bg-transparent border-none focus:ring-0 p-0"
+                                      value={item.quantity === 0 ? '' : formatQty(item.quantity)}
+                                      onChange={e => handleManualQtyChange(item.tempId, e.target.value)}
+                                      onBlur={() => handleManualQtyBlur(item.tempId)}
+                                    />
                                    <button onClick={() => updateQty(item.tempId, 1)} className={`w-11 h-11 ${accentColor} text-white shadow-lg rounded-xl flex items-center justify-center active:scale-90 transition-all`}><Plus size={20} strokeWidth={3}/></button>
                                </div>
                            </div>
@@ -653,7 +696,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
          loading={loading}
          variant="danger"
          title="Verify Return?"
-         message={`You are processing a return for ${cart.length} items. Total refund value: ₹${totalAmount.toLocaleString()}. This action will increase your inventory stock. Please ensure the items are in sellable condition.`}
+         message={`You are processing a return for ${formatQty(cart.length)} items. Total refund value: ₹${totalAmount.toLocaleString()}. This action will increase your inventory stock. Please ensure the items are in sellable condition.`}
          confirmLabel="Confirm & Restock"
        />
     </div>
