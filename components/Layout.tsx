@@ -19,7 +19,8 @@ import {
   CheckSquare, 
   FileText, 
   X, 
-  Zap 
+  Zap,
+  RefreshCw 
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -37,6 +38,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const location = useLocation();
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // PWA Install State
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
@@ -50,6 +52,14 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, []);
+
+  const handleGlobalRefresh = () => {
+    setIsRefreshing(true);
+    // Briefly animate before the full page reload triggers a fresh data fetch from Supabase/LS
+    setTimeout(() => {
+      window.location.reload();
+    }, 600);
+  };
 
   const navGroups = [
     {
@@ -80,7 +90,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
       items: [
         { label: 'Stock Alerts', path: '/low-stock', icon: AlertTriangle },
         { label: 'Bulk Update', path: '/import-export', icon: FileUp, requiredRole: Role.OWNER },
-        { label: 'Analytics', path: '/reports', icon: BarChart3, requiredRole: Role.OWNER },
+        { label: 'Analytics', path: '/reports', icon: BarChart3 },
         { label: 'Admin Settings', path: '/settings', icon: Settings, requiredRole: Role.OWNER },
       ]
     }
@@ -191,6 +201,15 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
           className="lg:hidden fixed top-4 left-4 z-[60] p-2 bg-white shadow-premium border border-slate-200/60 rounded-xl text-slate-600 active:scale-95 transition-all hover:bg-slate-50"
         >
           <Menu size={20} />
+        </button>
+
+        {/* Global Refresh Button (Top Right) */}
+        <button 
+          onClick={handleGlobalRefresh}
+          className="fixed top-4 right-4 z-[60] p-2 bg-white shadow-premium border border-slate-200/60 rounded-xl text-slate-600 active:scale-95 transition-all hover:bg-slate-50 hover:text-brand-600 group"
+          title="Refresh Application"
+        >
+          <RefreshCw size={20} className={`${isRefreshing ? 'animate-spin text-brand-600' : 'group-hover:rotate-90 transition-transform duration-500'}`} />
         </button>
 
         <main className="flex-1 overflow-y-auto px-4 lg:px-10 py-6 pt-16 lg:pt-8 scroll-smooth no-scrollbar">
