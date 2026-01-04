@@ -1,8 +1,9 @@
+
 import React from 'react';
 
 const TharLoader: React.FC = () => {
   return (
-    <div className="flex flex-col items-center justify-center w-full h-full min-h-[300px]">
+    <div className="flex flex-col items-center justify-center w-full h-full min-h-[400px] animate-fade-in">
       <style>{`
         @keyframes wheelSpin {
           0% { transform: rotate(0deg); }
@@ -10,81 +11,136 @@ const TharLoader: React.FC = () => {
         }
         @keyframes bodyBounce {
           0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-4px); }
+          50% { transform: translateY(-3px); }
         }
         @keyframes roadMove {
           0% { transform: translateX(0); }
-          100% { transform: translateX(-30px); }
+          100% { transform: translateX(-40px); }
         }
         .thar-wheel {
           transform-origin: center;
-          animation: wheelSpin 0.5s linear infinite;
+          animation: wheelSpin 0.6s linear infinite;
         }
-        .thar-body {
-          animation: bodyBounce 0.7s ease-in-out infinite;
+        .thar-body-container {
+          animation: bodyBounce 0.8s ease-in-out infinite;
         }
         .thar-road {
-          animation: roadMove 0.3s linear infinite;
+          animation: roadMove 0.4s linear infinite;
         }
       `}</style>
 
-      <div className="relative w-56 h-36">
-        <svg viewBox="0 0 200 120" className="w-full h-full overflow-visible">
-          {/* road */}
+      <div className="relative w-64 h-40">
+        <svg viewBox="0 0 240 140" className="w-full h-full overflow-visible">
+          <defs>
+            {/* Paint Gradient */}
+            <linearGradient id="bodyGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" style={{ stopColor: '#dc2626', stopOpacity: 1 }} />
+              <stop offset="50%" style={{ stopColor: '#991b1b', stopOpacity: 1 }} />
+              <stop offset="100%" style={{ stopColor: '#7f1d1d', stopOpacity: 1 }} />
+            </linearGradient>
+            
+            {/* Window Gradient */}
+            <linearGradient id="windowGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style={{ stopColor: '#334155', stopOpacity: 0.8 }} />
+              <stop offset="50%" style={{ stopColor: '#475569', stopOpacity: 0.6 }} />
+              <stop offset="100%" style={{ stopColor: '#1e293b', stopOpacity: 0.9 }} />
+            </linearGradient>
+
+            {/* Reflection */}
+            <linearGradient id="reflection" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" style={{ stopColor: '#ffffff', stopOpacity: 0 }} />
+              <stop offset="50%" style={{ stopColor: '#ffffff', stopOpacity: 0.15 }} />
+              <stop offset="100%" style={{ stopColor: '#ffffff', stopOpacity: 0 }} />
+            </linearGradient>
+          </defs>
+
+          {/* Road */}
           <g className="thar-road">
-            <line x1="-50" y1="110" x2="250" y2="110" stroke="#CBD5E1" strokeWidth="3" strokeDasharray="18 12" />
+            <line x1="-100" y1="115" x2="340" y2="115" stroke="#E2E8F0" strokeWidth="2" strokeDasharray="20 15" />
+            <rect x="-100" y="116" width="440" height="4" fill="#F1F5F9" opacity="0.5" />
           </g>
 
-          {/* Car */}
-          <g transform="translate(180, 0) scale(-1, 1)">
-              <g className="thar-body">
-                {/* Main Chassis */}
-                <path 
-                  d="M20 60 L20 45 L50 45 L65 25 L130 25 L130 60 L145 60 L145 85 L130 85 L130 90 L110 90 L110 85 L50 85 L50 90 L30 90 L30 85 L10 85 L10 60 Z" 
-                  fill="#991b1b" /* Mahindra Red - Deepened for premium feel */
-                  stroke="#450a0a" 
-                  strokeWidth="2"
-                />
-                
-                {/* Roof */}
-                <path 
-                  d="M65 25 L130 25 L130 45 L60 45 Z" 
-                  fill="#0F172A" 
-                />
+          {/* Realistic Car Body */}
+          <g className="thar-body-container" transform="translate(200, 0) scale(-1, 1)">
+            {/* Shadow */}
+            <ellipse cx="85" cy="112" rx="65" ry="6" fill="#000" opacity="0.1" />
 
-                {/* Window */}
-                <path d="M70 30 L100 30 L100 44 L64 44 Z" fill="#94A3B8" opacity="0.3" />
-                <path d="M105 30 L125 30 L125 44 L105 44 Z" fill="#94A3B8" opacity="0.3" />
+            {/* Main Body Shell */}
+            <path 
+              d="M10 75 L10 65 Q10 58 18 58 L45 58 L60 32 Q64 25 72 25 L145 25 Q152 25 152 35 L152 75 L165 75 Q170 75 170 82 L170 95 L155 95 L155 90 L135 90 L135 95 L45 95 L45 90 L25 90 L25 95 L5 95 L5 82 Q5 75 10 75 Z" 
+              fill="url(#bodyGradient)"
+              stroke="#450a0a"
+              strokeWidth="1"
+            />
 
-                <rect x="145" y="50" width="8" height="30" rx="2" fill="#0F172A" />
-                <circle cx="20" cy="55" r="3.5" fill="#FBBF24" className="animate-pulse" />
+            {/* Fenders / Wheel Arches */}
+            <path d="M22 95 Q40 68 58 95" fill="#1e293b" />
+            <path d="M112 95 Q130 68 148 95" fill="#1e293b" />
 
-                <path d="M25 85 Q 40 68 55 85" fill="none" stroke="#0F172A" strokeWidth="4" />
-                <path d="M105 85 Q 120 68 135 85" fill="none" stroke="#0F172A" strokeWidth="4" />
-                <rect x="5" y="80" width="10" height="8" fill="#0F172A" />
-              </g>
+            {/* Windows */}
+            <path d="M64 54 L76 31 L110 31 L110 54 Z" fill="url(#windowGradient)" />
+            <path d="M114 31 L145 31 L145 54 L114 54 Z" fill="url(#windowGradient)" />
+            
+            {/* Window Highlight/Reflection */}
+            <path d="M70 35 L105 35 L105 38 L72 38 Z" fill="#fff" opacity="0.1" />
 
-              {/* Wheels */}
-              <g className="thar-wheel" style={{ transformBox: 'fill-box' }}>
-                <circle cx="40" cy="90" r="14" fill="#1E293B" stroke="#0F172A" strokeWidth="2" />
-                <circle cx="40" cy="90" r="6" fill="#64748B" />
-                <line x1="40" y1="80" x2="40" y2="100" stroke="#334155" strokeWidth="1.5" />
-                <line x1="30" y1="90" x2="50" y2="90" stroke="#334155" strokeWidth="1.5" />
-              </g>
+            {/* Door Handle */}
+            <rect x="118" y="62" width="12" height="3" rx="1.5" fill="#0f172a" />
 
-              <g className="thar-wheel" style={{ transformBox: 'fill-box' }}>
-                <circle cx="120" cy="90" r="14" fill="#1E293B" stroke="#0F172A" strokeWidth="2" />
-                <circle cx="120" cy="90" r="6" fill="#64748B" />
-                <line x1="120" y1="80" x2="120" y2="100" stroke="#334155" strokeWidth="1.5" />
-                <line x1="110" y1="90" x2="130" y2="90" stroke="#334155" strokeWidth="1.5" />
-              </g>
+            {/* Headlight */}
+            <path d="M10 75 Q7 75 7 70 Q7 65 10 65" fill="#fef08a" className="animate-pulse" />
+            <circle cx="10" cy="70" r="2.5" fill="#fff" opacity="0.8" />
+
+            {/* Tail Light */}
+            <rect x="165" y="78" width="5" height="12" rx="1" fill="#991b1b" />
+
+            {/* Roof Rack Detail */}
+            <line x1="80" y1="23" x2="140" y2="23" stroke="#0f172a" strokeWidth="2" strokeLinecap="round" />
+
+            {/* Side Mirror */}
+            <path d="M60 54 Q55 54 55 50 L58 50 Z" fill="#0f172a" />
+
+            {/* Body Reflection Line */}
+            <path d="M20 78 L150 78" stroke="url(#reflection)" strokeWidth="8" />
+          </g>
+
+          {/* Wheels (Positioned relative to scale/transform) */}
+          <g className="thar-body-container">
+            {/* Front Wheel */}
+            <g className="thar-wheel" transform="translate(160, 95)">
+              <circle cx="0" cy="0" r="16" fill="#1e293b" stroke="#0f172a" strokeWidth="2" />
+              <circle cx="0" cy="0" r="11" fill="#64748b" stroke="#334155" strokeWidth="1" />
+              {/* Spokes */}
+              {[0, 60, 120, 180, 240, 300].map(deg => (
+                <rect key={deg} x="-1" y="-10" width="2" height="10" fill="#94a3b8" transform={`rotate(${deg})`} />
+              ))}
+              <circle cx="0" cy="0" r="3" fill="#1e293b" />
+            </g>
+
+            {/* Rear Wheel */}
+            <g className="thar-wheel" transform="translate(70, 95)">
+              <circle cx="0" cy="0" r="16" fill="#1e293b" stroke="#0f172a" strokeWidth="2" />
+              <circle cx="0" cy="0" r="11" fill="#64748b" stroke="#334155" strokeWidth="1" />
+              {/* Spokes */}
+              {[0, 60, 120, 180, 240, 300].map(deg => (
+                <rect key={deg} x="-1" y="-10" width="2" height="10" fill="#94a3b8" transform={`rotate(${deg})`} />
+              ))}
+              <circle cx="0" cy="0" r="3" fill="#1e293b" />
+            </g>
           </g>
         </svg>
       </div>
       
-      <p className="mt-8 text-[10px] font-black text-slate-400 tracking-[0.4em] uppercase animate-pulse">
-        System Initializing
-      </p>
+      <div className="flex flex-col items-center gap-3 mt-4">
+        <p className="text-[11px] font-black text-slate-400 tracking-[0.4em] uppercase">
+          Scanning Catalog
+        </p>
+        <div className="flex gap-1">
+           <div className="w-1 h-1 rounded-full bg-blue-500 animate-bounce [animation-delay:-0.3s]"></div>
+           <div className="w-1 h-1 rounded-full bg-blue-500 animate-bounce [animation-delay:-0.15s]"></div>
+           <div className="w-1 h-1 rounded-full bg-blue-500 animate-bounce"></div>
+        </div>
+      </div>
     </div>
   );
 };
