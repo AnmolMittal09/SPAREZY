@@ -1,8 +1,7 @@
 
 import React, { useState } from 'react';
 import { User } from '../types';
-import ReportsDashboard from './ReportsDashboard'; 
-import ProfitSummary from './ProfitSummary';
+import ReportsDashboard from './ReportsDashboard'; // Original Reports content
 import { BarChart3, TrendingUp, ShoppingBag, Package, PieChart } from 'lucide-react';
 
 interface Props {
@@ -22,24 +21,24 @@ const Reports: React.FC<Props> = ({ user }) => {
        </div>
 
        {/* Tabs */}
-       <div className="flex overflow-x-auto border-b border-slate-200 no-scrollbar">
+       <div className="flex overflow-x-auto border-b border-slate-200">
           {[
-            { id: 'ANALYTICS', label: 'Dashboard', icon: BarChart3 },
-            { id: 'PROFIT', label: 'Profit & Leakage', icon: PieChart },
-            { id: 'SALES', label: 'Sales History', icon: TrendingUp },
-            { id: 'PURCHASE', label: 'Purchases', icon: ShoppingBag },
-            { id: 'STOCK', label: 'Inventory Value', icon: Package },
+            { id: 'ANALYTICS', label: 'Analytics Dashboard', icon: BarChart3 },
+            { id: 'SALES', label: 'Sales Reports', icon: TrendingUp },
+            { id: 'PURCHASE', label: 'Purchase Reports', icon: ShoppingBag },
+            { id: 'STOCK', label: 'Stock Valuation', icon: Package },
+            { id: 'PROFIT', label: 'Profit Summary', icon: PieChart },
           ].map(tab => (
              <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-6 py-4 border-b-2 transition-all whitespace-nowrap text-sm ${
+                className={`flex items-center gap-2 px-6 py-3 border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === tab.id 
                     ? 'border-blue-600 text-blue-600 font-bold' 
                     : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
                 }`}
              >
-                <tab.icon size={18} className={activeTab === tab.id ? 'text-blue-600' : 'text-slate-400'} /> {tab.label}
+                <tab.icon size={18} /> {tab.label}
              </button>
           ))}
        </div>
@@ -47,15 +46,10 @@ const Reports: React.FC<Props> = ({ user }) => {
        {/* Content Area */}
        <div className="min-h-[500px]">
           {activeTab === 'ANALYTICS' && <ReportsDashboard user={user} />}
-          {activeTab === 'PROFIT' && <ProfitSummary />}
-          
-          {['SALES', 'PURCHASE', 'STOCK'].includes(activeTab) && (
-             <div className="bg-white rounded-[2.5rem] shadow-soft border border-slate-200 p-20 text-center text-slate-300">
-                <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
-                   <Package size={40} className="opacity-10" />
-                </div>
-                <p className="text-sm font-black uppercase tracking-[0.2em]">Tab Detail View Coming Soon</p>
-                <p className="text-xs font-medium text-slate-400 mt-2">Use Dashboard or Profit views for consolidated data.</p>
+          {activeTab !== 'ANALYTICS' && (
+             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center text-slate-400">
+                <p className="text-lg">Detailed {activeTab.toLowerCase()} report module is under construction.</p>
+                <p className="text-sm">Please check the Analytics Dashboard for summary metrics.</p>
              </div>
           )}
        </div>
