@@ -1,7 +1,9 @@
+
+
 import React, { useState, useEffect } from 'react';
 import { User, TransactionType, Transaction, TransactionStatus } from '../types';
 import PendingTransactions from '../components/PendingTransactions';
-import { CheckSquare, Receipt, Truck, History, CheckCircle2, XCircle, RefreshCw } from 'lucide-react';
+import { CheckSquare, Receipt, Truck, History, CheckCircle2, XCircle } from 'lucide-react';
 import { fetchTransactions } from '../services/transactionService';
 import TharLoader from '../components/TharLoader';
 
@@ -13,7 +15,6 @@ const Approvals: React.FC<Props> = ({ user }) => {
   const [activeTab, setActiveTab] = useState<'SALES' | 'PURCHASES' | 'LOG'>('SALES');
   const [history, setHistory] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (activeTab === 'LOG') {
@@ -21,37 +22,21 @@ const Approvals: React.FC<Props> = ({ user }) => {
     }
   }, [activeTab]);
 
-  const loadLog = async (isManual = false) => {
-    if (isManual) setRefreshing(true);
-    else setLoading(true);
-    
-    try {
-      const data = await fetchTransactions([TransactionStatus.APPROVED, TransactionStatus.REJECTED]);
-      setHistory(data);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+  const loadLog = async () => {
+    setLoading(true);
+    // Fetch both APPROVED and REJECTED transactions
+    const data = await fetchTransactions([TransactionStatus.APPROVED, TransactionStatus.REJECTED]);
+    setHistory(data);
+    setLoading(false);
   };
 
   return (
     <div className="space-y-6 h-full flex flex-col">
-       <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-               <CheckSquare className="text-orange-600" /> Pending Approvals
-            </h1>
-            <p className="text-slate-500">Review and authorize transactions submitted by managers.</p>
-          </div>
-          <button 
-             onClick={() => loadLog(true)}
-             disabled={refreshing}
-             className={`p-2.5 rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-brand-600 transition-all active:scale-95 shadow-sm ${refreshing ? 'opacity-50' : ''}`}
-          >
-             <RefreshCw size={20} className={refreshing ? 'animate-spin' : ''} />
-          </button>
+       <div>
+          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+             <CheckSquare className="text-orange-600" /> Pending Approvals
+          </h1>
+          <p className="text-slate-500">Review and authorize transactions submitted by managers.</p>
        </div>
 
        {/* Tab Navigation */}

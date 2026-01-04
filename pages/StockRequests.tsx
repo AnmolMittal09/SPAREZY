@@ -13,8 +13,7 @@ import {
   Trash2, 
   Loader2,
   PackagePlus,
-  History,
-  RefreshCw
+  History
 } from 'lucide-react';
 import TharLoader from '../components/TharLoader';
 
@@ -31,7 +30,6 @@ interface Props {
 const StockRequests: React.FC<Props> = ({ user }) => {
   const [inventory, setInventory] = useState<StockItem[]>([]);
   const [loadingInv, setLoadingInv] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   
   // Manager State
   const [cart, setCart] = useState<{ partNumber: string; name: string; currentStock: number; requestQty: number }[]>([]);
@@ -52,23 +50,17 @@ const StockRequests: React.FC<Props> = ({ user }) => {
     loadRequests();
   }, [activeTab]);
 
-  const loadData = async (isManual = false) => {
-    if (isManual) setRefreshing(true);
-    else setLoadingInv(true);
-    
-    try {
-      const inv = await fetchInventory();
-      setInventory(inv);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoadingInv(false);
-      setRefreshing(false);
-    }
+  const loadData = async () => {
+    setLoadingInv(true);
+    const inv = await fetchInventory();
+    setInventory(inv);
+    setLoadingInv(false);
   };
 
   const loadRequests = async () => {
     setLoadingReq(true);
+    // If pending tab, only show pending. If history, show everything else (ordered/rejected)
+    // Note: fetchStockRequests logic in service needs to support filtering better, but for now:
     const all = await fetchStockRequests();
     if (activeTab === 'PENDING') {
       setRequests(all.filter(r => r.status === RequestStatus.PENDING));
@@ -77,6 +69,8 @@ const StockRequests: React.FC<Props> = ({ user }) => {
     }
     setLoadingReq(false);
   };
+
+  // --- MANAGER FUNCTIONS ---
 
   const handleSearch = (term: string) => {
     setSearchTerm(term);
@@ -133,6 +127,8 @@ const StockRequests: React.FC<Props> = ({ user }) => {
     setSubmitting(false);
   };
 
+  // --- ADMIN FUNCTIONS ---
+
   const handleStatusChange = async (ids: string[], status: RequestStatus) => {
     if (!window.confirm(`Mark ${ids.length} items as ${status}?`)) return;
     
@@ -146,33 +142,27 @@ const StockRequests: React.FC<Props> = ({ user }) => {
 
   const lowStockItems = inventory.filter(i => i.quantity <= i.minStockThreshold);
 
-  if (loadingInv && !refreshing) return <TharLoader />;
+  if (loadingInv) return <TharLoader />;
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      <div className="flex justify-between items-start">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <ClipboardList className="text-blue-600" /> Stock Requisition
-          </h1>
-          <p className="text-gray-500">
-            {user.role === Role.MANAGER 
-              ? "Request new stock from the Admin." 
-              : "Review and process stock requests from Managers."}
-          </p>
-        </div>
-        <button 
-           onClick={() => { loadData(true); loadRequests(); }}
-           disabled={refreshing || loadingReq}
-           className={`p-2.5 rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-brand-600 transition-all active:scale-95 shadow-sm ${(refreshing || loadingReq) ? 'opacity-50' : ''}`}
-        >
-           <RefreshCw size={20} className={(refreshing || loadingReq) ? 'animate-spin' : ''} />
-        </button>
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+           <ClipboardList className="text-blue-600" /> Stock Requisition
+        </h1>
+        <p className="text-gray-500">
+          {user.role === Role.MANAGER 
+            ? "Request new stock from the Admin." 
+            : "Review and process stock requests from Managers."}
+        </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-         {/* LEFT COLUMN: MANAGER INPUT */}
+         
+         {/* LEFT COLUMN: MANAGER INPUT (Visible to Everyone for demo, usually just Manager) */}
          <div className="lg:col-span-1 space-y-6">
+            
+            {/* 1. Low Stock Suggestions */}
             <div className="bg-orange-50 rounded-xl border border-orange-100 p-5 shadow-sm">
                <h3 className="font-bold text-orange-800 flex items-center gap-2 mb-3">
                   <AlertTriangle size={18} /> Low Stock Alerts
@@ -200,6 +190,7 @@ const StockRequests: React.FC<Props> = ({ user }) => {
                </div>
             </div>
 
+            {/* 2. Manual Search */}
             <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                <h3 className="font-bold text-gray-800 mb-3">Manual Add</h3>
                <div className="relative">
@@ -228,6 +219,7 @@ const StockRequests: React.FC<Props> = ({ user }) => {
                </div>
             </div>
 
+            {/* 3. Request Cart */}
             <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm flex flex-col h-fit">
                <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
                   <ShoppingCart size={18} /> Request List ({formatQty(cart.length)})
@@ -269,7 +261,7 @@ const StockRequests: React.FC<Props> = ({ user }) => {
             </div>
          </div>
 
-         {/* RIGHT COLUMN: REQUEST LIST */}
+         {/* RIGHT COLUMN: REQUEST LIST (Admin View / Status View) */}
          <div className="lg:col-span-2 space-y-4">
             <div className="flex items-center gap-2 bg-white p-1 rounded-lg border border-gray-200 w-fit">
                <button 
