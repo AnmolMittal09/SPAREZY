@@ -14,18 +14,21 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, trend, co
   return (
     <div 
       onClick={onClick}
-      className={`${colorClass} p-8 rounded-[2rem] shadow-soft hover:shadow-premium transition-all duration-300 cursor-pointer group active:scale-[0.99]`}
+      className={`${colorClass} p-8 rounded-[2.5rem] border border-slate-100 shadow-soft hover:shadow-premium hover:-translate-y-1 transition-all duration-300 cursor-pointer group active:scale-[0.98] relative overflow-hidden`}
     >
-      <div className="flex items-center justify-between mb-6">
-        <span className="text-slate-400 font-bold text-[11px] uppercase tracking-[0.15em]">{title}</span>
-        <div className="p-2.5 bg-slate-50 rounded-xl group-hover:bg-brand-50 group-hover:text-brand-600 transition-colors">
-          <Icon size={18} strokeWidth={2.5} className="text-slate-300 group-hover:text-brand-600" />
+      <div className="absolute top-0 right-0 w-32 h-32 bg-slate-50/40 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform duration-500"></div>
+      
+      <div className="relative z-10 flex items-center justify-between mb-8">
+        <span className="text-slate-400 font-extrabold text-[10px] uppercase tracking-[0.2em]">{title}</span>
+        <div className="p-3 bg-slate-50/80 rounded-2xl group-hover:bg-brand-50 group-hover:text-brand-600 transition-all shadow-inner-soft ring-1 ring-slate-100">
+          <Icon size={18} strokeWidth={2.5} className="text-slate-400 group-hover:text-brand-600" />
         </div>
       </div>
-      <div className="flex flex-col gap-1">
-        <h4 className="text-3xl font-black text-slate-900 tracking-tight">{value}</h4>
+      
+      <div className="relative z-10 flex flex-col gap-1.5">
+        <h4 className="text-3xl font-black text-slate-900 tracking-tighter">{value}</h4>
         {trend && (
-          <p className="text-[11px] text-teal-600 font-black uppercase tracking-wider flex items-center gap-1 mt-1">
+          <p className="text-[10px] text-teal-600 font-extrabold uppercase tracking-widest flex items-center gap-1.5 mt-1 bg-teal-50/50 w-fit px-2 py-0.5 rounded-md">
             {trend}
           </p>
         )}

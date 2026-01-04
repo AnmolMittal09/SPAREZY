@@ -33,123 +33,123 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       const result = await authenticate(username, password);
       
       if (result.success && result.user) {
-        // Handle Remember Me (Only saves username, not the session)
         if (rememberMe) {
           localStorage.setItem('sparezy_saved_username', username);
         } else {
           localStorage.removeItem('sparezy_saved_username');
         }
-
         onLogin(result.user);
       } else {
-        setError(result.message || 'Login failed');
+        setError(result.message || 'Access Denied');
       }
     } catch (err) {
-      setError('An unexpected error occurred');
+      setError('System connection error');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center relative overflow-hidden font-sans">
+    <div className="min-h-screen bg-[#0F172A] flex items-center justify-center relative overflow-hidden">
       
-      {/* --- SAAS ABSTRACT BACKGROUND --- */}
-      <div className="absolute inset-0 z-0 overflow-hidden">
-         <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900"></div>
+      {/* --- PREMIUM ABSTRACT BACKGROUND --- */}
+      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+         <div className="absolute inset-0 bg-gradient-to-br from-[#0F172A] via-[#1E293B] to-[#0F172A]"></div>
          
-         {/* Mesh Gradients */}
-         <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-teal-600/20 rounded-full blur-[120px] animate-pulse"></div>
-         <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-blue-600/20 rounded-full blur-[120px] animate-pulse delay-700"></div>
+         {/* Refined Mesh Gradients */}
+         <div className="absolute top-[-30%] left-[-20%] w-[100%] h-[100%] bg-blue-600/10 rounded-full blur-[160px] animate-pulse"></div>
+         <div className="absolute bottom-[-30%] right-[-20%] w-[100%] h-[100%] bg-brand-600/10 rounded-full blur-[160px] animate-pulse delay-1000"></div>
          
-         {/* Grid Pattern Overlay */}
-         <div className="absolute inset-0" style={{ 
-             backgroundImage: 'radial-gradient(rgba(255,255,255,0.05) 1px, transparent 1px)', 
+         {/* Refined Grid Overlay */}
+         <div className="absolute inset-0 opacity-[0.03]" style={{ 
+             backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', 
              backgroundSize: '40px 40px' 
          }}></div>
       </div>
 
-      {/* --- LOGIN CARD --- */}
-      <div className="relative z-10 w-full max-w-md p-4">
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 shadow-2xl rounded-2xl overflow-hidden">
+      {/* --- LOGIN CONTAINER --- */}
+      <div className="relative z-10 w-full max-w-md p-6">
+        <div className="bg-white/[0.03] backdrop-blur-3xl border border-white/10 shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)] rounded-[3rem] overflow-hidden">
            
-           {/* Header */}
-           <div className="p-8 pb-6 text-center border-b border-white/5">
-              <div className="flex justify-center mb-6 scale-110">
+           {/* Branding Header */}
+           <div className="p-10 pb-8 text-center border-b border-white/[0.05]">
+              <div className="flex justify-center mb-8 scale-[1.15]">
                  <Logo variant="white" />
               </div>
-              <p className="text-slate-400 text-sm font-medium">Welcome back. Please sign in.</p>
+              <p className="text-slate-500 text-xs font-black uppercase tracking-[0.3em] opacity-80">Security Protocol</p>
            </div>
 
-           {/* Form */}
-           <div className="p-8 space-y-6">
-              <form onSubmit={handleSubmit} className="space-y-5">
+           {/* Auth Form */}
+           <div className="p-10 space-y-8">
+              <form onSubmit={handleSubmit} className="space-y-6">
                   {error && (
-                    <div className="bg-red-500/10 border border-red-500/20 text-red-200 text-xs font-bold p-3 rounded-lg flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
-                        <Lock size={14} /> {error}
+                    <div className="bg-rose-500/10 border border-rose-500/20 text-rose-300 text-[11px] font-black uppercase tracking-widest p-4 rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
+                        <Lock size={16} /> {error}
                     </div>
                   )}
 
-                  <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">Username</label>
+                  <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2">Access Key</label>
                       <div className="relative group">
-                          <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-teal-400 transition-colors" size={18} />
+                          <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-brand-400 transition-colors" size={20} />
                           <input 
                               type="text" 
                               value={username}
                               onChange={(e) => setUsername(e.target.value)}
-                              className="w-full bg-slate-950/50 border border-white/10 rounded-xl px-10 py-3.5 text-white placeholder-slate-600 focus:outline-none focus:border-teal-500/50 focus:ring-1 focus:ring-teal-500/50 transition-all shadow-inner"
-                              placeholder="Enter Access ID"
+                              className="w-full bg-slate-950/40 border border-white/10 rounded-[1.25rem] px-12 py-4.5 text-white placeholder-slate-700 focus:outline-none focus:border-brand-500/40 focus:ring-4 focus:ring-brand-500/5 transition-all shadow-inner text-lg font-bold"
+                              placeholder="Access ID"
                               required
                           />
                       </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">Password</label>
+                  <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2">Passphrase</label>
                       <div className="relative group">
-                          <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-teal-400 transition-colors" size={18} />
+                          <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-brand-400 transition-colors" size={20} />
                           <input 
                               type="password" 
                               value={password}
                               onChange={(e) => setPassword(e.target.value)}
-                              className="w-full bg-slate-950/50 border border-white/10 rounded-xl px-10 py-3.5 text-white placeholder-slate-600 focus:outline-none focus:border-teal-500/50 focus:ring-1 focus:ring-teal-500/50 transition-all shadow-inner"
+                              className="w-full bg-slate-950/40 border border-white/10 rounded-[1.25rem] px-12 py-4.5 text-white placeholder-slate-700 focus:outline-none focus:border-brand-500/40 focus:ring-4 focus:ring-brand-500/5 transition-all shadow-inner text-lg font-bold"
                               placeholder="••••••••"
                               required
                           />
                       </div>
                   </div>
 
-                  {/* Remember Me */}
-                  <div className="flex items-center gap-2 pt-1">
-                      <input 
-                        type="checkbox" 
-                        id="rememberMe"
-                        checked={rememberMe}
-                        onChange={(e) => setRememberMe(e.target.checked)}
-                        className="w-4 h-4 rounded border-slate-600 bg-slate-900/50 text-teal-500 focus:ring-teal-500 focus:ring-offset-slate-900"
-                      />
-                      <label htmlFor="rememberMe" className="text-sm text-slate-400 select-none cursor-pointer hover:text-white transition-colors">
-                        Remember my ID
+                  {/* Options */}
+                  <div className="flex items-center gap-3 pt-2 ml-1">
+                      <div className="relative flex items-center">
+                        <input 
+                          type="checkbox" 
+                          id="rememberMe"
+                          checked={rememberMe}
+                          onChange={(e) => setRememberMe(e.target.checked)}
+                          className="w-5 h-5 rounded-lg border-white/10 bg-slate-950/50 text-brand-600 focus:ring-brand-500 focus:ring-offset-[#0F172A] cursor-pointer"
+                        />
+                      </div>
+                      <label htmlFor="rememberMe" className="text-xs font-bold text-slate-500 select-none cursor-pointer hover:text-slate-300 transition-colors uppercase tracking-widest">
+                        Save Access Key
                       </label>
                   </div>
 
                   <button 
                     type="submit" 
                     disabled={loading}
-                    className="w-full bg-teal-600 hover:bg-teal-500 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-teal-900/20 transition-all transform hover:scale-[1.01] active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
+                    className="w-full bg-brand-600 hover:bg-brand-500 text-white font-black py-5 rounded-[1.5rem] shadow-2xl shadow-brand-900/40 transition-all transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 mt-4 text-[15px] uppercase tracking-[0.15em]"
                   >
-                     {loading ? <Loader2 className="animate-spin" size={20} /> : (
-                        <>Sign In <ArrowRight size={18} opacity={0.8} /></>
+                     {loading ? <Loader2 className="animate-spin" size={22} /> : (
+                        <>Establish Session <ArrowRight size={20} className="opacity-70" /></>
                      )}
                   </button>
               </form>
            </div>
            
-           {/* Footer */}
-           <div className="bg-slate-950/30 p-4 text-center border-t border-white/5">
-              <p className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold">
-                 Powered by Sparezy v3.0
+           {/* Footer Branding */}
+           <div className="bg-white/[0.02] p-6 text-center border-t border-white/[0.05]">
+              <p className="text-[9px] text-slate-600 uppercase tracking-[0.4em] font-extrabold">
+                 Core System Enterprise v4.2
               </p>
            </div>
         </div>

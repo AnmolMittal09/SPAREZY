@@ -33,12 +33,17 @@
               }
             },
             borderRadius: {
-              '2xl': '1rem',
-              '3xl': '1.5rem',
+              'xl': '0.75rem',
+              '2xl': '1.25rem',
+              '3xl': '2rem',
+              '4xl': '3rem',
             },
             boxShadow: {
-              'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
-              'premium': '0 10px 30px -5px rgba(0, 0, 0, 0.1), 0 4px 10px -2px rgba(0, 0, 0, 0.05)',
+              'etched': 'inset 0 1px 1px rgba(255, 255, 255, 0.4), 0 1px 2px rgba(0, 0, 0, 0.05)',
+              'soft': '0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 4px 6px -2px rgba(0, 0, 0, 0.02)',
+              'premium': '0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.02), inset 0 1px 0 rgba(255, 255, 255, 0.5)',
+              'elevated': '0 25px 50px -12px rgba(0, 0, 0, 0.12)',
+              'inner-soft': 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.05)',
             }
           }
         }
@@ -49,10 +54,12 @@
       
       body {
         font-family: 'Plus Jakarta Sans', sans-serif;
+        background-color: #F8FAFC;
+        -webkit-font-smoothing: antialiased;
       }
 
       @keyframes slideUp {
-        from { transform: translateY(10px); opacity: 0; }
+        from { transform: translateY(15px); opacity: 0; }
         to { transform: translateY(0); opacity: 1; }
       }
 
@@ -62,17 +69,21 @@
       }
 
       .animate-slide-up {
-        animation: slideUp 0.4s ease-out forwards;
+        animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       }
 
       .animate-fade-in {
-        animation: fadeIn 0.3s ease-in forwards;
+        animation: fadeIn 0.4s ease-out forwards;
       }
 
       .glass-card {
-        background: rgba(255, 255, 255, 0.8);
-        backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.3);
+        background: rgba(255, 255, 255, 0.85);
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.5);
+      }
+
+      .etched-border {
+        border: 1px solid rgba(15, 23, 42, 0.08);
       }
 
       .no-scrollbar::-webkit-scrollbar {
@@ -83,7 +94,12 @@
         scrollbar-width: none;
       }
 
-      /* Custom print styles for invoices */
+      /* Premium selection color */
+      ::selection {
+        background: rgba(2, 132, 199, 0.15);
+        color: #0c4a6e;
+      }
+
       @media print {
         .no-print { display: none !important; }
         body { background: white !important; overflow: visible !important; height: auto !important; }
@@ -115,7 +131,7 @@
 }
 </script>
   </head>
-  <body class="bg-[#F8FAFC] text-slate-900 h-screen overflow-hidden selection:bg-brand-100 selection:text-brand-900">
+  <body class="bg-[#F8FAFC] text-slate-900 h-screen overflow-hidden">
     <div id="root" class="h-full"></div>
     <script type="module" src="/index.tsx"></script>
   </body>
