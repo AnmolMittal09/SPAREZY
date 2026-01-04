@@ -1,19 +1,17 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { User, StockItem, Role, Brand } from '../types';
-import { fetchInventory, getStats } from '../services/inventoryService';
+import { fetchInventory } from '../services/inventoryService';
 import StockTable from '../components/StockTable';
 import { 
   Search,
-  PackageCheck,
-  Zap,
-  Filter,
   RefreshCw,
   LayoutGrid,
-  Activity
+  Activity,
+  Box,
+  Layers,
+  SearchCode
 } from 'lucide-react';
-// @ts-ignore
-import { useNavigate } from 'react-router-dom';
 import TharLoader from '../components/TharLoader';
 
 interface DashboardProps {
@@ -45,7 +43,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
 
   useEffect(() => {
     loadData();
-    
     if (!('ontouchstart' in window)) {
         setTimeout(() => searchInputRef.current?.focus(), 500);
     }
@@ -53,109 +50,117 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
 
   if (loading) return <TharLoader />;
 
+  const filteredCount = inventory.filter(i => 
+    i.partNumber.toLowerCase().includes(searchQuery.toLowerCase()) && 
+    (selectedBrand === 'ALL' || i.brand === selectedBrand)
+  ).length;
+
   return (
-    <div className="space-y-6 md:space-y-8 animate-fade-in flex flex-col max-w-5xl mx-auto pb-20">
+    <div className="space-y-6 md:space-y-10 animate-fade-in flex flex-col max-w-6xl mx-auto pb-24">
       
-      {/* HEADER */}
-      <div className="flex flex-col gap-6 no-print px-1 pt-2">
-         <div className="flex justify-between items-start">
-            <div className="flex items-center gap-4">
-               <div className="w-12 h-12 bg-slate-900 rounded-[1.25rem] flex items-center justify-center text-white shadow-elevated">
-                   <Activity size={24} strokeWidth={2.5} />
-               </div>
-               <div>
-                  <h1 className="text-3xl font-black text-slate-900 tracking-tight leading-none mb-2">
-                     Command Center
-                  </h1>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{user.role} INTERFACE • v4.2</p>
-               </div>
+      {/* HEADER SECTION */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 no-print px-1 pt-2">
+         <div className="flex items-center gap-5">
+            <div className="w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-elevated border border-white/10">
+                <Activity size={28} strokeWidth={2.5} />
+            </div>
+            <div>
+               <h1 className="text-3xl font-black text-slate-900 tracking-tight leading-none mb-2">
+                  Command Center
+               </h1>
+               <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-2">
+                 <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>
+                 {user.role} TERMINAL • LIVE FEED
+               </p>
+            </div>
+         </div>
+
+         <div className="flex items-center gap-3 w-full md:w-auto">
+            <div className="flex-1 md:flex-none flex bg-slate-200/50 p-1 rounded-2xl border border-slate-200 shadow-inner-soft">
+                {(['ALL', Brand.HYUNDAI, Brand.MAHINDRA] as const).map(b => (
+                   <button 
+                     key={b}
+                     onClick={() => setSelectedBrand(b)}
+                     className={`flex-1 md:px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-[0.98] ${
+                       selectedBrand === b 
+                         ? 'bg-white text-slate-900 shadow-soft border border-slate-200' 
+                         : 'text-slate-400 hover:text-slate-600'
+                     }`}
+                   >
+                     {b}
+                   </button>
+                ))}
             </div>
             <button 
                 onClick={() => loadData(true)}
-                disabled={refreshing}
-                className={`p-3 rounded-2xl bg-white border border-slate-200/60 shadow-soft text-slate-400 hover:text-brand-600 hover:border-brand-200 transition-all active:scale-95 ${refreshing ? 'opacity-50' : ''}`}
-                title="Synchronize Database"
+                className={`p-3.5 rounded-2xl bg-white border border-slate-200 shadow-soft text-slate-400 hover:text-blue-600 transition-all active:rotate-180 duration-500 ${refreshing ? 'opacity-50' : ''}`}
             >
-                <RefreshCw size={20} strokeWidth={2.5} className={refreshing ? 'animate-spin' : ''} />
+                <RefreshCw size={20} strokeWidth={2.5} className={refreshing ? 'animate-spin text-blue-600' : ''} />
             </button>
-         </div>
-
-         {/* Brand Switcher - Professional Toggle */}
-         <div className="flex bg-slate-200/40 p-1.5 rounded-[1.5rem] border border-slate-200/50 shadow-inner-soft max-w-md">
-             {(['ALL', Brand.HYUNDAI, Brand.MAHINDRA] as const).map(b => (
-                <button 
-                  key={b}
-                  onClick={() => setSelectedBrand(b)}
-                  className={`flex-1 py-3 rounded-[1.15rem] text-[11px] font-black uppercase tracking-widest transition-all active:scale-[0.98] ${
-                    selectedBrand === b 
-                      ? 'bg-white text-slate-900 shadow-elevated ring-1 ring-slate-200' 
-                      : 'text-slate-400 hover:text-slate-600'
-                  }`}
-                >
-                  {b}
-                </button>
-             ))}
          </div>
       </div>
 
-      {/* SEARCH AREA - Highly Polished */}
+      {/* INTELLIGENT SEARCH AREA */}
       <div className="relative group no-print">
-         <div className="relative bg-white rounded-[2.5rem] p-6 md:p-8 shadow-premium border border-slate-200/80 overflow-hidden transition-all group-focus-within:border-brand-300 group-focus-within:shadow-elevated">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-slate-50/50 rounded-full -mr-32 -mt-32 -z-0"></div>
-            <div className="absolute bottom-0 left-0 w-32 h-32 bg-brand-50/10 rounded-full -ml-16 -mb-16 -z-0"></div>
-            
-            <div className="flex flex-col relative z-10">
+         <div className="bg-white rounded-[2.5rem] p-6 md:p-8 shadow-premium border border-slate-200/80 transition-all duration-300 group-focus-within:shadow-elevated group-focus-within:border-blue-200 group-focus-within:-translate-y-1">
+            <div className="flex flex-col gap-4">
                 <div className="relative">
-                    <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-brand-500 transition-colors" size={28} strokeWidth={2.5} />
+                    <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-600 transition-colors" size={32} strokeWidth={2.5} />
                     <input 
                         ref={searchInputRef}
                         type="text" 
-                        inputMode="search"
-                        className="block w-full pl-16 pr-8 py-6 rounded-3xl bg-slate-100/50 border-2 border-transparent text-2xl font-black text-slate-900 placeholder:text-slate-300 focus:bg-white focus:border-brand-500/10 focus:ring-12 focus:ring-brand-500/5 transition-all outline-none shadow-inner-soft"
-                        placeholder="Scan Part Number..."
+                        className="block w-full pl-16 pr-24 py-7 rounded-3xl bg-slate-50 border-2 border-transparent text-2xl font-black text-slate-900 placeholder:text-slate-200 focus:bg-white focus:border-blue-500/10 focus:ring-12 focus:ring-blue-500/5 transition-all outline-none shadow-inner-soft tracking-tight"
+                        placeholder="Search Part Number or SKU..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
-                    {searchQuery && (
-                        <button 
-                            onClick={() => setSearchQuery('')}
-                            className="absolute right-6 top-1/2 -translate-y-1/2 text-rose-500 hover:text-rose-600 font-black text-[10px] bg-rose-50 px-4 py-2 rounded-xl shadow-soft transition-all border border-rose-100 uppercase tracking-[0.2em] active:scale-90"
-                        >
-                            Reset
-                        </button>
-                    )}
+                    <div className="absolute right-6 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                        {searchQuery && (
+                          <button 
+                              onClick={() => setSearchQuery('')}
+                              className="text-rose-500 hover:bg-rose-50 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                          >
+                              Clear
+                          </button>
+                        )}
+                        <kbd className="hidden md:flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-[10px] font-black text-slate-400 shadow-sm">
+                          /
+                        </kbd>
+                    </div>
                 </div>
-                {!searchQuery && (
-                   <div className="flex items-center gap-2 mt-4 ml-6 animate-fade-in">
-                      <div className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse"></div>
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Inventory scanner ready...</span>
+                <div className="flex items-center justify-between px-2">
+                   <div className="flex items-center gap-4 text-slate-400">
+                      <div className="flex items-center gap-1.5">
+                         <Layers size={14} className="opacity-50" />
+                         <span className="text-[10px] font-black uppercase tracking-widest">Global Catalog Scan</span>
+                      </div>
                    </div>
-                )}
+                   {searchQuery && (
+                     <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-full uppercase tracking-widest border border-blue-100">
+                        {filteredCount} SKUs Found
+                     </span>
+                   )}
+                </div>
             </div>
          </div>
       </div>
 
-      {/* CATALOG CONTAINER */}
-      <div className="bg-white rounded-[2.5rem] shadow-premium border border-slate-200/60 overflow-hidden flex flex-col flex-1 min-h-[600px] transition-all">
-         <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/20">
+      {/* MASTER INVENTORY TABLE CONTAINER */}
+      <div className="bg-white rounded-[2.5rem] shadow-premium border border-slate-200/60 overflow-hidden flex flex-col flex-1 min-h-[700px] transition-all">
+         <div className="px-10 py-7 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
             <div className="flex items-center gap-4">
-                <div className="p-2.5 bg-white rounded-2xl shadow-soft border border-slate-100 text-brand-600">
-                    <LayoutGrid size={20} strokeWidth={2.5} />
+                <div className="p-3 bg-white rounded-2xl shadow-soft border border-slate-100 text-blue-600">
+                    <LayoutGrid size={22} strokeWidth={2.5} />
                 </div>
                 <div>
-                   <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.2em] leading-none mb-1">
-                       {searchQuery ? "Search Results" : "Master Inventory"}
+                   <h3 className="text-sm font-black text-slate-900 uppercase tracking-[0.2em] leading-none mb-1.5">
+                       Inventory Database
                    </h3>
-                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Real-time Stock Ledger</p>
+                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Real-time Stock Registry</p>
                 </div>
             </div>
-            {searchQuery && (
-               <span className="bg-brand-50 text-brand-600 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border border-brand-100">
-                  {inventory.filter(i => i.partNumber.toLowerCase().includes(searchQuery.toLowerCase())).length} Results
-               </span>
-            )}
          </div>
-         <div className="flex-1 min-h-0 bg-white">
+         <div className="flex-1 min-h-0">
             <StockTable 
                items={inventory} 
                userRole={user.role}

@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 // @ts-ignore
 import { Link, useNavigate } from 'react-router-dom';
 import { StockItem, Brand, Role, PriceHistoryEntry } from '../types';
-import { bulkArchiveItems, fetchPriceHistory, toggleArchiveStatus } from '../services/inventoryService';
+import { bulkArchiveItems, fetchPriceHistory } from '../services/inventoryService';
 import { createStockRequests } from '../services/requestService';
 import { 
   Search, 
@@ -24,7 +24,6 @@ import {
   MinusSquare, 
   Calendar,
   ClipboardPlus,
-  Check,
   Lock,
   Box
 } from 'lucide-react';
@@ -84,15 +83,11 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role; 
 
   const handleToggleHistory = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!visible) {
-        setVisible(true);
-    }
-
+    if (!visible) setVisible(true);
     if (triggerRef.current) {
         const rect = triggerRef.current.getBoundingClientRect();
         setFlipPosition(rect.top < 350 ? 'bottom' : 'top');
     }
-
     await loadHistory();
     setShowHistory(!showHistory);
   };
@@ -105,11 +100,11 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role; 
               <Clock size={14} strokeWidth={2.5} />
            </div>
            <div>
-              <h4 className="text-[10px] font-bold text-slate-900 uppercase tracking-tight">Audit Trail</h4>
-              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Pricing Ledger</p>
+              <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-tight">Audit Trail</h4>
+              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Rate Change Log</p>
            </div>
         </div>
-        <span className="text-[9px] font-bold bg-slate-100 px-2 py-0.5 rounded-full text-slate-500 ring-1 ring-slate-200/50">
+        <span className="text-[9px] font-black bg-slate-100 px-2 py-0.5 rounded-full text-slate-500 ring-1 ring-slate-200/50">
            {history.length} RECORDS
         </span>
       </div>
@@ -117,39 +112,26 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role; 
       {loadingHistory ? (
         <div className="py-10 flex flex-col items-center gap-3">
           <Loader2 size={20} className="animate-spin text-indigo-500" />
-          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Loading...</span>
+          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Scanning Ledger</span>
         </div>
       ) : history.length > 0 ? (
         <div className="space-y-2 overflow-y-auto no-scrollbar pr-1 flex-1 max-h-[250px]">
           {history.map((entry) => {
             const isIncrease = entry.newPrice > entry.oldPrice;
-            const percentChange = entry.oldPrice > 0 
-               ? (((entry.newPrice - entry.oldPrice) / entry.oldPrice) * 100).toFixed(1) 
-               : '0.0';
-
             return (
               <div key={entry.id} className={`p-3 rounded-xl border transition-all ${isIncrease ? 'bg-rose-50/30 border-rose-100/60' : 'bg-teal-50/30 border-teal-100/60'}`}>
                  <div className="flex justify-between items-center mb-2">
-                    <div className="flex items-center gap-1.5">
-                       <Calendar size={10} className="text-slate-400" />
-                       <span className="text-[10px] font-bold text-slate-500">
-                          {new Date(entry.changeDate).toLocaleDateString(undefined, { day: '2-digit', month: 'short' })}
-                       </span>
-                    </div>
-                    <div className={`flex items-center gap-1 text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-tight ${isIncrease ? 'bg-rose-100 text-rose-700' : 'bg-teal-100 text-teal-700'}`}>
-                       {isIncrease ? '+' : ''}{percentChange}%
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-tight">
+                       {new Date(entry.changeDate).toLocaleDateString(undefined, { day: '2-digit', month: 'short' })}
+                    </span>
+                    <div className={`px-1.5 py-0.5 rounded uppercase text-[8px] font-black ${isIncrease ? 'bg-rose-100 text-rose-700' : 'bg-teal-100 text-teal-700'}`}>
+                       {isIncrease ? 'UP' : 'DOWN'}
                     </div>
                  </div>
                  <div className="flex items-center justify-between">
-                    <div className="flex flex-col">
-                       <span className="text-[8px] font-bold text-slate-400 uppercase">Old</span>
-                       <span className="text-[12px] font-bold text-slate-400 line-through">₹{entry.oldPrice}</span>
-                    </div>
+                    <span className="text-[12px] font-bold text-slate-400 line-through">₹{entry.oldPrice}</span>
                     <ArrowRight size={12} className="text-slate-300" />
-                    <div className="flex flex-col text-right">
-                       <span className="text-[8px] font-bold text-indigo-500 uppercase">New</span>
-                       <span className="text-[14px] font-bold text-slate-900 tracking-tight">₹{entry.newPrice}</span>
-                    </div>
+                    <span className="text-[14px] font-black text-slate-900 tracking-tight">₹{entry.newPrice}</span>
                  </div>
               </div>
             );
@@ -157,8 +139,7 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role; 
         </div>
       ) : (
         <div className="py-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-           <History size={24} className="text-slate-200 mx-auto mb-2 opacity-50" />
-           <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">No history</p>
+           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">No history recorded</p>
         </div>
       )}
     </div>
@@ -183,16 +164,16 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role; 
           </>
         ) : (
           <>
-            <div className="pl-2 pr-1 font-bold text-sm tracking-tight py-0.5">₹{price.toLocaleString()}</div>
+            <div className="pl-2 pr-1 font-black text-sm tracking-tight py-0.5">₹{price.toLocaleString()}</div>
             {isOwner && !isMobile && (
                 <div 
                   onClick={handleToggleHistory}
-                  className={`p-1 rounded-md transition-all active:scale-90 ${showHistory ? 'bg-indigo-600 text-white shadow-inner' : 'bg-indigo-50/10 text-white hover:bg-indigo-400'}`}
+                  className={`p-1 rounded-md transition-all active:scale-90 ${showHistory ? 'bg-indigo-600 text-white shadow-inner' : 'bg-white/10 text-white hover:bg-indigo-400'}`}
                 >
                   <History size={12} strokeWidth={3} />
                 </div>
             )}
-            {isManager && <Lock size={10} className="text-white/40 mr-1" />}
+            {isManager && <Lock size={10} className="text-white/30 mr-1" />}
           </>
         )}
       </div>
@@ -441,7 +422,6 @@ const StockTable: React.FC<StockTableProps> = ({
 
   const isAllPageSelected = currentItems.length > 0 && currentItems.every(i => selectedParts.has(i.partNumber));
   const isAllMobileSelected = mobileItems.length > 0 && mobileItems.every(i => selectedParts.has(i.partNumber));
-  
   const isAllFilteredSelected = filteredItems.length > 0 && filteredItems.every(i => selectedParts.has(i.partNumber));
   const isPartiallySelected = selectedParts.size > 0 && !isAllPageSelected;
 
@@ -458,13 +438,10 @@ const StockTable: React.FC<StockTableProps> = ({
             quantity: qty,
             requesterName: userRole || 'System User'
         }]);
-        if (res.success) {
-            alert(`Requisition for ${qty} units of ${pn} recorded.`);
-        } else {
-            alert("Submission failed: " + res.message);
-        }
+        if (res.success) alert(`Requisition for ${qty} units of ${pn} recorded.`);
+        else alert("Submission failed: " + res.message);
       } catch (e: any) {
-        alert("Policy Error: Please ensure database permissions are set. " + e.message);
+        alert("Database Error: Ensure permissions are set. " + e.message);
       } finally {
         setRequestingPn(null);
       }
@@ -475,11 +452,8 @@ const StockTable: React.FC<StockTableProps> = ({
     const itemsToToggle = window.innerWidth < 768 ? mobileItems : currentItems;
     const isCurrentlySelected = window.innerWidth < 768 ? isAllMobileSelected : isAllPageSelected;
 
-    if (isCurrentlySelected) {
-      itemsToToggle.forEach(i => newSet.delete(i.partNumber));
-    } else {
-      itemsToToggle.forEach(i => newSet.add(i.partNumber));
-    }
+    if (isCurrentlySelected) itemsToToggle.forEach(i => newSet.delete(i.partNumber));
+    else itemsToToggle.forEach(i => newSet.add(i.partNumber));
     setSelectedParts(newSet);
   };
 
@@ -522,16 +496,16 @@ const StockTable: React.FC<StockTableProps> = ({
 
   const SortIcon = ({ col }: { col: keyof StockItem }) => {
       if (sortConfig?.key !== col) return <ArrowUpDown size={10} className="opacity-10" />;
-      return sortConfig.direction === 'asc' ? <ArrowUp size={10} className="text-brand-600" /> : <ArrowDown size={10} className="text-brand-600" />;
+      return sortConfig.direction === 'asc' ? <ArrowUp size={10} className="text-blue-600" /> : <ArrowDown size={10} className="text-blue-600" />;
   };
 
   return (
-    <div className="bg-white rounded-3xl shadow-soft border border-slate-200/50 flex flex-col overflow-visible">
+    <div className="bg-white rounded-[2.5rem] shadow-premium border border-slate-200/50 flex flex-col overflow-visible">
       {!hideToolbar && (
-        <div className="px-6 py-5 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/30">
+        <div className="px-8 py-6 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/20">
             <div className="flex items-center gap-3">
-               <h2 className="font-black text-slate-900 text-lg tracking-tight">{title || 'Stock Catalog'}</h2>
-               <span className="bg-white text-slate-400 ring-1 ring-slate-200 px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-inner-soft">{filteredItems.length} records</span>
+               <h2 className="font-black text-slate-900 text-lg tracking-tight">{title || 'Stock Registry'}</h2>
+               <span className="bg-white text-slate-400 ring-1 ring-slate-200 px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-inner-soft">{filteredItems.length} records</span>
             </div>
             
             <div className="flex items-center gap-3">
@@ -539,19 +513,19 @@ const StockTable: React.FC<StockTableProps> = ({
                     <button 
                     onClick={handleBulkArchive} 
                     disabled={isArchiving}
-                    className="hidden md:flex bg-rose-50 text-rose-600 hover:bg-rose-100 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all items-center gap-1.5 shadow-sm ring-1 ring-rose-200/40"
+                    className="hidden md:flex bg-rose-50 text-rose-600 hover:bg-rose-100 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all items-center gap-2 shadow-sm ring-1 ring-rose-200/40"
                     >
                         {isArchiving ? <Loader2 className="animate-spin" size={12} /> : null}
-                        Archive ({selectedParts.size})
+                        Batch Archive ({selectedParts.size})
                     </button>
                 )}
 
                 <div className="relative group">
-                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-brand-500 transition-colors" size={16} />
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={16} />
                     <input 
                     type="text" 
-                    placeholder="Search ledger..." 
-                    className="pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold focus:ring-4 focus:ring-brand-500/5 focus:border-brand-300 w-full md:w-64 transition-all shadow-inner-soft outline-none"
+                    placeholder="Quick Filter..." 
+                    className="pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold focus:ring-4 focus:ring-blue-500/5 focus:border-blue-300 w-full md:w-64 transition-all shadow-inner-soft outline-none"
                     value={internalSearch}
                     onChange={e => setInternalSearch(e.target.value)}
                     />
@@ -570,70 +544,48 @@ const StockTable: React.FC<StockTableProps> = ({
       )}
 
       {enableActions && isOwner && (
-        <div className="md:hidden p-4 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between">
+        <div className="md:hidden p-4 bg-slate-50/30 border-b border-slate-100 flex items-center justify-between">
            <button 
              onClick={toggleSelectPage}
-             className="flex items-center gap-3 text-[9px] font-black uppercase tracking-[0.2em] text-slate-600 bg-white px-5 py-3 rounded-2xl border border-slate-200 shadow-sm active:scale-95"
+             className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 bg-white px-5 py-3.5 rounded-2xl border border-slate-200 shadow-sm active:scale-95"
            >
-              {isAllMobileSelected ? <CheckSquare size={18} className="text-brand-600" /> : <Square size={18} className="text-slate-200" />}
-              Batch Select
+              {isAllMobileSelected ? <CheckSquare size={18} className="text-blue-600" /> : <Square size={18} className="text-slate-200" />}
+              Bulk Select
            </button>
-           {selectedParts.size > 0 && <span className="text-[9px] font-black text-white bg-brand-600 px-3 py-1.5 rounded-xl shadow-md">{selectedParts.size} Active</span>}
-        </div>
-      )}
-
-      {enableActions && isOwner && selectedParts.size > 0 && (
-        <div className="bg-slate-900 p-4 text-center text-[12px] text-white animate-slide-up flex flex-col md:flex-row items-center justify-center gap-6 shadow-2xl border-t border-white/5">
-           <p className="font-black tracking-widest uppercase text-[10px]">
-             {isAllFilteredSelected 
-               ? `Full batch of ${filteredItems.length} items ready.` 
-               : `${selectedParts.size} entries in session.`
-             }
-           </p>
-           <div className="flex gap-5">
-             {((window.innerWidth >= 768 && isAllPageSelected) || (window.innerWidth < 768 && isAllMobileSelected)) && !isAllFilteredSelected && filteredItems.length > (window.innerWidth < 768 ? mobileLimit : currentItems.length) && (
-               <button onClick={toggleSelectAllFiltered} className="underline font-black text-brand-400 hover:text-brand-300 uppercase text-[10px] tracking-widest">
-                 Select All {filteredItems.length}
-               </button>
-             )}
-             <button onClick={() => setSelectedParts(new Set())} className="px-4 py-1.5 bg-white/10 hover:bg-white/20 rounded-xl text-[10px] font-black uppercase tracking-widest ring-1 ring-white/10 transition-all">Dismiss</button>
-           </div>
+           {selectedParts.size > 0 && <span className="text-[10px] font-black text-white bg-blue-600 px-3 py-1.5 rounded-xl shadow-md">{selectedParts.size} Active</span>}
         </div>
       )}
 
       <div className="hidden md:block overflow-visible">
-        <table className="w-full text-left text-[13.5px] border-collapse">
+        <table className="w-full text-left text-[14px] border-collapse">
             <thead className="bg-slate-50/50 backdrop-blur-md sticky top-0 z-[400] shadow-sm">
                 <tr className="border-b border-slate-100">
                     {enableActions && isOwner && (
-                        <th className="px-6 py-5 w-12">
-                            <button 
-                              onClick={toggleSelectPage} 
-                              className="text-slate-200 hover:text-brand-600 transition-all"
-                            >
-                              {isAllPageSelected ? <CheckSquare className="text-brand-600" size={20} /> : isPartiallySelected ? <MinusSquare className="text-brand-600" size={20} /> : <Square size={20} />}
+                        <th className="px-8 py-5 w-12 text-center">
+                            <button onClick={toggleSelectPage} className="text-slate-200 hover:text-blue-600 transition-all">
+                              {isAllPageSelected ? <CheckSquare className="text-blue-600" size={20} /> : isPartiallySelected ? <MinusSquare className="text-blue-600" size={20} /> : <Square size={20} />}
                             </button>
                         </th>
                     )}
-                    <th className="px-6 py-5 font-black text-slate-400 uppercase tracking-[0.15em] text-[9px] cursor-pointer group/h" onClick={() => requestSort('partNumber')}>
+                    <th className="px-8 py-5 font-black text-slate-400 uppercase tracking-[0.2em] text-[9px] cursor-pointer group/h" onClick={() => requestSort('partNumber')}>
                         <div className="flex items-center gap-2 group-hover/h:text-slate-600 transition-colors">Part Number <SortIcon col="partNumber"/></div>
                     </th>
-                    <th className="px-6 py-5 font-black text-slate-400 uppercase tracking-[0.15em] text-[9px] cursor-pointer group/h" onClick={() => requestSort('name')}>
+                    <th className="px-8 py-5 font-black text-slate-400 uppercase tracking-[0.2em] text-[9px] cursor-pointer group/h" onClick={() => requestSort('name')}>
                         <div className="flex items-center gap-2 group-hover/h:text-slate-600 transition-colors">Description <SortIcon col="name"/></div>
                     </th>
-                    <th className="px-6 py-5 font-black text-slate-400 uppercase tracking-[0.15em] text-[9px] text-center w-28">Brand</th>
-                    <th className="px-6 py-5 font-black text-slate-400 uppercase tracking-[0.15em] text-[9px] text-center cursor-pointer group/h" onClick={() => requestSort('quantity')}>
-                         <div className="flex items-center justify-center gap-2 group-hover/h:text-slate-600 transition-colors">In-Stock <SortIcon col="quantity"/></div>
+                    <th className="px-8 py-5 font-black text-slate-400 uppercase tracking-[0.2em] text-[9px] text-center w-32">Catalog Brand</th>
+                    <th className="px-8 py-5 font-black text-slate-400 uppercase tracking-[0.2em] text-[9px] text-center cursor-pointer group/h" onClick={() => requestSort('quantity')}>
+                         <div className="flex items-center justify-center gap-2 group-hover/h:text-slate-600 transition-colors">On-Hand <SortIcon col="quantity"/></div>
                     </th>
-                    <th className="px-6 py-5 font-black text-slate-400 uppercase tracking-[0.15em] text-[9px] text-right cursor-pointer group/h" onClick={() => requestSort('price')}>
+                    <th className="px-8 py-5 font-black text-slate-400 uppercase tracking-[0.2em] text-[9px] text-right cursor-pointer group/h" onClick={() => requestSort('price')}>
                          <div className="flex items-center justify-end gap-2 group-hover/h:text-slate-600 transition-colors">MRP Rate <SortIcon col="price"/></div>
                     </th>
-                    {enableActions && <th className="px-6 py-5 text-center text-slate-400 font-black uppercase tracking-[0.15em] text-[9px] w-28">Operations</th>}
+                    {enableActions && <th className="px-8 py-5 text-center text-slate-400 font-black uppercase tracking-[0.2em] text-[9px] w-32">Process</th>}
                 </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
                 {currentItems.length === 0 ? (
-                    <tr><td colSpan={8} className="p-24 text-center text-slate-300 font-bold text-base italic tracking-tight">No matching records found.</td></tr>
+                    <tr><td colSpan={8} className="p-32 text-center text-slate-300 font-black text-base italic tracking-tight opacity-40">No entries found in registry.</td></tr>
                 ) : (
                     currentItems.map((item) => {
                         const isLow = item.quantity > 0 && item.quantity <= item.minStockThreshold;
@@ -642,59 +594,55 @@ const StockTable: React.FC<StockTableProps> = ({
                         const isBeingRequested = requestingPn === item.partNumber;
 
                         return (
-                            <tr key={item.id} className={`group hover:bg-slate-50/40 transition-colors ${isSelected ? 'bg-brand-50/40' : ''}`}>
+                            <tr key={item.id} className={`group hover:bg-slate-50/50 transition-colors ${isSelected ? 'bg-blue-50/40' : ''}`}>
                                 {enableActions && isOwner && (
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center">
+                                    <td className="px-8 py-5 text-center">
                                           <input 
                                               type="checkbox" 
                                               checked={isSelected} 
                                               onChange={() => toggleSelect(item.partNumber)}
-                                              className="w-4.5 h-4.5 rounded-md border-slate-300 text-brand-600 focus:ring-brand-500/20 shadow-sm" 
+                                              className="w-4.5 h-4.5 rounded-md border-slate-300 text-blue-600 focus:ring-blue-500/20 shadow-sm" 
                                           />
-                                        </div>
                                     </td>
                                 )}
-                                <td className="px-6 py-4">
-                                    <Link to={`/item/${encodeURIComponent(item.partNumber)}`} className="font-black text-slate-900 hover:text-brand-600 transition-colors tracking-tight text-[15px] uppercase">
+                                <td className="px-8 py-5">
+                                    <Link to={`/item/${encodeURIComponent(item.partNumber)}`} className="font-black text-slate-900 hover:text-blue-600 transition-colors tracking-tight text-[15px] uppercase">
                                         {item.partNumber}
                                     </Link>
-                                    {isZero && <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-[8px] font-black bg-rose-50 text-rose-500 border border-rose-100 uppercase tracking-widest shadow-sm">Out</span>}
+                                    {isZero && <span className="ml-3 inline-flex items-center px-2 py-0.5 rounded text-[8px] font-black bg-rose-50 text-rose-500 border border-rose-100 uppercase tracking-widest shadow-sm">Out</span>}
                                 </td>
-                                <td className="px-6 py-4 text-slate-600 font-semibold leading-relaxed line-clamp-1 h-[54px] flex items-center">{item.name}</td>
-                                <td className="px-6 py-4 text-center">
+                                <td className="px-8 py-5 text-slate-600 font-semibold leading-relaxed max-w-[240px] truncate">{item.name}</td>
+                                <td className="px-8 py-5 text-center">
                                     <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest shadow-soft ring-1 ring-slate-200/40 ${item.brand === Brand.HYUNDAI ? 'bg-blue-50 text-blue-700' : 'bg-red-50 text-red-700'}`}>
                                         {item.brand.slice(0,3)}
                                     </span>
                                 </td>
-                                <td className="px-6 py-4 text-center">
+                                <td className="px-8 py-5 text-center">
                                     <div className="flex flex-col items-center">
                                         <span className={`font-black text-[16px] tracking-tighter ${isZero ? 'text-rose-600' : isLow ? 'text-amber-500' : 'text-slate-900'}`}>
                                             {formatQty(item.quantity)}
                                         </span>
-                                        {isLow && !isZero && <span className="text-[7px] font-black text-amber-600/60 uppercase tracking-widest">Crit.</span>}
+                                        {isLow && !isZero && <span className="text-[7px] font-black text-amber-600/50 uppercase tracking-widest">Low</span>}
                                     </div>
                                 </td>
-                                <td className="px-6 py-4 text-right">
+                                <td className="px-8 py-5 text-right">
                                   <PriceCell price={item.price} partNumber={item.partNumber} userRole={userRole} />
                                 </td>
                                 {enableActions && (
-                                    <td className="px-6 py-4 text-center">
-                                         <div className="flex justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <td className="px-8 py-5 text-center">
+                                         <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
                                             <button 
                                                 onClick={() => handleQuickRequest(item.partNumber)}
                                                 disabled={isBeingRequested}
-                                                className="p-2.5 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all active:scale-90 border border-transparent hover:border-indigo-100 shadow-sm"
-                                                title="Quick Requisition"
+                                                className="p-3 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all border border-transparent hover:border-indigo-100 active:scale-90"
                                             >
-                                                {isBeingRequested ? <Loader2 size={16} className="animate-spin"/> : <ClipboardPlus size={16} strokeWidth={2.5} />}
+                                                {isBeingRequested ? <Loader2 size={16} className="animate-spin"/> : <ClipboardPlus size={18} strokeWidth={2.5} />}
                                             </button>
                                             <Link 
                                                 to={`/item/${encodeURIComponent(item.partNumber)}`} 
-                                                className="text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-all p-2.5 rounded-xl inline-block border border-transparent hover:border-brand-100 shadow-sm"
-                                                title="View Details"
+                                                className="text-slate-400 hover:text-blue-600 hover:bg-blue-50 p-3 rounded-xl transition-all border border-transparent hover:border-blue-100 active:scale-90"
                                             >
-                                                <Eye size={16} strokeWidth={2.5} />
+                                                <Eye size={18} strokeWidth={2.5} />
                                             </Link>
                                          </div>
                                     </td>
@@ -706,13 +654,13 @@ const StockTable: React.FC<StockTableProps> = ({
             </tbody>
         </table>
         
-        <div className="px-8 py-5 border-t border-slate-100 flex items-center justify-between bg-white/95 backdrop-blur-md sticky bottom-0 z-[100] shadow-[0_-4px_20px_rgba(0,0,0,0.02)] rounded-b-3xl">
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Register {currentPage} / {totalPages}</span>
-          <div className="flex gap-3">
-              <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-slate-900 disabled:opacity-20 transition-all shadow-soft flex items-center gap-2 text-xs font-black uppercase tracking-widest">
+        <div className="px-10 py-6 border-t border-slate-100 flex items-center justify-between bg-white/95 backdrop-blur-md sticky bottom-0 z-[100] rounded-b-[2.5rem] shadow-inner-soft">
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em]">Register {currentPage} of {totalPages}</span>
+          <div className="flex gap-4">
+              <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-slate-900 disabled:opacity-20 transition-all shadow-soft flex items-center gap-2 text-[11px] font-black uppercase tracking-widest">
                   <ChevronLeft size={16} strokeWidth={3} /> Prev
               </button>
-              <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-slate-900 disabled:opacity-20 transition-all shadow-soft flex items-center gap-2 text-xs font-black uppercase tracking-widest">
+              <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-slate-900 disabled:opacity-20 transition-all shadow-soft flex items-center gap-2 text-[11px] font-black uppercase tracking-widest">
                   Next <ChevronRight size={16} strokeWidth={3} />
               </button>
           </div>
@@ -721,9 +669,9 @@ const StockTable: React.FC<StockTableProps> = ({
 
       <div className="md:hidden flex flex-col p-4 space-y-4 pb-40">
          {mobileItems.length === 0 ? (
-             <div className="flex flex-col items-center justify-center py-24 text-slate-200">
+             <div className="flex flex-col items-center justify-center py-32 text-slate-200">
                 <Search size={64} className="opacity-10 mb-6" />
-                <div className="text-center text-slate-400 font-black uppercase tracking-[0.25em] italic text-[11px]">No items found.</div>
+                <div className="text-center text-slate-400 font-black uppercase tracking-[0.3em] italic text-[11px]">Database is empty</div>
              </div>
          ) : (
              mobileItems.map((item) => (
@@ -742,7 +690,7 @@ const StockTable: React.FC<StockTableProps> = ({
          {mobileLimit < filteredItems.length && (
             <button 
               onClick={() => setMobileLimit(prev => prev + 20)}
-              className="w-full py-8 text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 border-2 border-dashed border-slate-200 rounded-[2.5rem] hover:bg-white hover:text-brand-600 transition-all bg-white shadow-soft active:scale-[0.99]"
+              className="w-full py-8 text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 border-2 border-dashed border-slate-200 rounded-[2.5rem] hover:bg-white hover:text-blue-600 transition-all bg-white shadow-soft active:scale-[0.99]"
             >
                Browse {filteredItems.length - mobileLimit} More
             </button>
