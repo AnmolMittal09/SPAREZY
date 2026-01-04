@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="theme-color" content="#ffffff" />
     <title>Sparezy - Smart Inventory System</title>
     <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA4MCA4MCI+PGcgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMGQ5NDg4IiBzdHJva2Utd2lkdGg9IjgiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTIwLDMwIEwzMCwxNSBMNTUsMTUgTjY1LDMwIEw1NSw0NSBMMzAsNDUgWiIvPjxwYXRoIGQ9Ik02MCw1MCBMNTAsNjUgTDI1LDY1IEwxNSw1MCBMMjUsMzUgTDUwLDM1IFoiIHN0cm9rZT0iIzMzNDE1NSIvPjwvZz48L3N2Zz4=" />
@@ -13,45 +13,108 @@
           extend: {
             colors: {
               brand: {
+                50: '#f0f9ff',
+                100: '#e0f2fe',
+                200: '#bae6fd',
+                300: '#7dd3fc',
+                400: '#38bdf8',
                 500: '#0ea5e9',
                 600: '#0284c7',
                 700: '#0369a1',
+                800: '#075985',
                 900: '#0c4a6e',
+                950: '#082f49',
               },
-              hyundai: '#003478',
-              mahindra: '#e31837',
+              accent: {
+                teal: '#14b8a6',
+                indigo: '#6366f1',
+                rose: '#f43f5e',
+                amber: '#f59e0b',
+              }
             },
             borderRadius: {
-              'xl': '0.75rem',
               '2xl': '1rem',
-              '3xl': '1.25rem',
+              '3xl': '1.5rem',
+              '4xl': '2.5rem',
+            },
+            boxShadow: {
+              'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
+              'premium': '0 10px 30px -5px rgba(0, 0, 0, 0.1), 0 4px 10px -2px rgba(0, 0, 0, 0.05)',
+              '3d': '0 20px 40px -10px rgba(0,0,0,0.15), 0 10px 10px -5px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.8)',
+              '3d-hover': '0 30px 60px -12px rgba(0,0,0,0.2), 0 18px 36px -18px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,1)',
+              'inner-3d': 'inset 0 4px 8px 0 rgba(0, 0, 0, 0.06)',
             }
           }
         }
       }
     </script>
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
       
+      :root {
+        --perspective: 1000px;
+      }
+
       body {
         font-family: 'Plus Jakarta Sans', sans-serif;
-        -webkit-font-smoothing: antialiased;
+        background: radial-gradient(circle at top right, #f8fafc, #f1f5f9);
       }
 
-      .no-scrollbar::-webkit-scrollbar { display: none; }
-      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-      .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
-      .safe-top { padding-top: env(safe-area-inset-top); }
-
-      @keyframes slideIn {
-        from { transform: translateY(100%); opacity: 0; }
+      @keyframes slideUp {
+        from { transform: translateY(20px); opacity: 0; }
         to { transform: translateY(0); opacity: 1; }
       }
-      .animate-slide-in { animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 
-      .active-glow {
-        box-shadow: 0 0 15px rgba(14, 165, 233, 0.3);
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+
+      @keyframes float {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-10px); }
+      }
+
+      .animate-slide-up {
+        animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+
+      .animate-fade-in {
+        animation: fadeIn 0.4s ease-out forwards;
+      }
+
+      .glass-card {
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(20px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.5);
+      }
+
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+
+      .card-3d {
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        transform-style: preserve-3d;
+      }
+      
+      .card-3d:hover {
+        transform: translateY(-8px) scale(1.02);
+      }
+
+      .tap-highlight-none {
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      /* Custom print styles for invoices */
+      @media print {
+        .no-print { display: none !important; }
+        body { background: white !important; overflow: visible !important; height: auto !important; }
+        main { overflow: visible !important; }
       }
     </style>
     <script>
@@ -79,7 +142,7 @@
 }
 </script>
   </head>
-  <body class="bg-[#F8FAFC] text-slate-900 h-screen overflow-hidden selection:bg-brand-100 selection:text-brand-900">
+  <body class="bg-[#F8FAFC] text-slate-900 h-screen overflow-hidden selection:bg-brand-100 selection:text-brand-900 tap-highlight-none">
     <div id="root" class="h-full"></div>
     <script type="module" src="/index.tsx"></script>
   </body>
