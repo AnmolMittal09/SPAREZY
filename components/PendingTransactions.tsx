@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Transaction, TransactionStatus, TransactionType } from '../types';
 import { fetchTransactions, approveTransaction, rejectTransaction } from '../services/transactionService';
@@ -5,10 +6,9 @@ import { CheckCircle2, XCircle, Clock, AlertCircle } from 'lucide-react';
 
 interface Props {
   type: TransactionType;
-  onProcessed?: () => void;
 }
 
-const PendingTransactions: React.FC<Props> = ({ type, onProcessed }) => {
+const PendingTransactions: React.FC<Props> = ({ type }) => {
   const [items, setItems] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -29,10 +29,10 @@ const PendingTransactions: React.FC<Props> = ({ type, onProcessed }) => {
     setProcessingId(tx.id);
     try {
       await approveTransaction(tx.id, tx.partNumber, type, tx.quantity);
-      if (onProcessed) onProcessed();
-      else await loadData();
+      await loadData(); // Refresh list
     } catch (error: any) {
       alert("Error: " + error.message);
+    } finally {
       setProcessingId(null);
     }
   };
@@ -42,10 +42,10 @@ const PendingTransactions: React.FC<Props> = ({ type, onProcessed }) => {
     setProcessingId(id);
     try {
       await rejectTransaction(id);
-      if (onProcessed) onProcessed();
-      else await loadData();
+      await loadData();
     } catch (error: any) {
       alert("Error: " + error.message);
+    } finally {
       setProcessingId(null);
     }
   };
