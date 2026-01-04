@@ -6,7 +6,8 @@ import {
   Search,
   PackageCheck,
   Zap,
-  Filter
+  Filter,
+  RefreshCw
 } from 'lucide-react';
 // @ts-ignore
 import { useNavigate } from 'react-router-dom';
@@ -19,17 +20,27 @@ interface DashboardProps {
 const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   const [inventory, setInventory] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBrand, setSelectedBrand] = useState<Brand | 'ALL'>('ALL');
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
+  const loadData = async (isManualRefresh = false) => {
+    if (isManualRefresh) setRefreshing(true);
+    else setLoading(true);
+    
+    try {
       const data = await fetchInventory();
       setInventory(data);
+    } catch (error) {
+      console.error("Failed to load inventory:", error);
+    } finally {
       setLoading(false);
-    };
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
     loadData();
     
     if (!('ontouchstart' in window)) {
@@ -42,14 +53,24 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   return (
     <div className="space-y-4 md:space-y-6 animate-fade-in flex flex-col max-w-5xl mx-auto">
       
-      {/* HEADER - Integrated Brand Filter */}
+      {/* HEADER - Integrated Brand Filter & Refresh */}
       <div className="flex flex-col gap-4 no-print px-1 pt-2">
          <div className="flex justify-between items-center">
-            <div>
-               <h1 className="text-2xl font-black text-slate-900 tracking-tighter leading-none mb-1">
-                  Dashboard
-               </h1>
-               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{user.role} ACCESS</p>
+            <div className="flex items-center gap-3">
+               <div>
+                  <h1 className="text-2xl font-black text-slate-900 tracking-tighter leading-none mb-1">
+                     Dashboard
+                  </h1>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{user.role} ACCESS</p>
+               </div>
+               <button 
+                  onClick={() => loadData(true)}
+                  disabled={refreshing}
+                  className={`p-2 rounded-xl bg-white border border-slate-100 shadow-soft text-slate-400 hover:text-brand-600 transition-all active:scale-90 ${refreshing ? 'opacity-50' : ''}`}
+                  title="Refresh Inventory"
+               >
+                  <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+               </button>
             </div>
             <div className="bg-white p-1.5 rounded-xl shadow-soft border border-slate-100">
                 <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white">
@@ -58,7 +79,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
             </div>
          </div>
 
-         {/* Compact Brand Filter - Moved from search card to header */}
+         {/* Compact Brand Filter */}
          <div className="flex bg-slate-100/50 p-1 rounded-2xl border border-slate-200/60">
              {(['ALL', Brand.HYUNDAI, Brand.MAHINDRA] as const).map(b => (
                 <button 
@@ -76,7 +97,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
          </div>
       </div>
 
-      {/* SEARCH HERO - Uninterrupted Flow to Results */}
+      {/* SEARCH HERO */}
       <div className="relative group no-print">
          <div className="relative bg-white rounded-[2.5rem] p-6 shadow-premium border border-slate-50 overflow-hidden">
             <div className="flex flex-col gap-4 relative z-10">
@@ -104,9 +125,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
          </div>
       </div>
 
-      {/* RESULTS AREA - Direct Vertical Path */}
+      {/* RESULTS AREA */}
       <div className="bg-white rounded-[2.5rem] shadow-premium border border-slate-50 overflow-hidden flex flex-col flex-1 min-h-[400px]">
-         <div className="p-5 md:p-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/20">
+         <div className="p-5 md:p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/20">
             <div className="flex items-center gap-3">
                 <div className="w-1.5 h-1.5 bg-brand-500 rounded-full animate-pulse"></div>
                 <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em]">
