@@ -242,6 +242,23 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
       }));
   };
 
+  const setQtyDirect = (id: string, val: number) => {
+    setCart(prev => prev.map(item => {
+      if (item.tempId === id) {
+        let newQty = Math.max(1, val);
+        if (mode === 'SALES') {
+          const stockItem = inventory.find(i => i.partNumber === item.partNumber);
+          if (stockItem) {
+            const available = getAvailableStock(stockItem);
+            if (newQty > available) newQty = available;
+          }
+        }
+        return { ...item, quantity: newQty };
+      }
+      return item;
+    }));
+  };
+
   const updateDiscount = (id: string, newDiscount: number) => {
     setCart(prev => prev.map(item => {
       if (item.tempId === id) {
@@ -558,7 +575,13 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-4 bg-white/5 p-2 rounded-2xl">
                                         <button onClick={() => updateQty(item.tempId, -1)} className="w-9 h-9 bg-white/10 rounded-xl flex items-center justify-center hover:bg-white/20 active:scale-90 transition-all"><Minus size={16} strokeWidth={3}/></button>
-                                        <span className="font-black text-lg min-w-[30px] text-center tabular-nums">{item.quantity}</span>
+                                        <input 
+                                          type="number"
+                                          className="w-12 bg-transparent text-white font-black text-center outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                          value={item.quantity}
+                                          onChange={(e) => setQtyDirect(item.tempId, parseInt(e.target.value) || 1)}
+                                          onFocus={(e) => e.target.select()}
+                                        />
                                         <button onClick={() => updateQty(item.tempId, 1)} className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center hover:bg-blue-500 active:scale-90 transition-all"><Plus size={16} strokeWidth={3}/></button>
                                     </div>
                                     <div className="flex items-center gap-3 bg-white/5 p-2 px-4 rounded-2xl border border-white/5">
@@ -568,6 +591,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                                           className="w-12 bg-transparent text-white font-black text-center outline-none"
                                           value={item.discount}
                                           onChange={(e) => updateDiscount(item.tempId, parseFloat(e.target.value) || 0)}
+                                          onFocus={(e) => e.target.select()}
                                         />
                                     </div>
                                     <button onClick={() => removeItem(item.tempId)} className="text-white/20 hover:text-rose-400 p-2.5 rounded-2xl transition-all ml-auto"><Trash2 size={20}/></button>
@@ -630,11 +654,18 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                                          className="w-10 bg-transparent text-slate-900 font-black text-center outline-none"
                                          value={item.discount}
                                          onChange={(e) => updateDiscount(item.tempId, parseFloat(e.target.value) || 0)}
+                                         onFocus={(e) => e.target.select()}
                                        />
                                    </div>
                                    <div className="flex items-center gap-8 bg-slate-100 p-2 rounded-2xl shadow-inner-soft">
                                        <button onClick={() => updateQty(item.tempId, -1)} className="w-12 h-12 bg-white shadow-soft rounded-xl flex items-center justify-center text-slate-600 active:scale-90 transition-all"><Minus size={20} strokeWidth={4}/></button>
-                                       <span className="font-black text-2xl tabular-nums">{item.quantity}</span>
+                                       <input 
+                                          type="number"
+                                          className="w-12 bg-transparent text-slate-900 font-black text-center outline-none text-2xl [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                          value={item.quantity}
+                                          onChange={(e) => setQtyDirect(item.tempId, parseInt(e.target.value) || 1)}
+                                          onFocus={(e) => e.target.select()}
+                                        />
                                        <button onClick={() => updateQty(item.tempId, 1)} className={`w-12 h-12 ${accentColor} text-white shadow-xl rounded-xl flex items-center justify-center active:scale-90 transition-all`}><Plus size={20} strokeWidth={4}/></button>
                                    </div>
                                </div>
