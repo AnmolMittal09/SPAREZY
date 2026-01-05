@@ -12,6 +12,11 @@ import {
 } from 'lucide-react';
 import TharLoader from '../components/TharLoader';
 
+const fd = (n: number | string) => {
+    const num = parseInt(n.toString()) || 0;
+    return num >= 0 && num < 10 ? `0${num}` : `${num}`;
+};
+
 interface DashboardProps {
   user: User;
 }
@@ -46,7 +51,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
     }
   }, []);
 
-  // --- Snapshot Calculations (Micro-UI) ---
   const brandSnapshots = useMemo(() => {
     const activeItems = inventory.filter(i => !i.isArchived && i.quantity > 0);
     
@@ -74,8 +78,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
 
   return (
     <div className="space-y-6 md:space-y-10 animate-fade-in flex flex-col max-w-6xl mx-auto pb-24">
-      
-      {/* HEADER SECTION */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 no-print px-1 pt-2">
          <div className="flex items-center gap-5">
             <div className="w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-elevated border border-white/10">
@@ -117,7 +119,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
          </div>
       </div>
 
-      {/* INTELLIGENT SEARCH AREA */}
       <div className="relative group no-print">
          <div className="bg-white rounded-[2.5rem] p-6 md:p-8 shadow-premium border border-slate-200/80 transition-all duration-300 group-focus-within:shadow-elevated group-focus-within:border-blue-200 group-focus-within:-translate-y-1">
             <div className="flex flex-col gap-4">
@@ -154,7 +155,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                    </div>
                    {searchQuery && (
                      <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-full uppercase tracking-widest border border-blue-100">
-                        {filteredCount} SKUs Found
+                        {fd(filteredCount)} SKUs Found
                      </span>
                    )}
                 </div>
@@ -162,7 +163,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
          </div>
       </div>
 
-      {/* MASTER INVENTORY TABLE CONTAINER */}
       <div className="bg-white rounded-[2.5rem] shadow-premium border border-slate-200/60 overflow-hidden flex flex-col flex-1 min-h-[700px] transition-all">
          <div className="px-10 py-7 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/30">
             <div className="flex items-center gap-4">
@@ -177,18 +177,17 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                 </div>
             </div>
 
-            {/* --- BRAND SNAPSHOT TILES (MICRO-UI) --- */}
             <div className="flex gap-3">
                <div className="bg-white border border-slate-200/60 border-l-4 border-l-blue-600 px-3 py-2 rounded-xl shadow-soft h-[56px] min-w-[140px] flex flex-col justify-center">
                   <p className="text-[10px] font-black text-slate-900 uppercase tracking-wider leading-none mb-1">HYUNDAI</p>
                   <p className="text-[11px] font-bold text-slate-500 whitespace-nowrap">
-                     {brandSnapshots.hyundai.parts} Parts · {brandSnapshots.hyundai.units.toLocaleString()} Units
+                     {fd(brandSnapshots.hyundai.parts)} Parts · {brandSnapshots.hyundai.units.toLocaleString()} Units
                   </p>
                </div>
                <div className="bg-white border border-slate-200/60 border-l-4 border-l-red-600 px-3 py-2 rounded-xl shadow-soft h-[56px] min-w-[140px] flex flex-col justify-center">
                   <p className="text-[10px] font-black text-slate-900 uppercase tracking-wider leading-none mb-1">MAHINDRA</p>
                   <p className="text-[11px] font-bold text-slate-500 whitespace-nowrap">
-                     {brandSnapshots.mahindra.parts} Parts · {brandSnapshots.mahindra.units.toLocaleString()} Units
+                     {fd(brandSnapshots.mahindra.parts)} Parts · {brandSnapshots.mahindra.units.toLocaleString()} Units
                   </p>
                </div>
             </div>
@@ -205,7 +204,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
             />
          </div>
       </div>
-
     </div>
   );
 };

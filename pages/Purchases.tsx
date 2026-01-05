@@ -147,7 +147,6 @@ const Purchases: React.FC<Props> = ({ user }) => {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
-    // Fix: Explicitly type the map callback parameter to avoid 'unknown' inference for file objects
     const newQueued: QueuedFile[] = Array.from(files).map((f: File) => ({
         id: Math.random().toString(36).substring(7),
         file: f,
@@ -226,6 +225,10 @@ const Purchases: React.FC<Props> = ({ user }) => {
       }
     } catch (err: any) { setErrorMsg(err.message); } 
     finally { setImporting(false); }
+  };
+
+  const updatePreviewQty = (index: number, newQty: number) => {
+    setPreviewData(prev => prev.map((item, i) => i === index ? { ...item, quantity: Math.max(1, newQty) } : item));
   };
 
   const confirmBulkImport = async () => {
@@ -369,8 +372,15 @@ const Purchases: React.FC<Props> = ({ user }) => {
                                       <div className="font-black text-slate-900 text-xl uppercase tracking-tight mb-2 group-hover:text-blue-600 transition-colors">{row.partNumber}</div>
                                       <div className="text-[12px] text-slate-400 font-bold truncate uppercase tracking-tight">{row.name}</div>
                                    </div>
-                                   <div className="bg-slate-900 text-white px-4 py-2 rounded-2xl text-[12px] font-black tabular-nums shadow-lg">
-                                      {row.quantity} PCS
+                                   <div className="flex items-center gap-3">
+                                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Qty</span>
+                                      <input 
+                                        type="number" 
+                                        className="bg-slate-900 text-white px-4 py-2 rounded-2xl text-[12px] font-black tabular-nums shadow-lg w-20 text-center outline-none focus:ring-2 focus:ring-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                        value={row.quantity}
+                                        onChange={(e) => updatePreviewQty(i, parseInt(e.target.value) || 1)}
+                                        onFocus={(e) => e.target.select()}
+                                      />
                                    </div>
                                 </div>
                                 <div className="grid grid-cols-3 gap-10 py-5 border-t border-slate-100/60">

@@ -1,5 +1,4 @@
 
-
 export enum Role {
   OWNER = 'OWNER',
   MANAGER = 'MANAGER',
@@ -66,7 +65,7 @@ export interface Transaction {
   createdByRole: Role;
   createdAt: string;
   relatedTransactionId?: string;
-  invoiceId?: string; // New: Links transaction to a formal tax invoice
+  invoiceId?: string; 
 }
 
 export interface UploadHistoryEntry {
@@ -104,8 +103,6 @@ export interface StockRequest {
   notes?: string;
 }
 
-// --- NEW TYPES FOR UPGRADE ---
-
 export interface Customer {
   id: string;
   name: string;
@@ -134,7 +131,7 @@ export interface ShopSettings {
 
 export interface Invoice {
   id: string;
-  invoiceNumber: string; // e.g., INV-2023-001
+  invoiceNumber: string;
   date: string;
   customerName: string;
   customerPhone?: string;
@@ -145,4 +142,25 @@ export interface Invoice {
   paymentMode: 'CASH' | 'UPI' | 'CARD' | 'CREDIT';
   itemsCount: number;
   generatedBy: string;
+}
+
+// --- NEW TASK TYPES ---
+
+export enum TaskPriority {
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  CRITICAL = 'CRITICAL'
+}
+
+export interface AppTask {
+  id: string;
+  title: string;
+  description?: string;
+  deadline: string;
+  priority: TaskPriority;
+  isCompleted: boolean;
+  reminderSent: boolean;
+  createdBy: string;
+  createdAt: string;
 }

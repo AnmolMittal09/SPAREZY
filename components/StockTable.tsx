@@ -30,6 +30,12 @@ import {
   Check
 } from 'lucide-react';
 
+// Added missing fd helper function for formatting numbers with leading zeros
+const fd = (n: number | string) => {
+    const num = parseInt(n.toString()) || 0;
+    return num >= 0 && num < 10 ? `0${num}` : `${num}`;
+};
+
 const formatQty = (n: number) => {
   const isNeg = n < 0;
   const abs = Math.abs(n);
@@ -107,7 +113,7 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role; 
            </div>
         </div>
         <span className="text-[9px] font-black bg-slate-100 px-2 py-0.5 rounded-full text-slate-500 ring-1 ring-slate-200/50">
-           {history.length} RECORDS
+           {formatQty(history.length)} RECORDS
         </span>
       </div>
 
@@ -379,8 +385,6 @@ const StockTable: React.FC<StockTableProps> = ({
   const [selectedParts, setSelectedParts] = useState<Set<string>>(new Set());
   const [isArchiving, setIsArchiving] = useState(false);
   const [requestingPn, setRequestingPn] = useState<string | null>(null);
-
-  // Edit Mode States (Admin only)
   const [isEditMode, setIsEditMode] = useState(false);
   const [updatingPn, setUpdatingPn] = useState<string | null>(null);
   const [editedQtys, setEditedQtys] = useState<Record<string, number>>({});
@@ -432,7 +436,7 @@ const StockTable: React.FC<StockTableProps> = ({
   const isPartiallySelected = selectedParts.size > 0 && !isAllPageSelected;
 
   const handleQuickRequest = async (pn: string) => {
-      const qtyStr = window.prompt(`Requisition for ${pn}:\nEnter quantity needed:`, "5");
+      const qtyStr = window.prompt(`Requisition for ${pn}:\nEnter quantity needed:`, "05");
       if (qtyStr === null) return;
       const qty = parseInt(qtyStr);
       if (isNaN(qty) || qty <= 0) return alert("Please enter a valid quantity (positive number).");
@@ -444,7 +448,7 @@ const StockTable: React.FC<StockTableProps> = ({
             quantity: qty,
             requesterName: userRole || 'System User'
         }]);
-        if (res.success) alert(`Requisition for ${qty} units of ${pn} recorded.`);
+        if (res.success) alert(`Requisition for ${formatQty(qty)} units of ${pn} recorded.`);
         else alert("Submission failed: " + res.message);
       } catch (e: any) {
         alert("Database Error: Ensure permissions are set. " + e.message);
@@ -463,9 +467,6 @@ const StockTable: React.FC<StockTableProps> = ({
           if (result.errors.length > 0) {
               alert("Error updating: " + result.errors[0]);
           } else {
-              // Successfully updated
-              // Refresh is needed here to update the local state of items
-              // In a real production app, we would update the state locally or use a refresh callback
               window.location.reload(); 
           }
       } catch (e) {
@@ -499,7 +500,7 @@ const StockTable: React.FC<StockTableProps> = ({
   };
 
   const handleBulkArchive = async () => {
-      if (!confirm(`Archive ${selectedParts.size} items?`)) return;
+      if (!confirm(`Archive ${formatQty(selectedParts.size)} items?`)) return;
       setIsArchiving(true);
       try {
         await bulkArchiveItems(Array.from(selectedParts), true);
@@ -519,7 +520,7 @@ const StockTable: React.FC<StockTableProps> = ({
   };
 
   const SortIcon = ({ col }: { col: keyof StockItem }) => {
-      if (sortConfig?.key !== col) return <ArrowUpDown size={10} className="opacity(10)" />;
+      if (sortConfig?.key !== col) return <ArrowUpDown size={10} className="opacity-10" />;
       return sortConfig.direction === 'asc' ? <ArrowUp size={10} className="text-blue-600" /> : <ArrowDown size={10} className="text-blue-600" />;
   };
 
@@ -529,7 +530,7 @@ const StockTable: React.FC<StockTableProps> = ({
         <div className="px-8 py-6 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/20">
             <div className="flex items-center gap-3">
                <h2 className="font-black text-slate-900 text-lg tracking-tight">{title || 'Stock Registry'}</h2>
-               <span className="bg-white text-slate-400 ring-1 ring-slate-200 px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-inner-soft">{filteredItems.length} records</span>
+               <span className="bg-white text-slate-400 ring-1 ring-slate-200 px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-inner-soft">{formatQty(filteredItems.length)} records</span>
             </div>
             
             <div className="flex items-center gap-3">
@@ -554,7 +555,7 @@ const StockTable: React.FC<StockTableProps> = ({
                     className="hidden md:flex bg-rose-50 text-rose-600 hover:bg-rose-100 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all items-center gap-2 shadow-sm ring-1 ring-rose-200/40"
                     >
                         {isArchiving ? <Loader2 className="animate-spin" size={12} /> : null}
-                        Batch Archive ({selectedParts.size})
+                        Batch Archive ({formatQty(selectedParts.size)})
                     </button>
                 )}
 
@@ -590,7 +591,7 @@ const StockTable: React.FC<StockTableProps> = ({
               {isAllMobileSelected ? <CheckSquare size={18} className="text-blue-600" /> : <Square size={18} className="text-slate-200" />}
               Bulk Select
            </button>
-           {selectedParts.size > 0 && <span className="text-[10px] font-black text-white bg-blue-600 px-3 py-1.5 rounded-xl shadow-md">{selectedParts.size} Active</span>}
+           {selectedParts.size > 0 && <span className="text-[10px] font-black text-white bg-blue-600 px-3 py-1.5 rounded-xl shadow-md">{formatQty(selectedParts.size)} Active</span>}
         </div>
       )}
 
@@ -718,7 +719,7 @@ const StockTable: React.FC<StockTableProps> = ({
         </table>
         
         <div className="px-10 py-6 border-t border-slate-100 flex items-center justify-between bg-white/95 backdrop-blur-md sticky bottom-0 z-[100] rounded-b-[2.5rem] shadow-inner-soft">
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em]">Register {currentPage} of {totalPages}</span>
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em]">Register {fd(currentPage)} of {fd(totalPages)}</span>
           <div className="flex gap-4">
               <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-slate-900 disabled:opacity-20 transition-all shadow-soft flex items-center gap-2 text-[11px] font-black uppercase tracking-widest">
                   <ChevronLeft size={16} strokeWidth={3} /> Prev
@@ -755,7 +756,7 @@ const StockTable: React.FC<StockTableProps> = ({
               onClick={() => setMobileLimit(prev => prev + 20)}
               className="w-full py-8 text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 border-2 border-dashed border-slate-200 rounded-[2.5rem] hover:bg-white hover:text-blue-600 transition-all bg-white shadow-soft active:scale-[0.99]"
             >
-               Browse {filteredItems.length - mobileLimit} More
+               Browse {formatQty(filteredItems.length - mobileLimit)} More
             </button>
          )}
       </div>

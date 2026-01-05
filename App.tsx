@@ -20,6 +20,7 @@ import Settings from './pages/Settings';
 import ItemDetail from './pages/ItemDetail';
 import Invoices from './pages/Invoices';
 import ProfitAnalysis from './pages/ProfitAnalysis';
+import Tasks from './pages/Tasks';
 
 const INACTIVITY_LIMIT_MS = 30 * 60 * 1000; // 30 Minutes
 
@@ -64,6 +65,7 @@ const App: React.FC = () => {
           {/* MAIN */}
           <Route path="/" element={<Dashboard user={user} />} />
           <Route path="/parts" element={<PartsList user={user} />} />
+          <Route path="/tasks" element={<Tasks user={user} />} />
           
           {/* TRANSACTIONS */}
           <Route path="/billing" element={<Billing user={user} />} />

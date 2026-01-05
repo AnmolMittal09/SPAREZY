@@ -1,5 +1,11 @@
+
 import React from 'react';
 import { LucideIcon } from 'lucide-react';
+
+const fd = (n: number | string) => {
+    const num = parseInt(n.toString()) || 0;
+    return num >= 0 && num < 10 ? `0${num}` : `${num}`;
+};
 
 interface StatCardProps {
   title: string;
@@ -8,9 +14,12 @@ interface StatCardProps {
   trend?: string;
   colorClass?: string;
   onClick?: () => void;
+  isCurrency?: boolean;
 }
 
-const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, trend, colorClass = "bg-white", onClick }) => {
+const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, trend, colorClass = "bg-white", onClick, isCurrency = false }) => {
+  const displayValue = isCurrency || isNaN(Number(value)) ? value : fd(value);
+
   return (
     <div 
       onClick={onClick}
@@ -26,7 +35,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, trend, co
       </div>
       
       <div className="relative z-10 flex flex-col gap-1">
-        <h4 className="text-2xl font-bold text-slate-900 tracking-tight">{value}</h4>
+        <h4 className="text-2xl font-bold text-slate-900 tracking-tight">{displayValue}</h4>
         {trend && (
           <p className="text-[9px] text-teal-600 font-bold uppercase tracking-wider flex items-center gap-1.5 mt-0.5 bg-teal-50 w-fit px-1.5 py-0.5 rounded shadow-inner">
             {trend}
