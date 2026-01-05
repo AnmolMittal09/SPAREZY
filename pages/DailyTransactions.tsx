@@ -311,8 +311,10 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
           await updateOrAddItems(payload);
       }
 
-      // 2. Transmit all ledger entries with payment distribution
+      // 2. Transmit all ledger entries with payment distribution and CASE-INSENSITIVE name normalization
       let remainingPayment = getPaidVal();
+      const normalizedCustomer = (customerName || (mode === 'PURCHASE' ? 'Standard Supplier' : 'Walk-in')).toUpperCase().trim();
+
       const payload = cart.map(c => {
           const itemTotal = c.price * c.quantity;
           const assignedPaid = mode === 'SALES' ? Math.min(remainingPayment, itemTotal) : itemTotal;
@@ -321,7 +323,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
           return {
               ...c,
               paidAmount: assignedPaid,
-              customerName: customerName || (mode === 'PURCHASE' ? 'Standard Supplier' : 'Walk-in'),
+              customerName: normalizedCustomer,
               createdByRole: user.role
           };
       });
@@ -443,7 +445,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                     <input 
                         autoFocus
                         type="text" 
-                        className="w-full bg-slate-100/50 p-5 pl-14 rounded-3xl border-none text-[18px] font-black shadow-inner outline-none ring-2 ring-transparent focus:ring-blue-500/10 transition-all placeholder:text-slate-300 uppercase tracking-tight"
+                        className="w-full bg-slate-100/50 p-5 pl-14 rounded-3xl border-none text-[18px] font-black shadow-inner outline-none ring-2 ring-transparent focus:ring-blue-500/10 transition-all placeholder:text-white/20 uppercase tracking-tight"
                         placeholder="Scan Part No..."
                         value={search}
                         onChange={e => handleSearch(e.target.value)}

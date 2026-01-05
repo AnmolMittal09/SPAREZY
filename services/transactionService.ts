@@ -48,8 +48,8 @@ export const createBulkTransactions = async (
   try {
     if (transactions.length === 0) return { success: true };
 
-    // --- AUTO CUSTOMER REGISTRATION ---
-    const namesToRegister = [...new Set(transactions.map(t => t.customerName))]
+    // --- AUTO CUSTOMER REGISTRATION (CASE-INSENSITIVE) ---
+    const namesToRegister = [...new Set(transactions.map(t => (t.customerName || '').toUpperCase().trim()))]
       .filter(name => {
         if (!name) return false;
         const lower = name.toLowerCase();
@@ -88,14 +88,14 @@ export const createBulkTransactions = async (
         }
     }
 
-    // 2. Insert Transactions
+    // 2. Insert Transactions with Normalized Customer Names
     const dbRows = transactions.map(t => ({
       part_number: t.partNumber,
       type: t.type,
       quantity: t.quantity,
       price: t.price,
-      paid_amount: t.paidAmount || 0, // Store paid amount
-      customer_name: t.customerName,
+      paid_amount: t.paidAmount || 0,
+      customer_name: (t.customerName || '').toUpperCase().trim(),
       status: initialStatus,
       created_by_role: t.createdByRole,
       related_transaction_id: t.relatedTransactionId
@@ -377,7 +377,7 @@ export const generateTaxInvoiceRecord = async (
       .from('invoices')
       .insert({
         invoice_number: invoiceNumber,
-        customer_name: customerDetails.name,
+        customer_name: customerDetails.name.toUpperCase().trim(),
         customer_phone: customerDetails.phone,
         customer_address: customerDetails.address,
         customer_gst: customerDetails.gst,

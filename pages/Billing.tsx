@@ -244,7 +244,8 @@ const Billing: React.FC<Props> = ({ user }) => {
     const groups: Record<string, CustomerGroup> = {};
     
     filteredHistory.forEach(tx => {
-      const custName = tx.customerName || 'Anonymous';
+      // Normalizing customer name to uppercase for case-insensitive grouping
+      const custName = (tx.customerName || 'ANONYMOUS').toUpperCase().trim();
       if (!groups[custName]) {
         groups[custName] = {
           name: custName,

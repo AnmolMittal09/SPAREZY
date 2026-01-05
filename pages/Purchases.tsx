@@ -181,7 +181,6 @@ const Purchases: React.FC<Props> = ({ user }) => {
     try {
       const excelFile = queuedFiles.find(q => q.file.name.match(/\.(xlsx|xls|xlsb|xlsm|csv)$/i));
       if (excelFile) {
-        // Fix: Call arrayBuffer() on the file property of the QueuedFile object
         const data = await excelFile.file.arrayBuffer();
         const workbook = XLSX.read(data, { type: 'array' });
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -241,7 +240,9 @@ const Purchases: React.FC<Props> = ({ user }) => {
   const confirmBulkImport = async () => {
     if (previewData.length === 0) return;
     setImporting(true);
-    const sourceName = extractedMetadata.dealerName ? `${extractedMetadata.dealerName} (Inv: ${extractedMetadata.invoiceDate})` : `AI Audit (${new Date().toLocaleDateString()})`;
+    // Standardizing source name to be case-insensitive
+    const sourceName = (extractedMetadata.dealerName ? `${extractedMetadata.dealerName} (Inv: ${extractedMetadata.invoiceDate})` : `AI Audit (${new Date().toLocaleDateString()})`).toUpperCase().trim();
+    
     try {
         const inventoryPayload = previewData.map(item => {
             const existing = inventory.find(i => i.partNumber.toLowerCase() === item.partNumber.toLowerCase());
