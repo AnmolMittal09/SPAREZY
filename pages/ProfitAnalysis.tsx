@@ -55,7 +55,8 @@ const ProfitAnalysis: React.FC<Props> = ({ user }) => {
 
     // Filtered data set
     const periodTxs = transactions.filter(tx => new Date(tx.createdAt).getTime() >= cutoff);
-    const invMap = new Map(inventory.map(i => [i.partNumber.toUpperCase(), i]));
+    /* Fix: Explicitly type the Map to Map<string, StockItem> to avoid 'unknown' type errors when accessing price or name properties */
+    const invMap = new Map<string, StockItem>(inventory.map(i => [i.partNumber.toUpperCase(), i]));
 
     let totalSales = 0;
     let totalReturns = 0;

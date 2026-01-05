@@ -1,5 +1,6 @@
+
 import { supabase } from './supabase';
-import { Invoice, Role, Transaction, TransactionStatus, TransactionType } from '../types';
+import { Invoice, Role, Transaction, TransactionStatus, TransactionType, RequestStatus, PaymentStatus } from '../types';
 
 // --- HELPERS ---
 
@@ -9,8 +10,10 @@ const mapDBToTransaction = (item: any): Transaction => ({
   type: item.type as TransactionType,
   quantity: item.quantity,
   price: item.price,
+  paidAmount: item.paid_amount,
   customerName: item.customer_name,
   status: item.status as TransactionStatus,
+  paymentStatus: item.payment_status as PaymentStatus,
   createdByRole: item.created_by_role as Role,
   createdAt: item.created_at,
   relatedTransactionId: item.related_transaction_id,
@@ -71,8 +74,10 @@ export const createBulkTransactions = async (
       type: t.type,
       quantity: t.quantity,
       price: t.price,
+      paid_amount: t.paidAmount || 0,
       customer_name: t.customerName,
       status: initialStatus,
+      payment_status: t.paymentStatus || 'PAID',
       created_by_role: t.createdByRole,
       related_transaction_id: t.relatedTransactionId
     }));
@@ -80,11 +85,16 @@ export const createBulkTransactions = async (
     const { error: insertError } = await supabase.from('transactions').insert(dbRows);
     if (insertError) throw new Error(insertError.message);
 
-    // 3. Update Inventory (if Approved immediately)
+    // 3. Update Inventory & Requisitions (if Approved immediately)
     if (initialStatus === TransactionStatus.APPROVED) {
       for (const tx of transactions) {
          if (tx.type !== TransactionType.PURCHASE_ORDER) {
            await updateStockForTransaction(tx.partNumber, tx.type, tx.quantity);
+           
+           // If Purchase, fulfill requisitions
+           if (tx.type === TransactionType.PURCHASE) {
+              await fulfillRequisitionsForPart(tx.partNumber);
+           }
          }
       }
     }
@@ -94,6 +104,30 @@ export const createBulkTransactions = async (
     console.error("Create Bulk Transaction Error:", error);
     return { success: false, message: error.message };
   }
+};
+
+/**
+ * Automatically marks pending/ordered requisitions for a part as COMPLETED
+ */
+const fulfillRequisitionsForPart = async (partNumber: string) => {
+  if (!supabase) return;
+  
+  // Find pending or ordered requests for this part
+  const { data: requests, error } = await supabase
+    .from('stock_requests')
+    .select('id')
+    .ilike('part_number', partNumber)
+    .in('status', [RequestStatus.PENDING, RequestStatus.ORDERED]);
+
+  if (error || !requests || requests.length === 0) return;
+
+  const ids = requests.map(r => r.id);
+  
+  // Mark them as completed (Received)
+  await supabase
+    .from('stock_requests')
+    .update({ status: RequestStatus.COMPLETED })
+    .in('id', ids);
 };
 
 export const fetchTransactions = async (
@@ -108,7 +142,7 @@ export const fetchTransactions = async (
     if (Array.isArray(status)) query = query.in('status', status);
     else query = query.eq('status', status);
   } else {
-    query = query.limit(200);
+    query = query.limit(500);
   }
 
   if (type) {
@@ -147,7 +181,14 @@ export const approveTransaction = async (id: string, partNumber: string, type: T
   const { error: txError } = await supabase.from('transactions').update({ status: TransactionStatus.APPROVED }).eq('id', id);
   if (txError) throw new Error(txError.message);
 
-  if (type !== TransactionType.PURCHASE_ORDER) await updateStockForTransaction(partNumber, type, quantity);
+  if (type !== TransactionType.PURCHASE_ORDER) {
+    await updateStockForTransaction(partNumber, type, quantity);
+    
+    // Also fulfill requisitions if it's a purchase approval
+    if (type === TransactionType.PURCHASE) {
+       await fulfillRequisitionsForPart(partNumber);
+    }
+  }
 };
 
 export const rejectTransaction = async (id: string): Promise<void> => {
@@ -326,6 +367,7 @@ export const fetchInvoices = async (): Promise<Invoice[]> => {
       customerAddress: i.customer_address,
       customerGst: i.customer_gst,
       totalAmount: i.total_amount,
+      paidAmount: i.paid_amount,
       taxAmount: i.tax_amount,
       paymentMode: i.payment_mode,
       items_count: i.items_count,
@@ -335,7 +377,7 @@ export const fetchInvoices = async (): Promise<Invoice[]> => {
 
 export const generateTaxInvoiceRecord = async (
   transactionIds: string[], 
-  customerDetails: { name: string, phone: string, address: string, gst: string, paymentMode: string },
+  customerDetails: { name: string, phone: string, address: string, gst: string, paymentMode: string, paidAmount?: number },
   totals: { amount: number, tax: number },
   userRole: string
 ): Promise<{ success: boolean, invoice?: Invoice, message?: string }> => {
@@ -353,6 +395,7 @@ export const generateTaxInvoiceRecord = async (
         customer_address: customerDetails.address,
         customer_gst: customerDetails.gst,
         total_amount: totals.amount,
+        paid_amount: customerDetails.paidAmount || 0,
         tax_amount: totals.tax,
         payment_mode: customerDetails.paymentMode.toUpperCase(), 
         items_count: transactionIds.length,
@@ -381,6 +424,7 @@ export const generateTaxInvoiceRecord = async (
         customerAddress: invoiceData.customer_address,
         customerGst: invoiceData.customer_gst,
         totalAmount: invoiceData.total_amount,
+        paidAmount: invoiceData.paid_amount,
         taxAmount: invoiceData.tax_amount,
         paymentMode: invoiceData.payment_mode as any,
         itemsCount: invoiceData.items_count,

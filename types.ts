@@ -1,5 +1,4 @@
 
-
 export enum Role {
   OWNER = 'OWNER',
   MANAGER = 'MANAGER',
@@ -55,18 +54,22 @@ export enum TransactionStatus {
   REJECTED = 'REJECTED',
 }
 
+export type PaymentStatus = 'PAID' | 'PENDING';
+
 export interface Transaction {
   id: string;
   partNumber: string;
   type: TransactionType;
   quantity: number;
   price: number;
+  paidAmount?: number; // New: Tracks partial money received
   customerName: string; 
   status: TransactionStatus;
+  paymentStatus?: PaymentStatus; // Tracks if bill is fully settled
   createdByRole: Role;
   createdAt: string;
   relatedTransactionId?: string;
-  invoiceId?: string; // New: Links transaction to a formal tax invoice
+  invoiceId?: string;
 }
 
 export interface UploadHistoryEntry {
@@ -104,8 +107,6 @@ export interface StockRequest {
   notes?: string;
 }
 
-// --- NEW TYPES FOR UPGRADE ---
-
 export interface Customer {
   id: string;
   name: string;
@@ -134,13 +135,14 @@ export interface ShopSettings {
 
 export interface Invoice {
   id: string;
-  invoiceNumber: string; // e.g., INV-2023-001
+  invoiceNumber: string;
   date: string;
   customerName: string;
   customerPhone?: string;
   customerAddress?: string;
   customerGst?: string;
   totalAmount: number;
+  paidAmount?: number; // New: Received amount recorded on invoice
   taxAmount: number;
   paymentMode: 'CASH' | 'UPI' | 'CARD' | 'CREDIT';
   itemsCount: number;

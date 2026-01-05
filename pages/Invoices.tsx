@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { User, Transaction, ShopSettings, TransactionStatus, TransactionType } from '../types';
 import { fetchUninvoicedSales, generateTaxInvoiceRecord, fetchInvoices, fetchTransactions } from '../services/transactionService';
@@ -39,7 +40,8 @@ const Invoices: React.FC<Props> = ({ user }) => {
     phone: '',
     address: '',
     gst: '',
-    paymentMode: 'CASH'
+    paymentMode: 'CASH',
+    paidAmount: ''
   });
 
   useEffect(() => {
@@ -110,12 +112,19 @@ const Invoices: React.FC<Props> = ({ user }) => {
   const taxAmount = subTotal - taxableValue;
   const grandTotal = subTotal; 
 
+  // Reset paid amount to total when moving to step 2
+  useEffect(() => {
+    if (step === 2 && !customerDetails.paidAmount) {
+        setCustomerDetails(prev => ({ ...prev, paidAmount: grandTotal.toString() }));
+    }
+  }, [step, grandTotal]);
+
   const handleConfirmAndPrint = async () => {
     if (!customerDetails.name) return alert("Customer Name is required");
     
     const result = await generateTaxInvoiceRecord(
       Array.from(selectedIds),
-      customerDetails,
+      { ...customerDetails, paidAmount: parseFloat(customerDetails.paidAmount) || 0 },
       { amount: grandTotal, tax: taxAmount },
       user.role
     );
@@ -126,7 +135,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
         alert("Invoice Saved & Sent to Printer!");
         setStep(1);
         setSelectedIds(new Set());
-        setCustomerDetails({ name: '', phone: '', address: '', gst: '', paymentMode: 'CASH' });
+        setCustomerDetails({ name: '', phone: '', address: '', gst: '', paymentMode: 'CASH', paidAmount: '' });
         loadPending();
       }, 500);
     } else {
@@ -225,10 +234,18 @@ const Invoices: React.FC<Props> = ({ user }) => {
                     <span>Total Tax ({(taxRate).toFixed(0)}%)</span>
                     <span className="font-mono">₹{taxAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
+                <div className="flex justify-between text-base font-black text-slate-900 pt-2 border-t border-slate-100">
+                    <span>Bill Amount</span>
+                    <span className="font-mono">₹{grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between text-sm font-bold text-teal-600">
+                    <span>Amount Received</span>
+                    <span className="font-mono">₹{(parseFloat(customerDetails.paidAmount) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
             </div>
             <div className="flex justify-between text-xl font-black text-blue-700 mt-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
-               <span>Grand Total</span>
-               <span>₹{grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+               <span>Balance Due</span>
+               <span>₹{(grandTotal - (parseFloat(customerDetails.paidAmount) || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             </div>
             
             <div className="mt-12 text-center">
@@ -490,17 +507,35 @@ const Invoices: React.FC<Props> = ({ user }) => {
                                     </div>
                                  </div>
 
-                                 <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">Address</label>
-                                    <div className="relative group">
-                                       <MapPin size={18} className="absolute left-3 top-4 text-slate-400 group-focus-within:text-blue-500" />
-                                       <textarea 
-                                          className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-slate-50 focus:bg-white transition-all resize-none font-medium"
-                                          rows={2}
-                                          placeholder="Billing Address"
-                                          value={customerDetails.address}
-                                          onChange={e => setCustomerDetails({...customerDetails, address: e.target.value})}
-                                       />
+                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="col-span-1 md:col-span-2">
+                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">Address</label>
+                                        <div className="relative group">
+                                           <MapPin size={18} className="absolute left-3 top-4 text-slate-400 group-focus-within:text-blue-500" />
+                                           <textarea 
+                                              className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-slate-50 focus:bg-white transition-all resize-none font-medium"
+                                              rows={2}
+                                              placeholder="Billing Address"
+                                              value={customerDetails.address}
+                                              onChange={e => setCustomerDetails({...customerDetails, address: e.target.value})}
+                                           />
+                                        </div>
+                                    </div>
+                                    <div className="col-span-1 md:col-span-2">
+                                        <label className="block text-xs font-bold text-teal-600 uppercase mb-1.5 ml-1">Cash Received (₹)</label>
+                                        <div className="relative group">
+                                           <Banknote size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-teal-500 group-focus-within:text-teal-600" />
+                                           <input 
+                                              type="number" 
+                                              className="w-full pl-10 pr-4 py-3 border border-teal-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none bg-teal-50/30 focus:bg-white transition-all font-black text-teal-700 text-lg"
+                                              placeholder="Amount collected..."
+                                              value={customerDetails.paidAmount}
+                                              onChange={e => setCustomerDetails({...customerDetails, paidAmount: e.target.value})}
+                                           />
+                                        </div>
+                                        {parseFloat(customerDetails.paidAmount) < grandTotal && (
+                                            <p className="text-[10px] font-black text-rose-500 uppercase mt-2 ml-1">Outstanding Balance: ₹{(grandTotal - (parseFloat(customerDetails.paidAmount) || 0)).toLocaleString()}</p>
+                                        )}
                                     </div>
                                  </div>
                               </div>
@@ -608,7 +643,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
                                <th className="px-6 py-4">Invoice #</th>
                                <th className="px-6 py-4">Date</th>
                                <th className="px-6 py-4">Customer</th>
-                               <th className="px-6 py-4 text-center">Items</th>
+                               <th className="px-6 py-4 text-center">Collection</th>
                                <th className="px-6 py-4 text-right">Total</th>
                             </tr>
                          </thead>
@@ -621,7 +656,12 @@ const Invoices: React.FC<Props> = ({ user }) => {
                                      <div className="font-medium text-slate-800">{inv.customerName}</div>
                                   </td>
                                   <td className="px-6 py-4 text-center">
-                                     <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs font-bold">{inv.itemsCount}</span>
+                                     <div className="flex flex-col items-center">
+                                        <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${inv.paidAmount >= inv.totalAmount ? 'bg-teal-50 text-teal-600' : 'bg-amber-50 text-amber-600'}`}>
+                                            ₹{inv.paidAmount?.toLocaleString()}
+                                        </span>
+                                        {inv.paidAmount < inv.totalAmount && <span className="text-[8px] font-bold text-rose-400 mt-1 uppercase">Pending</span>}
+                                     </div>
                                   </td>
                                   <td className="px-6 py-4 text-right font-bold text-blue-700">₹{inv.totalAmount.toLocaleString()}</td>
                                </tr>
