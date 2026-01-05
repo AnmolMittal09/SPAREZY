@@ -147,8 +147,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
-    // Fix: Explicitly type the map callback parameter to avoid 'unknown' inference for file objects
-    const newQueued: QueuedFile[] = Array.from(files).map((f: File) => ({
+    const newQueued: QueuedFile[] = Array.from(files).map(f => ({
         id: Math.random().toString(36).substring(7),
         file: f,
         preview: URL.createObjectURL(f)
