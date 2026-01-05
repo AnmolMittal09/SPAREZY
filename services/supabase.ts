@@ -17,9 +17,23 @@ export const supabase = (supabaseUrl && supabaseKey)
  * SUPABASE SQL COMMANDS (Run in SQL Editor)
  * ==========================================
  * 
- * --- 🚨 UPDATE FOR PARTIAL PAYMENTS 🚨 ---
- * ALTER TABLE transactions ADD COLUMN IF NOT EXISTS paid_amount numeric DEFAULT 0;
- * ALTER TABLE invoices ADD COLUMN IF NOT EXISTS paid_amount numeric DEFAULT 0;
+ * --- 🚨 FIX FOR RLS POLICY ERROR 🚨 ---
+ * If you see "violates row-level security policy", run these commands:
+ * 
+ * -- Enable RLS (if not already enabled)
+ * ALTER TABLE stock_requests ENABLE ROW LEVEL SECURITY;
+ * 
+ * -- Create a policy that allows all operations (Public access for this specific table)
+ * -- In a real production app with Supabase Auth, you would restrict this to authenticated users.
+ * DROP POLICY IF EXISTS "Enable all access for everyone" ON stock_requests;
+ * CREATE POLICY "Enable all access for everyone" ON stock_requests FOR ALL USING (true) WITH CHECK (true);
+ * 
+ * -- Repeat for other tables if necessary:
+ * ALTER TABLE inventory ENABLE ROW LEVEL SECURITY;
+ * CREATE POLICY "Enable all access for everyone" ON inventory FOR ALL USING (true) WITH CHECK (true);
+ * 
+ * ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
+ * CREATE POLICY "Enable all access for everyone" ON transactions FOR ALL USING (true) WITH CHECK (true);
  * 
  * ---------------------------------------------
  * 
@@ -93,7 +107,6 @@ export const supabase = (supabaseUrl && supabaseKey)
  *   customer_address text,
  *   customer_gst text,
  *   total_amount numeric,
- *   paid_amount numeric default 0,
  *   tax_amount numeric,
  *   payment_mode text check (payment_mode in ('CASH', 'UPI', 'CARD', 'CREDIT')),
  *   items_count int,
@@ -104,17 +117,49 @@ export const supabase = (supabaseUrl && supabaseKey)
  * -- 8. Transactions (Linked to Inventory and Invoices)
  * create table if not exists transactions (
  *   id uuid default uuid_generate_v4() primary key,
- *   part_number text not null, 
- *   type text not null, 
+ *   part_number text not null, -- Intentionally text to allow unlinked history, or add references inventory(part_number)
+ *   type text not null, -- 'SALE', 'PURCHASE', 'RETURN'
  *   quantity int not null,
  *   price numeric,
- *   paid_amount numeric default 0,
  *   customer_name text,
  *   status text default 'PENDING',
- *   payment_status text default 'PAID',
  *   created_by_role text,
  *   created_at timestamptz default now(),
  *   related_transaction_id uuid,
  *   invoice_id uuid references invoices(id)
  * );
+ * 
+ * -- 9. Stock Requests
+ * create table if not exists stock_requests (
+ *   id uuid default uuid_generate_v4() primary key,
+ *   part_number text not null,
+ *   quantity_needed int not null,
+ *   requester_name text,
+ *   status text default 'PENDING',
+ *   created_at timestamptz default now()
+ * );
+ * 
+ * -- 10. Histories
+ * create table if not exists price_history (
+ *   id uuid default uuid_generate_v4() primary key,
+ *   part_number text not null,
+ *   old_price numeric,
+ *   new_price numeric,
+ *   change_date timestamptz default now()
+ * );
+ * 
+ * create table if not exists upload_history (
+ *   id uuid default uuid_generate_v4() primary key,
+ *   file_name text,
+ *   upload_mode text,
+ *   item_count int,
+ *   status text default 'SUCCESS',
+ *   snapshot_data jsonb,
+ *   created_at timestamptz default now()
+ * );
+ * 
+ * -- SEED DEFAULT USER (Optional)
+ * insert into app_users (username, password, name, role) 
+ * values ('admin', 'admin', 'System Admin', 'OWNER')
+ * on conflict do nothing;
  */

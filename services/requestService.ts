@@ -58,3 +58,21 @@ export const updateRequestStatus = async (ids: string[], status: RequestStatus):
 
   if (error) throw new Error(error.message);
 };
+
+/**
+ * Automatically fulfills any pending or ordered requests for specific part numbers.
+ * Triggered when a purchase transaction is approved/finalized.
+ */
+export const completeRequestsForParts = async (partNumbers: string[]): Promise<void> => {
+  if (!supabase || partNumbers.length === 0) return;
+
+  const { error } = await supabase
+    .from('stock_requests')
+    .update({ status: RequestStatus.COMPLETED })
+    .in('part_number', partNumbers)
+    .in('status', [RequestStatus.PENDING, RequestStatus.ORDERED]);
+
+  if (error) {
+    console.error('Error auto-completing stock requests:', error);
+  }
+};
