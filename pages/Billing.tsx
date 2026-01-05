@@ -83,9 +83,6 @@ const Billing: React.FC<Props> = ({ user }) => {
   const [historySearch, setHistorySearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<'ALL' | TransactionType.SALE | TransactionType.RETURN>('ALL');
   const [dateRange, setDateRange] = useState<'ALL' | 'TODAY' | 'WEEK' | 'MONTH'>('ALL');
-  const [minAmount, setMinAmount] = useState<string>('');
-  const [maxAmount, setMaxAmount] = useState<string>('');
-  const [sortBy, setSortBy] = useState<SortField>('date');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
 
   // --- RETURN TAB STATE ---
@@ -345,9 +342,9 @@ const Billing: React.FC<Props> = ({ user }) => {
                          <span className="font-black text-slate-900 text-2xl tracking-tight block uppercase leading-none mb-1">Journal Journal</span>
                          <div className="flex items-center gap-4 mt-2">
                             <div className="flex bg-slate-100 p-1 rounded-xl shadow-inner border border-slate-200/60">
-                                <button onClick={() => setViewMode('STACKED')} className={`p-2.5 rounded-lg transition-all ${viewMode === 'STACKED' ? 'bg-white text-slate-900 shadow-soft' : 'text-slate-400'}`}><Layers size={18} /></button>
-                                <button onClick={() => setViewMode('CUSTOMER')} className={`p-2.5 rounded-lg transition-all ${viewMode === 'CUSTOMER' ? 'bg-white text-slate-900 shadow-soft' : 'text-slate-400'}`}><Users size={18} /></button>
-                                <button onClick={() => setViewMode('LIST')} className={`p-2.5 rounded-lg transition-all ${viewMode === 'LIST' ? 'bg-white text-slate-900 shadow-soft' : 'text-slate-400'}`}><List size={18} /></button>
+                                <button onClick={() => setViewMode('STACKED')} className={`p-2.5 rounded-lg transition-all ${viewMode === 'STACKED' ? 'bg-white text-slate-900 shadow-soft' : 'text-slate-400'}`} title="Bill View"><Layers size={18} /></button>
+                                <button onClick={() => setViewMode('CUSTOMER')} className={`p-2.5 rounded-lg transition-all ${viewMode === 'CUSTOMER' ? 'bg-white text-slate-900 shadow-soft' : 'text-slate-400'}`} title="Client View"><Users size={18} /></button>
+                                <button onClick={() => setViewMode('LIST')} className={`p-2.5 rounded-lg transition-all ${viewMode === 'LIST' ? 'bg-white text-slate-900 shadow-soft' : 'text-slate-400'}`} title="Item View"><List size={18} /></button>
                             </div>
                             <span className="w-px h-6 bg-slate-200"></span>
                             <div className="flex items-center gap-2">

@@ -34,14 +34,20 @@ export const createBulkTransactions = async (
   if (!supabase) return { success: false, message: "Supabase client not connected." };
 
   const createdByRole = transactions[0].createdByRole;
-  const initialStatus = (createdByRole === Role.OWNER)
-    ? TransactionStatus.APPROVED 
-    : TransactionStatus.PENDING;
+  
+  // Logic Update: SALES and RETURNS are immediate physical movements. 
+  // We mark them APPROVED immediately so stock updates, even if payment is PENDING (Credit).
+  // PURCHASES (incoming items) from Managers stay PENDING for Owner verification.
+  const getInitialStatus = (type: TransactionType) => {
+    if (createdByRole === Role.OWNER) return TransactionStatus.APPROVED;
+    if (type === TransactionType.SALE || type === TransactionType.RETURN) return TransactionStatus.APPROVED;
+    return TransactionStatus.PENDING;
+  };
 
   try {
     if (transactions.length === 0) return { success: true };
 
-    // 1. Pre-Validation (Stock Check)
+    // 1. Pre-Validation (Stock Check for Sales)
     const saleTransactions = transactions.filter(t => t.type === TransactionType.SALE);
     if (saleTransactions.length > 0) {
         const partNumbers = [...new Set(saleTransactions.map(t => t.partNumber))];
@@ -69,34 +75,38 @@ export const createBulkTransactions = async (
     }
 
     // 2. Insert Transactions
-    const dbRows = transactions.map(t => ({
-      part_number: t.partNumber,
-      type: t.type,
-      quantity: t.quantity,
-      price: t.price,
-      paid_amount: t.paidAmount || 0,
-      customer_name: t.customerName,
-      status: initialStatus,
-      payment_status: t.paymentStatus || 'PAID',
-      created_by_role: t.createdByRole,
-      related_transaction_id: t.relatedTransactionId
-    }));
+    const dbRows = transactions.map(t => {
+      const status = getInitialStatus(t.type);
+      return {
+        part_number: t.partNumber,
+        type: t.type,
+        quantity: t.quantity,
+        price: t.price,
+        paid_amount: t.paid_amount || 0,
+        customer_name: t.customer_name,
+        status: status,
+        payment_status: t.payment_status || 'PAID',
+        created_by_role: t.createdByRole,
+        related_transaction_id: t.related_transaction_id
+      };
+    });
 
     const { error: insertError } = await supabase.from('transactions').insert(dbRows);
     if (insertError) throw new Error(insertError.message);
 
-    // 3. Update Inventory (if Approved immediately - typically Owner role)
-    // Note: Stock decreases only on APPROVED status. Manager sales remain PENDING for owner review.
-    if (initialStatus === TransactionStatus.APPROVED) {
-      for (const tx of transactions) {
-         if (tx.type !== TransactionType.PURCHASE_ORDER) {
-           await updateStockForTransaction(tx.partNumber, tx.type, tx.quantity);
-           if (tx.type === TransactionType.PURCHASE) {
-              await fulfillRequisitionsForPart(tx.partNumber);
-           }
+    // 3. Update Inventory for immediately APPROVED transactions
+    for (let i = 0; i < transactions.length; i++) {
+      const tx = transactions[i];
+      const status = getInitialStatus(tx.type);
+      
+      if (status === TransactionStatus.APPROVED && tx.type !== TransactionType.PURCHASE_ORDER) {
+         await updateStockForTransaction(tx.partNumber, tx.type, tx.quantity);
+         if (tx.type === TransactionType.PURCHASE) {
+            await fulfillRequisitionsForPart(tx.partNumber);
          }
       }
     }
+    
     return { success: true };
 
   } catch (error: any) {
@@ -251,6 +261,7 @@ export const fetchInvoices = async (): Promise<Invoice[]> => {
   if (!supabase) return [];
   const { data, error } = await supabase.from('invoices').select('*').order('date', { ascending: false });
   if (error || !data) return [];
+  // Fix: changed property name tax_amount to taxAmount to match Invoice interface
   return data.map((i: any) => ({
       id: i.id, invoiceNumber: i.invoice_number, date: i.date, customerName: i.customer_name,
       customerPhone: i.customer_phone, customerAddress: i.customer_address, customerGst: i.customer_gst,

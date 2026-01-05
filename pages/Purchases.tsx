@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { User, Transaction, TransactionStatus, TransactionType, Brand } from '../types';
+import { User, Transaction, TransactionStatus, TransactionType, Brand, Role } from '../types';
 import DailyTransactions from './DailyTransactions';
 import { 
   History, 
@@ -31,7 +31,9 @@ import {
   CheckCircle2,
   AlertCircle,
   MessageCircle,
-  Upload
+  Upload,
+  // Fix: Added missing RefreshCw import
+  RefreshCw
 } from 'lucide-react';
 import { fetchTransactions, createBulkTransactions } from '../services/transactionService';
 import { fetchInventory, updateOrAddItems } from '../services/inventoryService';
@@ -72,7 +74,6 @@ interface QueuedFile {
 
 const Purchases: React.FC<Props> = ({ user }) => {
   const [activeTab, setActiveTab] = useState<'NEW' | 'IMPORT' | 'HISTORY'>('NEW');
-  const [viewMode, setViewMode] = useState<'STACKED' | 'LIST'>('STACKED');
   const [history, setHistory] = useState<Transaction[]>([]);
   const [inventory, setInventory] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -95,7 +96,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
 
   const loadHistory = async () => {
     setLoading(true);
-    const data = await fetchTransactions(TransactionStatus.APPROVED, TransactionType.PURCHASE);
+    const data = await fetchTransactions(undefined, TransactionType.PURCHASE);
     setHistory(data);
     setLoading(false);
   };
@@ -125,16 +126,6 @@ const Purchases: React.FC<Props> = ({ user }) => {
     return result;
   }, [history, sortOrder]);
 
-  const sortedListHistory = useMemo(() => {
-    const res = [...history];
-    res.sort((a, b) => {
-       const timeA = new Date(a.createdAt).getTime();
-       const timeB = new Date(b.createdAt).getTime();
-       return sortOrder === 'desc' ? timeB - timeA : timeA - timeB;
-    });
-    return res;
-  }, [history, sortOrder]);
-
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -147,7 +138,6 @@ const Purchases: React.FC<Props> = ({ user }) => {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
-    /* Fix: Explicitly type the mapped variable as File to avoid 'unknown' type errors and compatibility issues with URL.createObjectURL */
     const newQueued: QueuedFile[] = Array.from(files).map((f: File) => ({
         id: Math.random().toString(36).substring(7),
         file: f,
@@ -222,7 +212,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
             };
           });
           setPreviewData(verifiedItems);
-        } else throw new Error("Extraction failed: items not found.");
+        } else throw new Error("Extraction failed.");
       }
     } catch (err: any) { setErrorMsg(err.message); } 
     finally { setImporting(false); }
@@ -241,14 +231,15 @@ const Purchases: React.FC<Props> = ({ user }) => {
                 brand: item.partNumber.startsWith('HY') ? Brand.HYUNDAI : item.partNumber.startsWith('MH') ? Brand.MAHINDRA : undefined
             };
         });
-        const syncRes = await updateOrAddItems(inventoryPayload, { fileName: `Bill: ${sourceName}`, mode: 'AI_AUDIT_PURCHASE' });
+        // For managers, this remains a request. For owners, it's immediate.
+        const syncRes = await updateOrAddItems(inventoryPayload, { fileName: `Inbound: ${sourceName}`, mode: 'PURCHASE' });
         const txPayload = previewData.map(item => ({
             partNumber: item.partNumber, type: TransactionType.PURCHASE, quantity: item.quantity,
             price: item.printedUnitPrice, customerName: sourceName, createdByRole: user.role
         }));
         await createBulkTransactions(txPayload);
         setImportLog({ 
-            success: true, message: "Ledger Synchronized.", count: previewData.length,
+            success: true, message: "Registry Synced.", count: previewData.length,
             totalValue: txPayload.reduce((s, i) => s + (i.price * i.quantity), 0),
             errorCount: previewData.filter(i => i.hasError).length,
             addedCount: syncRes.added, updatedCount: syncRes.updated, dealer: extractedMetadata.dealerName
@@ -259,29 +250,31 @@ const Purchases: React.FC<Props> = ({ user }) => {
   };
 
   return (
-    <div className="h-full flex flex-col bg-slate-50 md:bg-transparent">
+    <div className="h-full flex flex-col bg-slate-50 md:bg-transparent animate-fade-in">
+       {/* MOBILE TAB NAV */}
        {!isSearchingOnMobile && (
          <div className="md:hidden bg-white p-4 border-b border-slate-100 z-20 sticky top-0 shadow-sm">
             <div className="flex bg-slate-100 p-1.5 rounded-2xl">
-               <button onClick={() => setActiveTab('NEW')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'NEW' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}>Entry</button>
-               <button onClick={() => setActiveTab('IMPORT')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'IMPORT' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400'}`}>Scan</button>
-               <button onClick={() => setActiveTab('HISTORY')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'HISTORY' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}>Ledger</button>
+               <button onClick={() => setActiveTab('NEW')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'NEW' ? 'bg-white text-brand-600 shadow-sm' : 'text-slate-400'}`}>POS</button>
+               <button onClick={() => setActiveTab('IMPORT')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'IMPORT' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400'}`}>SCAN</button>
+               <button onClick={() => setActiveTab('HISTORY')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'HISTORY' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}>JOURNAL</button>
             </div>
          </div>
        )}
 
+       {/* DESKTOP HEADER */}
        <div className="hidden md:flex justify-between items-center mb-8 px-1">
-          <div className="flex items-center gap-4">
-             <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-lg"><Truck size={24} /></div>
+          <div className="flex items-center gap-5">
+             <div className="w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-lg"><Truck size={28} /></div>
              <div>
-                <h1 className="text-2xl font-black text-slate-900 tracking-tight leading-none mb-1.5">Purchase Inbound</h1>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Document Registry & B.DC Verification</p>
+                <h1 className="text-3xl font-black text-slate-900 tracking-tight leading-none mb-1.5 uppercase">Acquisition</h1>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em]">Inbound Document Protocol • Manager Terminal</p>
              </div>
           </div>
           <div className="flex bg-white p-1.5 rounded-2xl border border-slate-200 shadow-soft">
-             <button onClick={() => setActiveTab('NEW')} className={`px-6 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 ${activeTab === 'NEW' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}><PlusCircle size={16} /> Manual</button>
-             <button onClick={() => setActiveTab('IMPORT')} className={`px-6 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 ${activeTab === 'IMPORT' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}><ScanLine size={16} /> AI Scan</button>
-             <button onClick={() => setActiveTab('HISTORY')} className={`px-6 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 ${activeTab === 'HISTORY' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}><History size={16} /> History</button>
+             <button onClick={() => setActiveTab('NEW')} className={`px-6 py-2.5 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 ${activeTab === 'NEW' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}><PlusCircle size={16} /> New Batch</button>
+             <button onClick={() => setActiveTab('IMPORT')} className={`px-6 py-2.5 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 ${activeTab === 'IMPORT' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}><ScanLine size={16} /> AI Audit</button>
+             <button onClick={() => setActiveTab('HISTORY')} className={`px-6 py-2.5 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 ${activeTab === 'HISTORY' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}><History size={16} /> Journal</button>
           </div>
        </div>
 
@@ -289,24 +282,24 @@ const Purchases: React.FC<Props> = ({ user }) => {
           {activeTab === 'NEW' && <DailyTransactions user={user} forcedMode="PURCHASE" onSearchToggle={setIsSearchingOnMobile} />}
 
           {activeTab === 'IMPORT' && (
-             <div className="max-w-4xl mx-auto w-full p-4 md:p-6 space-y-6 flex flex-col h-full overflow-y-auto no-scrollbar pb-40">
+             <div className="max-w-4xl mx-auto w-full p-4 md:p-6 space-y-8 flex flex-col h-full overflow-y-auto no-scrollbar pb-40">
                 {!previewData.length && !importLog && (
-                  <div className="space-y-6 animate-fade-in">
-                    <div className="bg-white border-2 border-slate-200/60 rounded-[3rem] p-12 text-center hover:border-blue-300 hover:bg-blue-50/10 transition-all group shadow-premium">
+                  <div className="space-y-8 animate-fade-in">
+                    <div className="bg-white border border-slate-200 rounded-[3rem] p-12 text-center group shadow-premium">
                         <div className="w-24 h-24 bg-slate-50 text-slate-200 rounded-[2.25rem] flex items-center justify-center mx-auto mb-10 group-hover:bg-blue-50 group-hover:text-blue-500 transition-all shadow-inner-soft"><ImageIcon size={48} /></div>
-                        <h2 className="text-3xl font-black text-slate-900 mb-3 tracking-tight">Invoice Digitization</h2>
-                        <p className="text-slate-400 mb-12 max-w-xs mx-auto text-[14px] font-bold leading-relaxed">Scan multi-page bills to verify 12% B.DC compliance automatically.</p>
-                        <label className="inline-flex items-center gap-4 bg-blue-600 hover:bg-blue-700 text-white font-black px-14 py-6 rounded-[2.5rem] cursor-pointer transition-all active:scale-95 shadow-elevated shadow-blue-500/20 uppercase text-[12px] tracking-[0.2em]">
-                           <Upload size={22} strokeWidth={3} /> Select Documents
-                           <input type="file" multiple accept="application/pdf, image/*, .xlsx, .xls, .xlsb, .csv" className="hidden" onChange={handleFileSelect} />
+                        <h2 className="text-3xl font-black text-slate-900 mb-4 tracking-tight">Invoice Digitsation</h2>
+                        <p className="text-slate-400 mb-12 max-w-xs mx-auto text-[15px] font-bold leading-relaxed">Upload provider invoices to auto-verify B.DC accuracy and initialize registry entries.</p>
+                        <label className="inline-flex items-center gap-4 bg-blue-600 hover:bg-blue-700 text-white font-black px-16 py-7 rounded-[2.5rem] cursor-pointer transition-all active:scale-95 shadow-elevated shadow-blue-500/20 uppercase text-[13px] tracking-[0.2em]">
+                           <Upload size={24} strokeWidth={3} /> Select Assets
+                           <input type="file" multiple accept="image/*, application/pdf" className="hidden" onChange={handleFileSelect} />
                         </label>
                     </div>
 
                     {queuedFiles.length > 0 && (
-                      <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-elevated">
+                      <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-elevated animate-slide-up">
                         <div className="flex justify-between items-center mb-8">
-                           <h4 className="font-black text-slate-900 uppercase tracking-[0.2em] text-[10px]">Processing Queue ({queuedFiles.length} Pages)</h4>
-                           <button onClick={() => setQueuedFiles([])} className="text-rose-500 font-black text-[10px] uppercase tracking-widest hover:underline">Clear Registry</button>
+                           <h4 className="font-black text-slate-900 uppercase tracking-[0.2em] text-[10px]">Transmission Queue ({queuedFiles.length} Pages)</h4>
+                           <button onClick={() => setQueuedFiles([])} className="text-rose-500 font-black text-[10px] uppercase tracking-widest hover:underline">Drop Session</button>
                         </div>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                            {queuedFiles.map((q) => (
@@ -324,132 +317,125 @@ const Purchases: React.FC<Props> = ({ user }) => {
                            </label>
                         </div>
                         <div className="mt-10 border-t border-slate-50 pt-8">
-                          <button onClick={startAiAudit} disabled={importing} className="w-full bg-slate-900 hover:bg-black text-white font-black py-6 rounded-[2rem] shadow-xl flex items-center justify-center gap-4 active:scale-[0.98] transition-all text-sm uppercase tracking-[0.2em]">
+                          <button onClick={startAiAudit} disabled={importing} className="w-full bg-slate-900 hover:bg-black text-white font-black py-6 rounded-[2rem] shadow-2xl flex items-center justify-center gap-4 active:scale-[0.98] transition-all text-[15px] uppercase tracking-[0.2em]">
                             {importing ? <Loader2 className="animate-spin" /> : <ScanLine size={24} />}
-                            {importing ? 'Analyzing Ledger...' : 'Initialize AI Audit'}
+                            {importing ? 'Processing Ledger...' : 'Initialize AI Audit'}
                           </button>
                         </div>
                       </div>
                     )}
-                    {errorMsg && <div className="mt-10 p-6 bg-rose-50 text-rose-600 rounded-[2rem] border border-rose-100 text-xs font-black flex items-center gap-4 justify-center uppercase tracking-widest shadow-soft animate-shake"><AlertCircle size={22} /> {errorMsg}</div>}
-                  </div>
-                )}
-
-                {importLog && (
-                  <div className="p-12 rounded-[3.5rem] border-2 flex flex-col items-center text-center animate-slide-up shadow-premium bg-white border-slate-100">
-                      <div className={`w-28 h-28 rounded-[2.5rem] mb-10 flex items-center justify-center shadow-xl ${importLog.success ? 'bg-teal-50 text-teal-600' : 'bg-rose-50 text-rose-600'}`}>
-                        {importLog.success ? <CheckCircle2 size={56} strokeWidth={2.5} /> : <AlertCircle size={56} strokeWidth={2.5} />}
-                      </div>
-                      <h3 className="text-4xl font-black text-slate-900 tracking-tighter">
-                        {importLog.success ? 'Sync Complete' : 'Process Halted'}
-                      </h3>
-                      <p className="mt-4 font-bold text-slate-400 text-base max-w-sm leading-relaxed">
-                         {importLog.success ? `Verified ${importLog.count} items. Stock balances updated across ${importLog.updatedCount} existing and ${importLog.addedCount} new SKUs.` : importLog.message}
-                      </p>
-                      <button onClick={() => { setImportLog(null); setPreviewData([]); setQueuedFiles([]); }} className="mt-14 text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] hover:text-blue-600 transition-colors">Start New Acquisition</button>
+                    {errorMsg && <div className="mt-10 p-8 bg-rose-50 text-rose-600 rounded-[2.5rem] border border-rose-100 text-xs font-black flex items-center gap-5 justify-center uppercase tracking-widest shadow-soft animate-shake"><AlertCircle size={26} /> {errorMsg}</div>}
                   </div>
                 )}
 
                 {previewData.length > 0 && (
-                  <div className="bg-white rounded-[3rem] shadow-premium border border-slate-200/80 overflow-hidden flex flex-col max-h-[80vh] animate-fade-in">
-                     <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/30">
-                        <div className="flex items-center gap-5">
-                           <div className="bg-blue-600 text-white p-3.5 rounded-2xl shadow-xl shadow-blue-500/20"><ShieldCheck size={26} strokeWidth={2.5} /></div>
+                  <div className="bg-white rounded-[3.5rem] shadow-premium border border-slate-200/80 overflow-hidden flex flex-col max-h-[80vh] animate-fade-in">
+                     <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-slate-50/40">
+                        <div className="flex items-center gap-6">
+                           <div className="bg-blue-600 text-white p-4 rounded-2xl shadow-xl shadow-blue-500/20"><ShieldCheck size={28} strokeWidth={2.5} /></div>
                            <div>
-                              <h3 className="font-black text-slate-900 text-xl tracking-tight leading-none mb-1.5">Extraction Ledger</h3>
-                              <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Protocol Check: 12% B.DC Rule</p>
+                              <h3 className="font-black text-slate-900 text-2xl tracking-tight leading-none mb-2">Audit Registry</h3>
+                              <p className="text-[11px] text-slate-400 font-black uppercase tracking-widest">Verification Protocol: 12% Basic Discount</p>
                            </div>
                         </div>
+                        <button onClick={() => setPreviewData([])} className="p-3 text-slate-400 hover:text-slate-900 transition-colors"><X size={24}/></button>
                      </div>
                      <div className="flex-1 overflow-y-auto no-scrollbar bg-white divide-y divide-slate-50">
                         {previewData.map((row, i) => (
-                           <div key={i} className={`px-10 py-8 group transition-all ${row.hasError ? 'bg-rose-50/20' : 'hover:bg-slate-50/50'}`}>
-                                <div className="flex justify-between items-start gap-8 mb-6">
+                           <div key={i} className={`px-10 py-10 group transition-all ${row.hasError ? 'bg-rose-50/20' : 'hover:bg-slate-50/30'}`}>
+                                <div className="flex justify-between items-start gap-10 mb-8">
                                    <div className="flex-1 min-w-0">
-                                      <div className="font-black text-slate-900 text-xl uppercase tracking-tight mb-2 group-hover:text-blue-600 transition-colors">{row.partNumber}</div>
-                                      <div className="text-[12px] text-slate-400 font-bold truncate uppercase tracking-tight">{row.name}</div>
+                                      <div className="font-black text-slate-900 text-2xl uppercase tracking-tighter mb-2 group-hover:text-blue-600 transition-colors">{row.partNumber}</div>
+                                      <div className="text-[13px] text-slate-400 font-bold truncate uppercase tracking-tight">{row.name}</div>
                                    </div>
-                                   <div className="bg-slate-900 text-white px-4 py-2 rounded-2xl text-[12px] font-black tabular-nums shadow-lg">
-                                      {row.quantity} PCS
+                                   <div className="bg-slate-900 text-white px-6 py-3 rounded-2xl text-[14px] font-black tabular-nums shadow-lg">
+                                      {row.quantity} Units
                                    </div>
                                 </div>
-                                <div className="grid grid-cols-3 gap-10 py-5 border-t border-slate-100/60">
-                                    <div className="space-y-1">
-                                        <p className="text-[8px] font-black text-slate-300 uppercase tracking-[0.2em]">Market Price</p>
-                                        <p className="font-black text-slate-500 text-sm">₹{row.mrp.toLocaleString()}</p>
+                                <div className="grid grid-cols-3 gap-12 py-6 border-t border-slate-100/80">
+                                    <div className="space-y-1.5">
+                                        <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Registry MRP</p>
+                                        <p className="font-black text-slate-500 text-base">₹{row.mrp.toLocaleString()}</p>
                                     </div>
-                                    <div className="space-y-1">
-                                        <p className="text-[8px] font-black text-slate-300 uppercase tracking-[0.2em]">Net Discount</p>
-                                        <p className={`font-black text-sm ${row.discountPercent < 12 ? 'text-rose-600' : 'text-slate-600'}`}>{row.discountPercent}%</p>
+                                    <div className="space-y-1.5">
+                                        <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Basic DC</p>
+                                        <p className={`font-black text-base ${row.discountPercent < 12 ? 'text-rose-600' : 'text-slate-600'}`}>{row.discountPercent}%</p>
                                     </div>
-                                    <div className="space-y-1 text-right">
-                                        <p className="text-[8px] font-black text-blue-400 uppercase tracking-[0.2em]">Billed Rate</p>
-                                        <p className="font-black text-blue-600 text-lg tracking-tighter">₹{row.printedUnitPrice.toLocaleString()}</p>
+                                    <div className="space-y-1.5 text-right">
+                                        <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest">Inbound Rate</p>
+                                        <p className="font-black text-blue-600 text-2xl tracking-tighter">₹{row.printedUnitPrice.toLocaleString()}</p>
                                     </div>
                                 </div>
                                 {row.hasError && (
-                                    <div className="mt-4 bg-rose-600 text-white p-4 rounded-2xl flex gap-3 items-center shadow-lg shadow-rose-200 animate-slide-up">
-                                        <AlertTriangle size={18} strokeWidth={3} className="flex-none" />
-                                        <div className="text-[10px] font-black uppercase tracking-widest leading-relaxed">
-                                          Discrepancy: {row.errorType === 'DISCOUNT_LOW' ? `Low DC (${row.discountPercent}% vs 12%)` : `Math mismatch of ₹${Math.abs(row.diff)} per unit`}
+                                    <div className="mt-6 bg-rose-600 text-white p-5 rounded-3xl flex gap-4 items-center shadow-lg shadow-rose-200 animate-slide-up">
+                                        <AlertTriangle size={22} strokeWidth={3} className="flex-none" />
+                                        <div className="text-[11px] font-black uppercase tracking-widest leading-relaxed">
+                                          Discrepancy: {row.errorType === 'DISCOUNT_LOW' ? `Low basic discount detected (${row.discountPercent}% vs expected 12%)` : `Rounding mismatch of ₹${Math.abs(row.diff)} per unit`}
                                         </div>
                                     </div>
                                 )}
                            </div>
                         ))}
                      </div>
-                     <div className="p-10 border-t border-slate-100 bg-white shadow-[0_-15px_40px_rgba(0,0,0,0.04)]">
-                        <button onClick={confirmBulkImport} disabled={importing} className="w-full bg-slate-900 hover:bg-black text-white font-black py-6 rounded-[2rem] shadow-2xl flex items-center justify-center gap-4 active:scale-[0.98] transition-all uppercase text-xs tracking-[0.2em]">
-                          {importing ? <Loader2 className="animate-spin" /> : <Database size={24} />} Commit Changes to Master Ledger
+                     <div className="p-10 border-t border-slate-100 bg-white shadow-inner-soft">
+                        <button onClick={confirmBulkImport} disabled={importing} className="w-full bg-slate-900 hover:bg-black text-white font-black py-7 rounded-[2.5rem] shadow-2xl flex items-center justify-center gap-5 active:scale-[0.98] transition-all uppercase text-[15px] tracking-widest">
+                          {importing ? <Loader2 className="animate-spin" size={24} /> : <Database size={28} />} Synchronize with Master Ledger
                         </button>
                      </div>
+                  </div>
+                )}
+
+                {importLog && (
+                  <div className="p-16 rounded-[4rem] border border-slate-100 flex flex-col items-center text-center animate-slide-up shadow-premium bg-white">
+                      <div className={`w-32 h-32 rounded-[3rem] mb-12 flex items-center justify-center shadow-xl ${importLog.success ? 'bg-teal-50 text-teal-600 shadow-teal-100' : 'bg-rose-50 text-rose-600 shadow-rose-100'}`}>
+                        {importLog.success ? <CheckCircle2 size={64} strokeWidth={2.5} /> : <AlertCircle size={64} strokeWidth={2.5} />}
+                      </div>
+                      <h3 className="text-4xl font-black text-slate-900 tracking-tighter uppercase">{importLog.success ? 'Synchronization Ready' : 'Protocol Terminated'}</h3>
+                      <p className="mt-6 font-bold text-slate-400 text-lg max-w-sm leading-relaxed">
+                         {importLog.success ? `Verification complete for ${importLog.count} items. ${user.role === Role.MANAGER ? 'Inbound batch queued for final admin authorization.' : 'Stock balances successfully finalized.'}` : importLog.message}
+                      </p>
+                      <button onClick={() => { setImportLog(null); setPreviewData([]); setQueuedFiles([]); }} className="mt-16 text-[12px] font-black text-slate-400 uppercase tracking-[0.4em] hover:text-blue-600 transition-colors active:scale-95">Initialize New Batch</button>
                   </div>
                 )}
              </div>
           )}
 
           {activeTab === 'HISTORY' && (
-             <div className="bg-[#F8FAFC] md:bg-white md:rounded-[3rem] shadow-premium border border-slate-200/60 flex flex-col h-full overflow-hidden">
-                <div className="p-8 border-b border-slate-100 bg-white flex items-center justify-between">
+             <div className="bg-[#F8FAFC] md:bg-white md:rounded-[3.5rem] shadow-premium border border-slate-200/60 flex flex-col h-full overflow-hidden">
+                <div className="p-8 border-b border-slate-100 bg-white flex items-center justify-between sticky top-0 z-10">
                    <div className="flex items-center gap-5">
-                      <div className="p-3 bg-slate-900 text-white rounded-2xl shadow-lg"><Truck size={24} strokeWidth={2.5} /></div>
+                      <div className="p-3.5 bg-slate-900 text-white rounded-2xl shadow-xl shadow-slate-200"><Truck size={28} strokeWidth={2.5} /></div>
                       <div>
-                         <span className="font-black text-slate-900 text-xl tracking-tight block uppercase">Financial Journal</span>
-                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Inbound Logistics Log</span>
+                         <span className="font-black text-slate-900 text-2xl tracking-tighter block uppercase leading-none mb-1.5">Acquisition Journal</span>
+                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Clock size={12}/> Chronological Ledger Logs</span>
                       </div>
                    </div>
-                   <div className="flex items-center gap-3">
-                      <button onClick={() => setSortOrder(s => s === 'asc' ? 'desc' : 'asc')} className="p-3.5 bg-slate-50 text-slate-400 rounded-2xl hover:text-slate-900 border border-slate-100 transition-all"><ArrowUpDown size={20} /></button>
-                      <button onClick={loadHistory} className="p-3.5 bg-slate-50 text-slate-400 rounded-2xl hover:text-slate-900 border border-slate-100 transition-all"><Clock size={20} /></button>
-                   </div>
+                   <button onClick={loadHistory} className="p-4 bg-slate-50 text-slate-400 hover:text-blue-600 rounded-2xl transition-all active:rotate-180 duration-500 shadow-soft border border-slate-100"><RefreshCw size={22} /></button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-6 md:p-10 space-y-6 no-scrollbar pb-40 bg-slate-50/30">
-                  {loading ? <TharLoader /> : history.length === 0 ? <div className="p-40 text-center opacity-10"><History size={80} className="mx-auto" /></div> : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="flex-1 overflow-y-auto p-6 md:p-10 space-y-6 no-scrollbar pb-40 bg-slate-50/20">
+                  {loading ? <TharLoader /> : history.length === 0 ? <div className="p-48 text-center opacity-10"><History size={100} className="mx-auto" /></div> : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {stackedHistory.map(stack => (
-                            <div key={stack.id} onClick={() => setSelectedInbound(stack)} className="p-8 bg-white rounded-[2.5rem] border-2 border-slate-100 shadow-soft hover:border-blue-200 hover:shadow-xl transition-all cursor-pointer group relative animate-fade-in">
-                                <div className="absolute -bottom-2 left-10 right-10 h-2 bg-slate-200 rounded-b-3xl opacity-20 group-hover:-bottom-3 transition-all"></div>
-                                <div className="flex justify-between items-start mb-8">
-                                    <div className="space-y-1.5">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <div className="p-1.5 rounded-lg bg-blue-50 text-blue-600"><FileText size={14}/></div>
-                                            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-600">INBOUND REGISTER</span>
+                            <div key={stack.id} onClick={() => setSelectedInbound(stack)} className="p-10 bg-white rounded-[3.5rem] border-2 border-slate-100 shadow-soft hover:border-blue-300 hover:shadow-xl transition-all cursor-pointer group relative animate-fade-in flex flex-col">
+                                <div className="flex justify-between items-start mb-10">
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-2 mb-1.5">
+                                            <div className="w-2.5 h-2.5 rounded-full bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.4)]"></div>
+                                            <span className="text-[10px] font-black uppercase tracking-[0.25em] text-blue-600">INBOUND LOG</span>
                                         </div>
-                                        <div className="text-[11px] font-bold text-slate-400 flex items-center gap-2">
-                                            <Calendar size={12}/> {new Date(stack.createdAt).toLocaleDateString()}
-                                        </div>
+                                        <div className="text-[12px] font-bold text-slate-400 flex items-center gap-2 uppercase tracking-widest"><Calendar size={14} className="opacity-40"/> {new Date(stack.createdAt).toLocaleDateString()}</div>
                                     </div>
-                                    <div className="bg-slate-900 text-white w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg active:scale-90 transition-all"><ChevronRight size={20} /></div>
+                                    <div className="bg-slate-900 text-white w-12 h-12 rounded-[1.25rem] flex items-center justify-center shadow-lg active:scale-90 transition-all group-hover:bg-blue-600"><ChevronRight size={26} /></div>
                                 </div>
-                                <div className="mb-8 min-h-[50px]">
-                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Supplier / Entity</p>
-                                    <div className="font-black text-lg text-slate-900 leading-tight truncate group-hover:text-blue-600 transition-colors uppercase">{stack.customerName || 'Standard Batch'}</div>
+                                <div className="mb-10 flex-1">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5">Registry Entity</p>
+                                    <div className="font-black text-xl text-slate-900 leading-tight truncate group-hover:text-blue-600 transition-colors uppercase">{stack.customerName || 'Inbound Batch'}</div>
                                 </div>
-                                <div className="flex justify-between items-end border-t border-slate-50 pt-6">
+                                <div className="flex justify-between items-end border-t border-slate-50 pt-8 mt-auto">
                                     <div className="text-right">
-                                        <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-0.5">Asset Value</p>
-                                        <p className="text-2xl font-black text-slate-900 tracking-tighter tabular-nums">₹{stack.totalValue.toLocaleString()}</p>
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Liability</p>
+                                        <p className="text-3xl font-black text-slate-900 tracking-tighter tabular-nums">₹{stack.totalValue.toLocaleString()}</p>
                                     </div>
                                 </div>
                             </div>
@@ -463,55 +449,54 @@ const Purchases: React.FC<Props> = ({ user }) => {
 
        {/* INBOUND DETAIL MODAL */}
        {selectedInbound && (
-          <div className="fixed inset-0 z-[200] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
-              <div className="bg-white w-full max-w-4xl rounded-[3rem] shadow-2xl flex flex-col max-h-[85vh] overflow-hidden animate-slide-up">
-                  <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+          <div className="fixed inset-0 z-[200] bg-slate-900/70 backdrop-blur-md flex items-center justify-center p-4 lg:p-8 animate-fade-in overflow-hidden">
+              <div className="bg-white w-full max-w-4xl rounded-[3.5rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-slide-up relative">
+                  <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-10 shadow-sm">
                       <div className="flex items-center gap-6">
-                          <button onClick={() => setSelectedInbound(null)} className="p-3.5 bg-white text-slate-400 hover:text-slate-900 rounded-2xl shadow-soft border border-slate-100 active:scale-90"><ArrowLeft size={24}/></button>
+                          <button onClick={() => setSelectedInbound(null)} className="p-4 bg-slate-50 text-slate-400 hover:text-slate-900 rounded-2xl border border-slate-100 active:scale-90 transition-all shadow-soft"><ArrowLeft size={24}/></button>
                           <div>
-                              <h3 className="font-black text-slate-900 text-2xl tracking-tight leading-none mb-2 uppercase">{selectedInbound.customerName || 'Bulk Inbound'}</h3>
-                              <div className="flex items-center gap-3 text-slate-400 text-xs font-black uppercase tracking-widest">
-                                  <Calendar size={14}/> {new Date(selectedInbound.createdAt).toLocaleDateString()}
-                                  <span className="text-slate-200">|</span>
-                                  <Clock size={14}/> {new Date(selectedInbound.createdAt).toLocaleTimeString()}
+                              <h3 className="font-black text-slate-900 text-3xl tracking-tighter leading-none mb-2 uppercase">{selectedInbound.customerName || 'Acquisition Detail'}</h3>
+                              <div className="flex items-center gap-4 text-slate-400 text-[11px] font-black uppercase tracking-[0.2em]">
+                                  <Calendar size={14} className="opacity-40"/> {new Date(selectedInbound.createdAt).toLocaleDateString()}
+                                  <span className="w-1.5 h-1.5 rounded-full bg-slate-200"></span>
+                                  <Clock size={14} className="opacity-40"/> {new Date(selectedInbound.createdAt).toLocaleTimeString()}
                               </div>
                           </div>
                       </div>
+                      <div className="px-6 py-3 bg-slate-900 text-white rounded-2xl text-[12px] font-black uppercase tracking-widest shadow-lg">{selectedInbound.items.length} Items</div>
                   </div>
-                  <div className="flex-1 overflow-y-auto p-10 no-scrollbar space-y-4">
-                      <div className="space-y-3">
-                          {selectedInbound.items.map((item, idx) => (
-                              <div key={item.id} className="p-8 bg-slate-50/40 rounded-[2.5rem] border border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-6 hover:bg-white hover:border-blue-200 hover:shadow-soft transition-all">
-                                  <div className="flex items-center gap-6">
-                                      <div className="w-12 h-12 bg-white rounded-2xl border border-slate-100 flex items-center justify-center font-black text-slate-200 text-sm">{idx + 1}</div>
-                                      <div>
-                                          <div className="font-black text-slate-900 text-lg leading-tight tracking-tight uppercase mb-1">{item.partNumber}</div>
-                                          <p className="text-[11px] text-slate-400 font-black uppercase tracking-widest">Rate: ₹{item.price.toLocaleString()}</p>
-                                      </div>
-                                  </div>
-                                  <div className="flex items-center justify-between md:justify-end gap-14 border-t md:border-t-0 border-slate-100 pt-6 md:pt-0">
-                                      <div className="text-right">
-                                          <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">Quantity</p>
-                                          <p className="text-xl font-black text-slate-900">{item.quantity}</p>
-                                      </div>
-                                      <div className="text-right">
-                                          <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">Subtotal</p>
-                                          <p className="text-xl font-black text-slate-900 tracking-tighter">₹{(item.price * item.quantity).toLocaleString()}</p>
-                                      </div>
+                  <div className="flex-1 overflow-y-auto p-8 md:p-12 no-scrollbar space-y-6 bg-slate-50/30">
+                      {selectedInbound.items.map((item, idx) => (
+                          <div key={item.id} className="p-8 bg-white rounded-[3rem] border border-slate-200/80 flex flex-col md:flex-row md:items-center justify-between gap-8 hover:border-blue-300 hover:shadow-soft transition-all group">
+                              <div className="flex items-center gap-8">
+                                  <div className="w-14 h-14 bg-slate-50 rounded-[1.25rem] border border-slate-100 flex items-center justify-center font-black text-slate-300 text-lg group-hover:text-blue-500 transition-colors">{idx + 1}</div>
+                                  <div>
+                                      <div className="font-black text-slate-900 text-xl tracking-tight leading-none uppercase mb-2 group-hover:text-blue-600 transition-colors">{item.partNumber}</div>
+                                      <p className="text-[12px] text-slate-400 font-bold uppercase tracking-[0.2em]">Net Unit Rate: ₹{item.price.toLocaleString()}</p>
                                   </div>
                               </div>
-                          ))}
-                      </div>
+                              <div className="flex items-center justify-between md:justify-end gap-16 border-t md:border-t-0 border-slate-100 pt-8 md:pt-0">
+                                  <div className="text-right">
+                                      <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1.5">Quantity</p>
+                                      <p className="text-2xl font-black text-slate-900 tabular-nums">{item.quantity} PCS</p>
+                                  </div>
+                                  <div className="text-right">
+                                      <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1.5">Asset Total</p>
+                                      <p className="text-2xl font-black text-blue-600 tracking-tighter tabular-nums">₹{(item.price * item.quantity).toLocaleString()}</p>
+                                  </div>
+                              </div>
+                          </div>
+                      ))}
                   </div>
-                  <div className="p-10 border-t border-slate-100 bg-white flex flex-col md:flex-row justify-between items-center gap-8 shadow-inner-soft">
-                      <div className="flex items-center gap-6">
-                          <div className="p-4 bg-blue-600 text-white rounded-3xl shadow-xl shadow-blue-500/20"><Database size={32} /></div>
+                  <div className="p-10 border-t border-slate-100 bg-white flex flex-col md:flex-row justify-between items-center gap-10 sticky bottom-0 z-10 shadow-inner-soft">
+                      <div className="flex items-center gap-8">
+                          <div className="p-5 bg-slate-900 text-white rounded-[2rem] shadow-xl shadow-slate-200"><Database size={36} strokeWidth={2.5} /></div>
                           <div>
-                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Total Acquisition Value</p>
+                              <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.25em] mb-1">Batch Value Logged</p>
                               <p className="text-4xl font-black text-slate-900 tracking-tighter tabular-nums">₹{selectedInbound.totalValue.toLocaleString()}</p>
                           </div>
                       </div>
-                      <button onClick={() => setSelectedInbound(null)} className="w-full md:w-auto bg-slate-100 hover:bg-slate-200 text-slate-600 font-black px-14 py-6 rounded-[2rem] active:scale-95 transition-all text-xs uppercase tracking-widest">Dismiss Log View</button>
+                      <button onClick={() => setSelectedInbound(null)} className="w-full md:w-auto bg-slate-100 hover:bg-slate-200 text-slate-600 font-black px-16 py-6 rounded-[2.5rem] active:scale-95 transition-all text-xs uppercase tracking-[0.2em]">Close Registry View</button>
                   </div>
               </div>
           </div>
