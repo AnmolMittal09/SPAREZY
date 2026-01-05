@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Role, TransactionType, User, StockItem, Customer, Brand, TransactionStatus } from '../types';
 import { createBulkTransactions, fetchTransactions } from '../services/transactionService';
-import { fetchInventory } from '../services/inventoryService';
+import { fetchInventory, updateOrAddItems } from '../services/inventoryService';
 import { getCustomers } from '../services/masterService';
 import { 
   Search,
@@ -22,7 +22,10 @@ import {
   Percent,
   Calculator,
   Lock,
-  History
+  History,
+  PlusSquare,
+  Tag,
+  Layers
 } from 'lucide-react';
 import ConfirmModal from '../components/ConfirmModal';
 
@@ -48,6 +51,8 @@ interface CartItem {
   discount: number;
   customerName: string;
   stockError?: boolean;
+  isNewSku?: boolean; // Flag to indicate if we need to create this in inventory first
+  brand?: Brand;
 }
 
 const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }) => {
@@ -67,6 +72,15 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
   const [showMobileSearch, setShowMobileSearch] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [hideFilters, setHideFilters] = useState(false);
+
+  // New SKU State
+  const [isAddingNewSku, setIsAddingNewSku] = useState(false);
+  const [newSkuForm, setNewSkuForm] = useState({
+      partNumber: '',
+      name: '',
+      mrp: '',
+      brand: Brand.HYUNDAI
+  });
 
   useEffect(() => {
     loadBaseData();
@@ -168,6 +182,42 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
       resetSearch();
   };
 
+  const openNewSkuModal = () => {
+      setNewSkuForm({
+          ...newSkuForm,
+          partNumber: search.toUpperCase(),
+          brand: search.toUpperCase().startsWith('MH') ? Brand.MAHINDRA : Brand.HYUNDAI
+      });
+      setIsAddingNewSku(true);
+  };
+
+  const confirmAddNewSku = () => {
+      if (!newSkuForm.partNumber || !newSkuForm.name || !newSkuForm.mrp) {
+          return alert("Please fill all mandatory SKU details.");
+      }
+
+      const mrp = parseFloat(newSkuForm.mrp);
+      if (isNaN(mrp)) return alert("MRP must be a valid number.");
+
+      const newItem: CartItem = {
+          tempId: Math.random().toString(36).substring(2),
+          partNumber: newSkuForm.partNumber.toUpperCase().trim(),
+          name: newSkuForm.name,
+          type: TransactionType.PURCHASE,
+          quantity: 1,
+          mrp: mrp,
+          discount: 12,
+          price: mrp * 0.88,
+          customerName: customerName,
+          isNewSku: true,
+          brand: newSkuForm.brand
+      };
+
+      setCart(prev => [...prev, newItem]);
+      setIsAddingNewSku(false);
+      resetSearch();
+  };
+
   const resetSearch = () => {
     setSearch('');
     setSuggestions([]);
@@ -193,7 +243,6 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
           }));
   };
 
-  // --- FIX: Added missing removeItem function ---
   const removeItem = (id: string) => {
     setCart(prev => prev.filter(item => item.tempId !== id));
   };
@@ -239,12 +288,28 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
   };
 
   const executeSubmit = async () => {
+      setLoading(true);
+      
+      // 1. Check for New SKUs and initialize them in inventory with 0 stock
+      const newItemsToCreate = cart.filter(c => c.isNewSku);
+      if (newItemsToCreate.length > 0) {
+          const creationPayload = newItemsToCreate.map(c => ({
+              partNumber: c.partNumber,
+              name: c.name,
+              price: c.mrp,
+              brand: c.brand,
+              quantity: 0 // Start at 0, purchase transaction will increment it
+          }));
+          await updateOrAddItems(creationPayload);
+      }
+
+      // 2. Process all transactions
       const payload = cart.map(c => ({
           ...c,
           customerName: customerName || (mode === 'PURCHASE' ? 'Manual Supplier' : 'Walk-in'),
           createdByRole: user.role
       }));
-      setLoading(true);
+      
       const res = await createBulkTransactions(payload);
       setLoading(false);
       setShowConfirm(false);
@@ -263,6 +328,85 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
   return (
     <div className="flex-1 h-full flex flex-col animate-fade-in overflow-hidden">
        
+       {/* NEW SKU MODAL */}
+       {isAddingNewSku && (
+         <div className="fixed inset-0 z-[1100] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+            <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-100 animate-slide-up">
+                <div className="p-8 pb-4">
+                    <div className="flex items-center gap-4 mb-6">
+                        <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl shadow-inner">
+                            <PlusSquare size={24} strokeWidth={2.5} />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-black text-slate-900 tracking-tight">Define New SKU</h3>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Inventory Catalog Registry</p>
+                        </div>
+                    </div>
+
+                    <div className="space-y-5">
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Part Number (PN)</label>
+                            <input 
+                                type="text"
+                                className="w-full bg-slate-50 p-4 rounded-2xl border-none outline-none font-black text-slate-900 focus:ring-4 focus:ring-blue-500/5 transition-all uppercase shadow-inner-soft"
+                                value={newSkuForm.partNumber}
+                                onChange={e => setNewSkuForm({...newSkuForm, partNumber: e.target.value})}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Part Description</label>
+                            <input 
+                                type="text"
+                                placeholder="e.g. FRONT BUMPER ASSEMBLY"
+                                className="w-full bg-slate-50 p-4 rounded-2xl border-none outline-none font-black text-slate-900 focus:ring-4 focus:ring-blue-500/5 transition-all uppercase shadow-inner-soft"
+                                value={newSkuForm.name}
+                                onChange={e => setNewSkuForm({...newSkuForm, name: e.target.value})}
+                            />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Brand</label>
+                                <select 
+                                    className="w-full bg-slate-50 p-4 rounded-2xl border-none outline-none font-black text-slate-900 focus:ring-4 focus:ring-blue-500/5 transition-all shadow-inner-soft appearance-none"
+                                    value={newSkuForm.brand}
+                                    onChange={e => setNewSkuForm({...newSkuForm, brand: e.target.value as Brand})}
+                                >
+                                    <option value={Brand.HYUNDAI}>HYUNDAI</option>
+                                    <option value={Brand.MAHINDRA}>MAHINDRA</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">MRP Rate (₹)</label>
+                                <input 
+                                    type="number"
+                                    placeholder="0.00"
+                                    className="w-full bg-slate-50 p-4 rounded-2xl border-none outline-none font-black text-slate-900 focus:ring-4 focus:ring-blue-500/5 transition-all shadow-inner-soft"
+                                    value={newSkuForm.mrp}
+                                    onChange={e => setNewSkuForm({...newSkuForm, mrp: e.target.value})}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="p-6 bg-slate-50 flex gap-3 mt-4">
+                    <button 
+                        onClick={() => setIsAddingNewSku(false)}
+                        className="flex-1 px-6 py-4 bg-white border border-slate-200 text-slate-600 font-bold rounded-2xl hover:bg-slate-100 transition-all active:scale-95"
+                    >
+                        Cancel
+                    </button>
+                    <button 
+                        onClick={confirmAddNewSku}
+                        className="flex-[1.5] px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-2xl shadow-xl shadow-blue-100 transition-all active:scale-95 flex items-center justify-center gap-2 uppercase text-xs tracking-widest"
+                    >
+                        Initialize SKU
+                    </button>
+                </div>
+            </div>
+         </div>
+       )}
+
        {/* MOBILE SEARCH MODAL */}
        {showMobileSearch && (
          <div className="fixed inset-0 z-[999] bg-white flex flex-col animate-slide-up h-[100dvh] w-screen overflow-hidden">
@@ -317,6 +461,19 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                         </button>
                     );
                 })}
+
+                {suggestions.length === 0 && search.length > 2 && mode === 'PURCHASE' && (
+                    <button 
+                       onClick={openNewSkuModal}
+                       className="w-full bg-indigo-50 border-2 border-dashed border-indigo-200 p-8 rounded-[2.5rem] text-center active:scale-95 transition-all group"
+                    >
+                        <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 text-indigo-600 shadow-soft group-hover:scale-110 transition-transform">
+                            <PlusSquare size={28} strokeWidth={2.5} />
+                        </div>
+                        <p className="text-sm font-black text-indigo-900 uppercase tracking-tight mb-1">Part Not Found</p>
+                        <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest leading-relaxed">Initialize "{search.toUpperCase()}" in Master Registry</p>
+                    </button>
+                )}
             </div>
          </div>
        )}
@@ -365,6 +522,20 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                             );
                          })}
                       </div>
+                  ) : search.length > 2 && mode === 'PURCHASE' ? (
+                      <div className="flex flex-col items-center justify-center h-full text-center max-w-xs mx-auto animate-fade-in">
+                          <div className="w-24 h-24 bg-indigo-50 text-indigo-600 rounded-[2rem] flex items-center justify-center mb-8 shadow-inner">
+                              <Tag size={40} strokeWidth={2} />
+                          </div>
+                          <h3 className="font-black text-slate-900 text-2xl tracking-tight mb-2 uppercase">Unregistered SKU</h3>
+                          <p className="text-slate-400 font-bold text-sm mb-10 leading-relaxed uppercase tracking-widest">Part "{search.toUpperCase()}" is not in the system catalog.</p>
+                          <button 
+                             onClick={openNewSkuModal}
+                             className="w-full bg-slate-900 hover:bg-black text-white font-black py-5 rounded-2xl shadow-xl shadow-slate-200 transition-all active:scale-95 flex items-center justify-center gap-3 uppercase text-xs tracking-widest"
+                          >
+                             <PlusSquare size={20} /> Create Part Registry
+                          </button>
+                      </div>
                   ) : (
                       <div className="flex flex-col items-center justify-center h-full text-slate-200">
                           <PackagePlus size={80} className="mb-8 opacity-10" />
@@ -398,10 +569,13 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
 
                 <div className="flex-1 overflow-y-auto p-10 pt-0 space-y-4 no-scrollbar">
                     {cart.map(item => (
-                        <div key={item.tempId} className="p-6 rounded-[2rem] border border-white/5 bg-white/[0.03] flex flex-col gap-4 animate-fade-in hover:bg-white/[0.05] transition-all">
+                        <div key={item.tempId} className={`p-6 rounded-[2rem] border border-white/5 bg-white/[0.03] flex flex-col gap-4 animate-fade-in hover:bg-white/[0.05] transition-all ${item.isNewSku ? 'ring-1 ring-blue-500/30' : ''}`}>
                             <div className="flex justify-between items-start">
                                 <div className="min-w-0 pr-4 flex-1">
-                                    <div className="font-black text-white text-lg tracking-tight uppercase leading-none mb-1.5">{item.partNumber}</div>
+                                    <div className="flex items-center gap-2 mb-1.5">
+                                        <div className="font-black text-white text-lg tracking-tight uppercase leading-none">{item.partNumber}</div>
+                                        {item.isNewSku && <span className="text-[8px] font-black bg-blue-600 px-1.5 py-0.5 rounded text-white uppercase tracking-widest">New</span>}
+                                    </div>
                                     <div className="text-[11px] text-white/40 font-bold truncate uppercase tracking-tight">{item.name}</div>
                                 </div>
                                 <div className="text-right">
@@ -468,10 +642,13 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                       </div>
                   ) : (
                      cart.map(item => (
-                        <div key={item.tempId} className="bg-white p-8 rounded-[2.5rem] shadow-soft border border-slate-200/60 flex flex-col gap-6 animate-fade-in">
+                        <div key={item.tempId} className={`bg-white p-8 rounded-[2.5rem] shadow-soft border border-slate-200/60 flex flex-col gap-6 animate-fade-in ${item.isNewSku ? 'ring-2 ring-blue-500 ring-offset-2' : ''}`}>
                            <div className="flex justify-between items-start">
                                <div className="flex-1 min-w-0 pr-4">
-                                  <div className="font-black text-slate-900 text-2xl tracking-tighter leading-none mb-1.5 uppercase">{item.partNumber}</div>
+                                  <div className="flex items-center gap-2 mb-1.5">
+                                    <div className="font-black text-slate-900 text-2xl tracking-tighter leading-none uppercase">{item.partNumber}</div>
+                                    {item.isNewSku && <span className="text-[10px] font-black bg-blue-600 px-2 py-0.5 rounded text-white uppercase tracking-widest">New SKU</span>}
+                                  </div>
                                   <div className="text-[13px] text-slate-400 font-bold truncate leading-none uppercase tracking-tight">{item.name}</div>
                                </div>
                                <div className="text-right">
