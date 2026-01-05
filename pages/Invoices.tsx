@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { User, Transaction, ShopSettings, TransactionStatus, TransactionType } from '../types';
 import { fetchUninvoicedSales, generateTaxInvoiceRecord, fetchInvoices, fetchTransactions } from '../services/transactionService';
@@ -9,6 +10,11 @@ import TharLoader from '../components/TharLoader';
 import Logo from '../components/Logo';
 // @ts-ignore
 import { useNavigate } from 'react-router-dom';
+
+const fd = (n: number | string) => {
+  const num = parseInt(n.toString()) || 0;
+  return num >= 0 && num < 10 ? `0${num}` : `${num}`;
+};
 
 interface Props {
   user: User;
@@ -189,12 +195,12 @@ const Invoices: React.FC<Props> = ({ user }) => {
             <tbody className="divide-y divide-slate-200 border-x border-b border-slate-200">
                 {selectedItems.map((item, idx) => (
                 <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
-                    <td className="py-3 px-4 text-slate-500 font-mono">{idx + 1}</td>
+                    <td className="py-3 px-4 text-slate-500 font-mono">{fd(idx + 1)}</td>
                     <td className="py-3 px-4">
                         <p className="font-bold text-slate-800 text-base">{item.partNumber}</p>
                         <p className="text-xs text-slate-500">{item.name}</p>
                     </td>
-                    <td className="py-3 px-4 text-center font-medium">{item.quantity}</td>
+                    <td className="py-3 px-4 text-center font-medium">{fd(item.quantity)}</td>
                     <td className="py-3 px-4 text-right text-slate-600">₹{item.price.toFixed(2)}</td>
                     <td className="py-3 px-4 text-right font-bold text-slate-900">₹{(item.price * item.quantity).toFixed(2)}</td>
                 </tr>
@@ -294,7 +300,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
                </div>
                <div>
                   <h3 className="text-sm font-bold text-amber-900">Attention Needed</h3>
-                  <p className="text-xs text-amber-800">{pendingApprovalCount} sales need approval before invoicing.</p>
+                  <p className="text-xs text-amber-800">{fd(pendingApprovalCount)} sales need approval before invoicing.</p>
                </div>
             </div>
             <button 
@@ -312,17 +318,17 @@ const Invoices: React.FC<Props> = ({ user }) => {
                {/* STEPPER */}
                <div className="bg-white border-b border-slate-200 px-4 md:px-8 py-4 flex items-center justify-center gap-2 md:gap-4 no-print shadow-sm z-10">
                   <div className={`flex items-center gap-2 text-xs md:text-sm font-bold ${step >= 1 ? 'text-blue-600' : 'text-slate-300'}`}>
-                     <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs border ${step >= 1 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-slate-300 text-slate-400'}`}>1</span>
+                     <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs border ${step >= 1 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-slate-300 text-slate-400'}`}>01</span>
                      <span className="hidden md:inline">Select Sales</span>
                   </div>
                   <div className={`w-8 md:w-16 h-0.5 ${step >= 2 ? 'bg-blue-600' : 'bg-slate-100'}`}></div>
                   <div className={`flex items-center gap-2 text-xs md:text-sm font-bold ${step >= 2 ? 'text-blue-600' : 'text-slate-300'}`}>
-                     <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs border ${step >= 2 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-slate-300 text-slate-400'}`}>2</span>
+                     <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs border ${step >= 2 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-slate-300 text-slate-400'}`}>02</span>
                      <span className="hidden md:inline">Details</span>
                   </div>
                   <div className={`w-8 md:w-16 h-0.5 ${step >= 3 ? 'bg-blue-600' : 'bg-slate-100'}`}></div>
                   <div className={`flex items-center gap-2 text-xs md:text-sm font-bold ${step >= 3 ? 'text-blue-600' : 'text-slate-300'}`}>
-                     <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs border ${step >= 3 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-slate-300 text-slate-400'}`}>3</span>
+                     <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs border ${step >= 3 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-slate-300 text-slate-400'}`}>03</span>
                      <span className="hidden md:inline">Print</span>
                   </div>
                </div>
@@ -386,7 +392,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
                                          </div>
                                          <div className="text-right">
                                             <div className="font-bold text-slate-900">₹{(sale.price * sale.quantity).toLocaleString()}</div>
-                                            <div className="text-xs text-slate-500">{sale.quantity} units x ₹{sale.price}</div>
+                                            <div className="text-xs text-slate-500">{fd(sale.quantity)} units x ₹{sale.price}</div>
                                          </div>
                                       </div>
                                    );
@@ -398,7 +404,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
                        <div className="p-4 border-t border-slate-200 bg-white flex justify-between items-center shadow-lg z-20">
                           <div>
                              <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Total Selected</p>
-                             <p className="text-xl font-bold text-slate-900">{selectedIds.size} <span className="text-sm font-medium text-slate-400">items</span></p>
+                             <p className="text-xl font-bold text-slate-900">{fd(selectedIds.size)} <span className="text-sm font-medium text-slate-400">items</span></p>
                           </div>
                           <button 
                              disabled={selectedIds.size === 0}
@@ -429,7 +435,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
                               </div>
                            </div>
                            <div className="text-right">
-                              <p className="text-xs font-bold text-slate-400 uppercase">{selectedItems.length} Items</p>
+                              <p className="text-xs font-bold text-slate-400 uppercase">{fd(selectedItems.length)} Items</p>
                               <button onClick={() => setStep(1)} className="text-xs font-bold text-blue-600 hover:underline">Edit Selection</button>
                            </div>
                         </div>
@@ -621,7 +627,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
                                      <div className="font-medium text-slate-800">{inv.customerName}</div>
                                   </td>
                                   <td className="px-6 py-4 text-center">
-                                     <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs font-bold">{inv.itemsCount}</span>
+                                     <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs font-bold">{fd(inv.itemsCount)}</span>
                                   </td>
                                   <td className="px-6 py-4 text-right font-bold text-blue-700">₹{inv.totalAmount.toLocaleString()}</td>
                                </tr>

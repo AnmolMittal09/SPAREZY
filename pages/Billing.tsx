@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { User, Transaction, TransactionStatus, TransactionType, Role } from '../types';
 import DailyTransactions from './DailyTransactions'; 
@@ -30,6 +31,11 @@ import {
 import { createBulkTransactions, fetchTransactions } from '../services/transactionService';
 import TharLoader from '../components/TharLoader';
 import ConfirmModal from '../components/ConfirmModal';
+
+const fd = (n: number | string) => {
+  const num = parseInt(n.toString()) || 0;
+  return num >= 0 && num < 10 ? `0${num}` : `${num}`;
+};
 
 interface Props {
   user: User;
@@ -397,8 +403,8 @@ const Billing: React.FC<Props> = ({ user }) => {
                                     <div className="flex justify-between items-end border-t border-slate-50 pt-4">
                                         <div className="space-y-1">
                                             <div className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Original Sale</div>
-                                            <div className="font-black text-slate-900">{tx.quantity} <span className="text-[10px] text-slate-400">units</span></div>
-                                            <div className="text-[9px] font-black text-teal-600 bg-teal-50 px-1.5 py-0.5 rounded-md inline-block">Rem: {remainingQty}</div>
+                                            <div className="font-black text-slate-900">{fd(tx.quantity)} <span className="text-[10px] text-slate-400">units</span></div>
+                                            <div className="text-[9px] font-black text-teal-600 bg-teal-50 px-1.5 py-0.5 rounded-md inline-block">Rem: {fd(remainingQty)}</div>
                                         </div>
 
                                         {isSelected && (
@@ -406,7 +412,7 @@ const Billing: React.FC<Props> = ({ user }) => {
                                                 <span className="text-[9px] font-black text-rose-500 uppercase mb-1">Return Qty</span>
                                                 <div className="flex items-center gap-2 bg-white px-2 py-1 rounded-xl shadow-sm">
                                                     <button onClick={() => handleReturnQtyChange(tx.id, remainingQty, (returnQty - 1).toString())} className="w-8 h-8 rounded-lg flex items-center justify-center text-rose-500"><Minus size={14}/></button>
-                                                    <span className="font-black text-slate-900 min-w-[20px] text-center">{returnQty}</span>
+                                                    <span className="font-black text-slate-900 min-w-[20px] text-center">{fd(returnQty)}</span>
                                                     <button onClick={() => handleReturnQtyChange(tx.id, remainingQty, (returnQty + 1).toString())} className="w-8 h-8 bg-rose-500 text-white rounded-lg flex items-center justify-center"><Plus size={14}/></button>
                                                 </div>
                                             </div>
@@ -422,7 +428,7 @@ const Billing: React.FC<Props> = ({ user }) => {
                 {/* Return Fixed Footer */}
                 <div className="fixed bottom-0 md:bottom-6 left-0 md:left-auto right-0 md:right-8 bg-white md:rounded-3xl border-t md:border border-slate-100 p-5 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] md:shadow-2xl z-[90] pb-safe flex justify-between items-center md:min-w-[400px]">
                    <div className="flex-1">
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Refund Total ({Object.keys(selectedReturns).length})</p>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Refund Total ({fd(Object.keys(selectedReturns).length)})</p>
                       <p className="text-2xl font-black text-rose-600 tracking-tight">₹{totalRefundAmount.toLocaleString()}</p>
                    </div>
 
@@ -588,7 +594,7 @@ const Billing: React.FC<Props> = ({ user }) => {
                                         </div>
                                     </div>
                                     <div className="mt-auto flex justify-between items-center">
-                                        <span className="bg-slate-100 px-3 py-1 rounded-xl text-[11px] font-black text-slate-500 uppercase tracking-widest">{tx.quantity} units</span>
+                                        <span className="bg-slate-100 px-3 py-1 rounded-xl text-[11px] font-black text-slate-500 uppercase tracking-widest">{fd(tx.quantity)} units</span>
                                         <p className={`text-xl font-black tracking-tight ${isReturn ? 'text-rose-600' : 'text-slate-900'}`}>₹{amount.toLocaleString()}</p>
                                     </div>
                                 </div>
@@ -603,7 +609,6 @@ const Billing: React.FC<Props> = ({ user }) => {
                                     onClick={() => setSelectedBill(bill)}
                                     className="p-6 rounded-[2.5rem] bg-white border-2 border-slate-100 shadow-premium hover:border-slate-300 hover:shadow-xl transition-all cursor-pointer group relative animate-fade-in"
                                 >
-                                    {/* Stack effect bars */}
                                     <div className="absolute -bottom-2 left-8 right-8 h-2 bg-slate-200 rounded-b-3xl -z-10 group-hover:-bottom-3 transition-all opacity-40"></div>
                                     <div className="absolute -bottom-4 left-14 right-14 h-2 bg-slate-100 rounded-b-3xl -z-20 group-hover:-bottom-5 transition-all opacity-20"></div>
 
@@ -638,7 +643,7 @@ const Billing: React.FC<Props> = ({ user }) => {
                                     <div className="flex justify-between items-end border-t border-slate-50 pt-5 mt-auto">
                                         <div className="bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100 flex items-center gap-2">
                                             <Package size={14} className="text-slate-400"/>
-                                            <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">{bill.items.length} Parts</span>
+                                            <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">{fd(bill.items.length)} Parts</span>
                                         </div>
                                         <div className="text-right">
                                             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Bill Total</p>
@@ -684,14 +689,14 @@ const Billing: React.FC<Props> = ({ user }) => {
                   <div className="flex-1 overflow-y-auto p-6 md:p-10 no-scrollbar space-y-4">
                       <div className="flex items-center gap-3 mb-4">
                          <div className="w-1.5 h-6 bg-brand-600 rounded-full"></div>
-                         <h4 className="font-black text-slate-900 uppercase tracking-widest text-sm">Line Items ({selectedBill.items.length})</h4>
+                         <h4 className="font-black text-slate-900 uppercase tracking-widest text-sm">Line Items ({fd(selectedBill.items.length)})</h4>
                       </div>
                       
                       <div className="space-y-3">
                           {selectedBill.items.map((item, idx) => (
                               <div key={item.id} className="p-6 bg-slate-50/50 rounded-3xl border border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4 group hover:bg-white hover:border-brand-100 hover:shadow-md transition-all">
                                   <div className="flex items-center gap-5">
-                                      <div className="w-12 h-12 bg-white rounded-2xl border border-slate-100 flex items-center justify-center font-black text-slate-300 text-sm">{idx + 1}</div>
+                                      <div className="w-12 h-12 bg-white rounded-2xl border border-slate-100 flex items-center justify-center font-black text-slate-300 text-sm">{fd(idx + 1)}</div>
                                       <div className="min-w-0">
                                           <div className="font-black text-slate-900 text-lg leading-tight tracking-tight group-hover:text-brand-600 transition-colors">{item.partNumber}</div>
                                           <p className="text-[13px] text-slate-400 font-bold uppercase tracking-widest mt-1">Net Rate: ₹{item.price.toLocaleString()}</p>
@@ -700,7 +705,7 @@ const Billing: React.FC<Props> = ({ user }) => {
                                   <div className="flex items-center justify-between md:justify-end gap-12 border-t md:border-t-0 border-slate-100 pt-4 md:pt-0">
                                       <div className="text-center md:text-right">
                                           <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-0.5">Quantity</p>
-                                          <p className="text-xl font-black text-slate-900">{item.quantity}</p>
+                                          <p className="text-xl font-black text-slate-900">{fd(item.quantity)}</p>
                                       </div>
                                       <div className="text-right">
                                           <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-0.5">Subtotal</p>
@@ -736,7 +741,7 @@ const Billing: React.FC<Props> = ({ user }) => {
          loading={processingReturns}
          variant="danger"
          title="Process Stock Return?"
-         message={`You are about to process returns for ${Object.keys(selectedReturns).length} items. Total refund amount is ₹${totalRefundAmount.toLocaleString()}. This will add units back to inventory. Please verify the physical condition of parts before proceeding.`}
+         message={`You are about to process returns for ${fd(Object.keys(selectedReturns).length)} items. Total refund amount is ₹${totalRefundAmount.toLocaleString()}. This will add units back to inventory. Please verify the physical condition of parts before proceeding.`}
          confirmLabel="Confirm Return"
        />
     </div>

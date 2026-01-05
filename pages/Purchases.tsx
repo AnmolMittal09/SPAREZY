@@ -39,6 +39,11 @@ import { extractInvoiceData, InvoiceFile } from '../services/geminiService';
 import TharLoader from '../components/TharLoader';
 import * as XLSX from 'xlsx';
 
+const fd = (n: number | string) => {
+  const num = parseInt(n.toString()) || 0;
+  return num >= 0 && num < 10 ? `0${num}` : `${num}`;
+};
+
 interface Props {
   user: User;
 }
@@ -308,7 +313,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
                     {queuedFiles.length > 0 && (
                       <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-elevated">
                         <div className="flex justify-between items-center mb-8">
-                           <h4 className="font-black text-slate-900 uppercase tracking-[0.2em] text-[10px]">Processing Queue ({queuedFiles.length} Pages)</h4>
+                           <h4 className="font-black text-slate-900 uppercase tracking-[0.2em] text-[10px]">Processing Queue ({fd(queuedFiles.length)} Pages)</h4>
                            <button onClick={() => setQueuedFiles([])} className="text-rose-500 font-black text-[10px] uppercase tracking-widest hover:underline">Clear Registry</button>
                         </div>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
@@ -317,7 +322,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
                                 <img src={q.preview} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
                                 <button onClick={() => removeFileFromQueue(q.id)} className="absolute top-3 right-3 p-2 bg-rose-600 text-white rounded-xl shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={16}/></button>
                                 <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/60 to-transparent">
-                                   <p className="text-white text-[10px] font-black uppercase tracking-widest">Page {queuedFiles.indexOf(q) + 1}</p>
+                                   <p className="text-white text-[10px] font-black uppercase tracking-widest">Page {fd(queuedFiles.indexOf(q) + 1)}</p>
                                 </div>
                              </div>
                            ))}
@@ -347,7 +352,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
                         {importLog.success ? 'Sync Complete' : 'Process Halted'}
                       </h3>
                       <p className="mt-4 font-bold text-slate-400 text-base max-w-sm leading-relaxed">
-                         {importLog.success ? `Verified ${importLog.count} items. Stock balances updated across ${importLog.updatedCount} existing and ${importLog.addedCount} new SKUs.` : importLog.message}
+                         {importLog.success ? `Verified ${fd(importLog.count)} items. Stock balances updated across ${fd(importLog.updatedCount || 0)} existing and ${fd(importLog.addedCount || 0)} new SKUs.` : importLog.message}
                       </p>
                       <button onClick={() => { setImportLog(null); setPreviewData([]); setQueuedFiles([]); }} className="mt-14 text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] hover:text-blue-600 transition-colors">Start New Acquisition</button>
                   </div>
@@ -493,7 +498,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
                           {selectedInbound.items.map((item, idx) => (
                               <div key={item.id} className="p-8 bg-slate-50/40 rounded-[2.5rem] border border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-6 hover:bg-white hover:border-blue-200 hover:shadow-soft transition-all">
                                   <div className="flex items-center gap-6">
-                                      <div className="w-12 h-12 bg-white rounded-2xl border border-slate-100 flex items-center justify-center font-black text-slate-200 text-sm">{idx + 1}</div>
+                                      <div className="w-12 h-12 bg-white rounded-2xl border border-slate-100 flex items-center justify-center font-black text-slate-200 text-sm">{fd(idx + 1)}</div>
                                       <div>
                                           <div className="font-black text-slate-900 text-lg leading-tight tracking-tight uppercase mb-1">{item.partNumber}</div>
                                           <p className="text-[11px] text-slate-400 font-black uppercase tracking-widest">Rate: ₹{item.price.toLocaleString()}</p>
@@ -502,7 +507,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
                                   <div className="flex items-center justify-between md:justify-end gap-14 border-t md:border-t-0 border-slate-100 pt-6 md:pt-0">
                                       <div className="text-right">
                                           <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">Quantity</p>
-                                          <p className="text-xl font-black text-slate-900">{item.quantity}</p>
+                                          <p className="text-xl font-black text-slate-900">{fd(item.quantity)}</p>
                                       </div>
                                       <div className="text-right">
                                           <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">Subtotal</p>

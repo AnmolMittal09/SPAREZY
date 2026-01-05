@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 import ConfirmModal from '../components/ConfirmModal';
 
-const formatQty = (n: number | string) => {
+const fd = (n: number | string) => {
   const num = parseInt(n.toString()) || 0;
   return num >= 0 && num < 10 ? `0${num}` : `${num}`;
 };
@@ -150,7 +150,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
 
       if (existing) {
           if (mode === 'SALES' && existing.quantity + 1 > available) {
-            alert(`Insufficient stock. Available: ${available}`);
+            alert(`Insufficient stock. Available: ${fd(available)}`);
             return;
           }
           updateQty(existing.tempId, 1);
@@ -442,7 +442,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                                 </div>
                                 <div className="text-[13px] text-slate-400 font-bold truncate mb-3 pl-1">{item.name}</div>
                                 <div className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border shadow-inner-soft inline-block ${available > 0 ? 'bg-teal-50 text-teal-600 border-teal-100' : 'bg-rose-50 text-rose-500 border-rose-100'}`}>
-                                   STK: {formatQty(available)}
+                                   STK: {fd(available)}
                                 </div>
                             </div>
                             <div className="w-14 h-14 bg-blue-600 text-white rounded-[1.5rem] shadow-xl flex items-center justify-center group-active:scale-90 transition-all">
@@ -500,7 +500,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                                     <div className="flex justify-between items-start mb-3">
                                         <span className="font-black text-lg text-slate-900 tracking-tight uppercase leading-none">{item.partNumber}</span>
                                         <div className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${available > 0 ? 'bg-teal-50 text-teal-700 border-teal-100' : 'bg-rose-50 text-rose-700 border-rose-100'}`}>
-                                            {formatQty(available)} AVL
+                                            {fd(available)} AVL
                                         </div>
                                     </div>
                                     <div className="text-[13px] text-slate-400 font-bold truncate mb-5 uppercase tracking-tight">{item.name}</div>
@@ -623,7 +623,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
        <div className="lg:hidden flex flex-col h-full bg-slate-50">
           <div className="flex-1 overflow-y-auto px-6 pt-6 pb-60 no-scrollbar">
               <div className="space-y-5">
-                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] ml-2">Active Registry ({cart.length})</h4>
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] ml-2">Active Registry ({fd(cart.length)})</h4>
                   {cart.length === 0 ? (
                       <div className="bg-white/40 border-4 border-dashed border-slate-200 rounded-[3rem] p-24 text-center">
                          <ShoppingCart size={40} className="mx-auto mb-6 text-slate-200 opacity-50" />
@@ -708,7 +708,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
          loading={loading}
          variant="danger"
          title="Verify Protocol"
-         message={`Security Checkpoint: Confirming acquisition of ${cart.length} units. Requisitions will be automatically marked as received.`}
+         message={`Security Checkpoint: Confirming acquisition of ${fd(cart.length)} units. Requisitions will be automatically marked as received.`}
          confirmLabel="Confirm"
        />
     </div>

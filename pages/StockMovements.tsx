@@ -1,8 +1,14 @@
+
 import React, { useEffect, useState } from 'react';
 import { User, Transaction, TransactionType } from '../types';
 import { fetchTransactions } from '../services/transactionService';
 import TharLoader from '../components/TharLoader';
 import { ArrowRightLeft } from 'lucide-react';
+
+const fd = (n: number | string) => {
+  const num = parseInt(n.toString()) || 0;
+  return num >= 0 && num < 10 ? `0${num}` : `${num}`;
+};
 
 const formatQty = (n: number) => {
   const isNeg = n < 0;
@@ -65,7 +71,7 @@ const StockMovements: React.FC<Props> = ({ user }) => {
                       </span>
                    </td>
                    <td className="px-6 py-4 text-center font-mono">
-                      {tx.type === TransactionType.SALE ? '-' : '+'}{formatQty(tx.quantity)}
+                      {tx.type === TransactionType.SALE ? '-' : '+'}{fd(tx.quantity)}
                    </td>
                    <td className="px-6 py-4 text-slate-500">{tx.customerName || 'N/A'}</td>
                 </tr>
