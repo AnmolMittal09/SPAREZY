@@ -313,7 +313,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
                     {queuedFiles.length > 0 && (
                       <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-elevated">
                         <div className="flex justify-between items-center mb-8">
-                           <h4 className="font-black text-slate-900 uppercase tracking-[0.2em] text-[10px]">Processing Queue ({fd(queuedFiles.length)} Pages)</h4>
+                           <h4 className="font-black text-slate-900 uppercase tracking-[0.2em] text-[10px]">Processing Queue ({fd(queuedFiles.length)}) Pages</h4>
                            <button onClick={() => setQueuedFiles([])} className="text-rose-500 font-black text-[10px] uppercase tracking-widest hover:underline">Clear Registry</button>
                         </div>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
@@ -382,7 +382,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
                                       <input 
                                         type="number" 
                                         className="bg-slate-900 text-white px-4 py-2 rounded-2xl text-[12px] font-black tabular-nums shadow-lg w-20 text-center outline-none focus:ring-2 focus:ring-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                        value={row.quantity}
+                                        value={fd(row.quantity)}
                                         onChange={(e) => updatePreviewQty(i, parseInt(e.target.value) || 1)}
                                         onFocus={(e) => e.target.select()}
                                       />

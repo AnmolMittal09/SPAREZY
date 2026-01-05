@@ -26,6 +26,11 @@ import {
 } from 'lucide-react';
 import TharLoader from '../components/TharLoader';
 
+const fd = (n: number | string) => {
+  const num = parseInt(n.toString()) || 0;
+  return num >= 0 && num < 10 ? `0${num}` : `${num}`;
+};
+
 const formatQty = (n: number) => {
   const abs = Math.abs(n);
   const str = abs < 10 ? `0${abs}` : `${abs}`;
@@ -192,7 +197,7 @@ const StockRequests: React.FC<Props> = ({ user }) => {
                 onClick={() => setActiveTab(tab)}
                 className={`flex-none md:px-8 px-4 py-3 rounded-[1.25rem] text-[11px] font-black uppercase tracking-widest transition-all active:scale-[0.98] ${activeTab === tab ? 'bg-white text-slate-900 shadow-soft border border-slate-200' : 'text-slate-400 hover:text-slate-600'}`}
               >
-                {tab === 'SUGGESTIONS' ? `Alerts (${stockAlerts.length})` : tab}
+                {tab === 'SUGGESTIONS' ? `Alerts (${fd(stockAlerts.length)})` : tab}
               </button>
            ))}
         </div>
@@ -208,7 +213,7 @@ const StockRequests: React.FC<Props> = ({ user }) => {
                
                <h3 className="font-black text-white/40 mb-8 flex items-center justify-between uppercase text-[10px] tracking-[0.3em] relative z-10">
                   <span className="flex items-center gap-3"><ShoppingCart size={18} className="text-blue-400" /> PROCUREMENT DRAFT</span>
-                  <span className="bg-blue-600 px-3 py-1 rounded-xl text-white font-black shadow-lg">{cart.length}</span>
+                  <span className="bg-blue-600 px-3 py-1 rounded-xl text-white font-black shadow-lg">{fd(cart.length)}</span>
                </h3>
                
                {cart.length === 0 ? (
@@ -222,14 +227,14 @@ const StockRequests: React.FC<Props> = ({ user }) => {
                            <div className="flex-1 min-w-0 mr-4">
                               <div className="font-black truncate text-white text-[15px] uppercase tracking-tight mb-2">{item.partNumber}</div>
                               <div className="text-[10px] text-white/30 truncate font-black uppercase tracking-widest flex items-center gap-2">
-                                <Box size={10} className="opacity-40"/> STOCK: {item.currentStock}
+                                <Box size={10} className="opacity-40"/> STOCK: {fd(item.currentStock)}
                               </div>
                            </div>
                            <div className="flex items-center gap-4">
                               <input 
                                  type="number" 
                                  className="w-14 px-2 py-2.5 bg-white/10 border border-white/5 rounded-xl text-center text-[13px] font-black text-white focus:ring-2 focus:ring-blue-500/40 outline-none"
-                                 value={item.requestQty}
+                                 value={fd(item.requestQty)}
                                  onChange={(e) => updateCartQty(item.partNumber, parseInt(e.target.value) || 0)}
                               />
                               <button onClick={() => removeFromCart(item.partNumber)} className="p-2 text-white/10 hover:text-rose-400 transition-colors">
@@ -276,7 +281,7 @@ const StockRequests: React.FC<Props> = ({ user }) => {
                               </div>
                               <div className="flex flex-col items-end gap-2">
                                  <div className="text-[11px] font-black text-slate-500 flex items-center gap-1.5 px-2 py-0.5 bg-slate-100 rounded-md">
-                                    <Box size={12} /> {s.quantity}
+                                    <Box size={12} /> {fd(s.quantity)}
                                  </div>
                                  <Plus size={18} className="text-slate-200 group-hover/suggest:text-blue-600 transition-colors" strokeWidth={3} />
                               </div>
@@ -303,7 +308,7 @@ const StockRequests: React.FC<Props> = ({ user }) => {
                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Auto-Detected Shortages</p>
                             </div>
                         </div>
-                        <span className="text-[10px] font-black bg-amber-600 text-white px-5 py-2.5 rounded-full uppercase tracking-widest shadow-lg">{stockAlerts.length} Critical</span>
+                        <span className="text-[10px] font-black bg-amber-600 text-white px-5 py-2.5 rounded-full uppercase tracking-widest shadow-lg">{fd(stockAlerts.length)} Critical</span>
                     </div>
 
                     <div className="flex-1 overflow-x-auto no-scrollbar">
@@ -342,8 +347,8 @@ const StockRequests: React.FC<Props> = ({ user }) => {
                                                     </span>
                                                 </td>
                                                 <td className="px-10 py-6 text-center">
-                                                    <span className="font-black text-slate-900 text-lg tabular-nums">{item.quantity}</span>
-                                                    <span className="text-[9px] text-slate-300 font-black uppercase ml-2">/ {item.minStockThreshold}</span>
+                                                    <span className="font-black text-slate-900 text-lg tabular-nums">{fd(item.quantity)}</span>
+                                                    <span className="text-[9px] text-slate-300 font-black uppercase ml-2">/ {fd(item.minStockThreshold)}</span>
                                                 </td>
                                                 <td className="px-10 py-6 text-right">
                                                     <button 
@@ -418,7 +423,7 @@ const StockRequests: React.FC<Props> = ({ user }) => {
                                                 <div className="font-black text-slate-900 text-lg tracking-tight uppercase leading-none">{req.partNumber}</div>
                                             </td>
                                             <td className="px-10 py-6 text-center">
-                                                <span className="text-xl font-black text-slate-900 tabular-nums tracking-tighter">{formatQty(req.quantityNeeded)}</span>
+                                                <span className="text-xl font-black text-slate-900 tabular-nums tracking-tighter">{fd(req.quantityNeeded)}</span>
                                                 <span className="text-[10px] font-black text-slate-300 uppercase ml-2">PCS</span>
                                             </td>
                                             <td className="px-10 py-6 text-center">

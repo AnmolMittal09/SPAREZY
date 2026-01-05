@@ -578,7 +578,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                                         <input 
                                           type="number"
                                           className="w-12 bg-transparent text-white font-black text-center outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                          value={item.quantity}
+                                          value={fd(item.quantity)}
                                           onChange={(e) => setQtyDirect(item.tempId, parseInt(e.target.value) || 1)}
                                           onFocus={(e) => e.target.select()}
                                         />
@@ -662,7 +662,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                                        <input 
                                           type="number"
                                           className="w-12 bg-transparent text-slate-900 font-black text-center outline-none text-2xl [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                          value={item.quantity}
+                                          value={fd(item.quantity)}
                                           onChange={(e) => setQtyDirect(item.tempId, parseInt(e.target.value) || 1)}
                                           onFocus={(e) => e.target.select()}
                                         />
