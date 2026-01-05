@@ -1,12 +1,15 @@
 
 import { supabase } from './supabase';
-import { Invoice, Role, Transaction, TransactionStatus, TransactionType, RequestStatus, PaymentStatus } from '../types';
+import { Invoice, Role, Transaction, TransactionStatus, TransactionType, RequestStatus, PaymentStatus, StockItem } from '../types';
+
+const TX_STORAGE_KEY = 'sparezy_transactions_v1';
+const INV_STORAGE_KEY = 'sparezy_inventory_v1';
 
 // --- HELPERS ---
 
 const mapDBToTransaction = (item: any): Transaction => ({
   id: item.id,
-  partNumber: item.part_number,
+  partNumber: item.part_number.toUpperCase(),
   type: item.type as TransactionType,
   quantity: item.quantity,
   price: item.price,
@@ -31,121 +34,166 @@ export const createTransaction = async (
 export const createBulkTransactions = async (
   transactions: Omit<Transaction, 'id' | 'status' | 'createdAt'>[]
 ): Promise<{ success: boolean; message?: string }> => {
-  if (!supabase) return { success: false, message: "Supabase client not connected." };
-
   const createdByRole = transactions[0].createdByRole;
   
-  // Logic Update: SALES and RETURNS are immediate physical movements. 
-  // We mark them APPROVED immediately so stock updates, even if payment is PENDING (Credit).
-  // PURCHASES (incoming items) from Managers stay PENDING for Owner verification.
   const getInitialStatus = (type: TransactionType) => {
     if (createdByRole === Role.OWNER) return TransactionStatus.APPROVED;
     if (type === TransactionType.SALE || type === TransactionType.RETURN) return TransactionStatus.APPROVED;
     return TransactionStatus.PENDING;
   };
 
-  try {
-    if (transactions.length === 0) return { success: true };
+  if (supabase) {
+    try {
+      if (transactions.length === 0) return { success: true };
 
-    // 1. Pre-Validation (Stock Check for Sales)
-    const saleTransactions = transactions.filter(t => t.type === TransactionType.SALE);
-    if (saleTransactions.length > 0) {
-        const partNumbers = [...new Set(saleTransactions.map(t => t.partNumber))];
-        const { data: stocks, error } = await supabase
-            .from('inventory')
-            .select('part_number, quantity')
-            .in('part_number', partNumbers);
-        
-        if (error) throw new Error(error.message);
+      // 1. Pre-Validation (Stock Check)
+      const saleTransactions = transactions.filter(t => t.type === TransactionType.SALE);
+      if (saleTransactions.length > 0) {
+          const partNumbers = [...new Set(saleTransactions.map(t => t.partNumber.toUpperCase()))];
+          const { data: stocks } = await supabase
+              .from('inventory')
+              .select('part_number, quantity')
+              .in('part_number', partNumbers);
+          
+          if (stocks) {
+              const stockMap = new Map<string, number>();
+              stocks.forEach((s: any) => stockMap.set(s.part_number.toUpperCase(), s.quantity));
+              for (const tx of saleTransactions) {
+                  const currentStock = stockMap.get(tx.partNumber.toUpperCase()) || 0;
+                  if (tx.quantity > currentStock) {
+                      return { success: false, message: `Insufficient stock for '${tx.partNumber}'. Available: ${currentStock}` };
+                  }
+              }
+          }
+      }
 
-        if (stocks) {
-            const stockMap = new Map<string, number>();
-            stocks.forEach((s: any) => stockMap.set(s.part_number.toLowerCase(), s.quantity));
-
-            for (const tx of saleTransactions) {
-                const currentStock = stockMap.get(tx.partNumber.toLowerCase());
-                if (currentStock === undefined || tx.quantity > currentStock) {
-                    return { 
-                        success: false, 
-                        message: `Insufficient stock for part '${tx.partNumber}'. Available: ${currentStock || 0}, Requested: ${tx.quantity}` 
-                    };
-                }
-            }
-        }
-    }
-
-    // 2. Insert Transactions
-    const dbRows = transactions.map(t => {
-      const status = getInitialStatus(t.type);
-      return {
-        part_number: t.partNumber,
+      // 2. Insert Transactions
+      const dbRows = transactions.map(t => ({
+        part_number: t.partNumber.toUpperCase(),
         type: t.type,
         quantity: t.quantity,
         price: t.price,
-        paid_amount: t.paid_amount || 0,
-        customer_name: t.customer_name,
-        status: status,
-        payment_status: t.payment_status || 'PAID',
+        paid_amount: t.paidAmount || 0,
+        customer_name: t.customerName,
+        status: getInitialStatus(t.type),
+        payment_status: t.paymentStatus || 'PAID',
         created_by_role: t.createdByRole,
-        related_transaction_id: t.related_transaction_id
-      };
-    });
+        related_transaction_id: t.relatedTransactionId
+      }));
 
-    const { error: insertError } = await supabase.from('transactions').insert(dbRows);
-    if (insertError) throw new Error(insertError.message);
+      const { error: insertError } = await supabase.from('transactions').insert(dbRows);
+      if (insertError) throw new Error("Journal Error: " + insertError.message);
 
-    // 3. Update Inventory for immediately APPROVED transactions
-    for (let i = 0; i < transactions.length; i++) {
-      const tx = transactions[i];
-      const status = getInitialStatus(tx.type);
-      
-      if (status === TransactionStatus.APPROVED && tx.type !== TransactionType.PURCHASE_ORDER) {
-         await updateStockForTransaction(tx.partNumber, tx.type, tx.quantity);
-         if (tx.type === TransactionType.PURCHASE) {
-            await fulfillRequisitionsForPart(tx.partNumber);
-         }
+      // 3. Update Inventory immediately for APPROVED movements
+      for (const tx of transactions) {
+        const status = getInitialStatus(tx.type);
+        if (status === TransactionStatus.APPROVED && tx.type !== TransactionType.PURCHASE_ORDER) {
+           await updateStockForTransaction(tx.partNumber.toUpperCase(), tx.type, tx.quantity);
+        }
+      }
+      return { success: true };
+    } catch (error: any) {
+      console.error("Supabase Transaction Error:", error);
+      return { success: false, message: error.message };
+    }
+  }
+
+  // --- OFFLINE FALLBACK ---
+  const localTransactions: Transaction[] = JSON.parse(localStorage.getItem(TX_STORAGE_KEY) || '[]');
+  const localInventory: StockItem[] = JSON.parse(localStorage.getItem(INV_STORAGE_KEY) || '[]');
+
+  for (const t of transactions) {
+    const status = getInitialStatus(t.type);
+    const upperPN = t.partNumber.toUpperCase();
+    const newTx: Transaction = {
+      ...t,
+      partNumber: upperPN,
+      id: Math.random().toString(36).substring(7),
+      status,
+      createdAt: new Date().toISOString()
+    };
+    localTransactions.push(newTx);
+
+    if (status === TransactionStatus.APPROVED) {
+      const invIdx = localInventory.findIndex(i => i.partNumber.toUpperCase() === upperPN);
+      if (invIdx > -1) {
+        if (t.type === TransactionType.SALE) localInventory[invIdx].quantity -= t.quantity;
+        else if (t.type === TransactionType.PURCHASE || t.type === TransactionType.RETURN) localInventory[invIdx].quantity += t.quantity;
+        localInventory[invIdx].lastUpdated = new Date().toISOString();
+        if (localInventory[invIdx].quantity < 0) localInventory[invIdx].quantity = 0;
       }
     }
-    
-    return { success: true };
-
-  } catch (error: any) {
-    console.error("Create Bulk Transaction Error:", error);
-    return { success: false, message: error.message };
   }
+
+  localStorage.setItem(TX_STORAGE_KEY, JSON.stringify(localTransactions));
+  localStorage.setItem(INV_STORAGE_KEY, JSON.stringify(localInventory));
+  return { success: true };
 };
 
-const fulfillRequisitionsForPart = async (partNumber: string) => {
+const updateStockForTransaction = async (partNumber: string, type: TransactionType, quantity: number) => {
   if (!supabase) return;
-  const { data: requests, error } = await supabase
-    .from('stock_requests')
-    .select('id')
-    .ilike('part_number', partNumber)
-    .in('status', [RequestStatus.PENDING, RequestStatus.ORDERED]);
-  if (error || !requests || requests.length === 0) return;
-  const ids = requests.map(r => r.id);
-  await supabase.from('stock_requests').update({ status: RequestStatus.COMPLETED }).in('id', ids);
+  
+  const upperPN = partNumber.toUpperCase();
+  
+  // 1. Fetch current data
+  const { data: items, error: fetchError } = await supabase
+    .from('inventory')
+    .select('quantity, part_number, is_archived')
+    .ilike('part_number', upperPN)
+    .limit(1);
+
+  if (fetchError) throw new Error("Registry Access Failed: " + fetchError.message);
+  if (!items || items.length === 0) throw new Error(`SKU ${upperPN} not found in inventory registry.`);
+  
+  const dbItem = items[0];
+  let newQty = dbItem.quantity;
+
+  if (type === TransactionType.SALE) newQty = dbItem.quantity - quantity;
+  else if (type === TransactionType.PURCHASE || type === TransactionType.RETURN) newQty = dbItem.quantity + quantity;
+
+  if (newQty < 0) newQty = 0;
+
+  const updatePayload: any = { 
+    quantity: newQty, 
+    last_updated: new Date().toISOString() 
+  };
+
+  if (dbItem.is_archived && newQty > 0) {
+    updatePayload.is_archived = false;
+  }
+
+  // 2. Perform the Update using EXACT case from DB
+  const { error: updateError } = await supabase
+    .from('inventory')
+    .update(updatePayload)
+    .eq('part_number', dbItem.part_number);
+
+  if (updateError) {
+    throw new Error(`Inventory Update Failed for ${dbItem.part_number}: ${updateError.message}`);
+  }
 };
 
 export const fetchTransactions = async (
   status?: TransactionStatus | TransactionStatus[], 
   type?: TransactionType | TransactionType[]
 ): Promise<Transaction[]> => {
-  if (!supabase) return [];
-  let query = supabase.from('transactions').select('*').order('created_at', { ascending: false });
-  if (status) {
-    if (Array.isArray(status)) query = query.in('status', status);
-    else query = query.eq('status', status);
-  } else {
-    query = query.limit(500);
+  if (supabase) {
+    let query = supabase.from('transactions').select('*').order('created_at', { ascending: false });
+    if (status) {
+      if (Array.isArray(status)) query = query.in('status', status);
+      else query = query.eq('status', status);
+    }
+    if (type) {
+      if (Array.isArray(type)) query = query.in('type', type);
+      else query = query.eq('type', type);
+    }
+    const { data, error } = await query;
+    if (error) return [];
+    return data.map(mapDBToTransaction);
   }
-  if (type) {
-    if (Array.isArray(type)) query = query.in('type', type);
-    else query = query.eq('type', type);
-  }
-  const { data, error } = await query;
-  if (error) return [];
-  return data.map(mapDBToTransaction);
+  
+  const local: Transaction[] = JSON.parse(localStorage.getItem(TX_STORAGE_KEY) || '[]');
+  return local.reverse();
 };
 
 export const fetchItemTransactions = async (partNumber: string): Promise<Transaction[]> => {
@@ -160,46 +208,24 @@ export const fetchItemTransactions = async (partNumber: string): Promise<Transac
 };
 
 export const approveTransaction = async (id: string, partNumber: string, type: TransactionType, quantity: number): Promise<void> => {
-  if (!supabase) throw new Error("Database not connected");
-  if (type === TransactionType.SALE) {
-      const { data: item } = await supabase.from('inventory').select('quantity').ilike('part_number', partNumber).single();
-      if (!item || item.quantity < quantity) throw new Error(`Insufficient stock for approval.`);
-  }
+  if (!supabase) return;
   const { error: txError } = await supabase.from('transactions').update({ status: TransactionStatus.APPROVED }).eq('id', id);
   if (txError) throw new Error(txError.message);
   if (type !== TransactionType.PURCHASE_ORDER) {
     await updateStockForTransaction(partNumber, type, quantity);
-    if (type === TransactionType.PURCHASE) await fulfillRequisitionsForPart(partNumber);
   }
 };
 
 export const rejectTransaction = async (id: string): Promise<void> => {
-  if (!supabase) throw new Error("Database not connected");
-  const { error } = await supabase.from('transactions').update({ status: TransactionStatus.REJECTED }).eq('id', id);
-  if (error) throw new Error(error.message);
-};
-
-const updateStockForTransaction = async (partNumber: string, type: TransactionType, quantity: number) => {
   if (!supabase) return;
-  const { data: items } = await supabase.from('inventory').select('quantity, part_number, is_archived').ilike('part_number', partNumber).limit(1);
-  if (!items || items.length === 0) return;
-  const dbItem = items[0];
-  const currentQty = dbItem.quantity;
-  let newQty = currentQty;
-  if (type === TransactionType.SALE) newQty = currentQty - quantity;
-  else if (type === TransactionType.PURCHASE || type === TransactionType.RETURN) newQty = currentQty + quantity;
-  if (newQty < 0 && type === TransactionType.SALE) newQty = 0;
-  const shouldUnarchive = dbItem.is_archived && newQty > 0;
-  const updatePayload: any = { quantity: newQty, last_updated: new Date().toISOString() };
-  if (shouldUnarchive) updatePayload.is_archived = false;
-  await supabase.from('inventory').update(updatePayload).eq('part_number', dbItem.part_number);
+  await supabase.from('transactions').update({ status: TransactionStatus.REJECTED }).eq('id', id);
 };
 
 export const updateBillPayment = async (createdAt: string, customerName: string, additionalAmount: number): Promise<{ success: boolean; message?: string }> => {
   if (!supabase) return { success: false, message: "Database not connected" };
   try {
-    const { data: items, error: fetchError } = await supabase.from('transactions').select('*').eq('created_at', createdAt).eq('customer_name', customerName).eq('type', 'SALE');
-    if (fetchError || !items || items.length === 0) throw new Error("Bill not found.");
+    const { data: items } = await supabase.from('transactions').select('*').eq('created_at', createdAt).eq('customer_name', customerName).eq('type', 'SALE');
+    if (!items || items.length === 0) throw new Error("Bill not found.");
     const totalBillAmount = items.reduce((sum, i) => sum + (i.price * i.quantity), 0);
     const currentPaidAmount = items.reduce((sum, i) => sum + i.paid_amount, 0);
     const newTotalPaid = Math.min(totalBillAmount, currentPaidAmount + additionalAmount);
@@ -229,9 +255,9 @@ export const fetchAnalytics = async (startDate: Date, endDate: Date): Promise<An
   const soldItemsMap = new Map<string, { qty: number, rev: number }>();
   filtered.forEach(t => {
     const val = (t.price || 0) * (t.quantity || 0);
+    const pnKey = t.partNumber.toUpperCase();
     if (t.type === TransactionType.SALE) {
       totalSales += val; salesCount++;
-      const pnKey = t.partNumber.toUpperCase();
       const current = soldItemsMap.get(pnKey) || { qty: 0, rev: 0 };
       soldItemsMap.set(pnKey, { qty: current.qty + t.quantity, rev: current.rev + val });
     } else if (t.type === TransactionType.RETURN) {
@@ -247,21 +273,15 @@ export const fetchAnalytics = async (startDate: Date, endDate: Date): Promise<An
 
 export const fetchUninvoicedSales = async (): Promise<Transaction[]> => {
   if (!supabase) return [];
-  const { data, error } = await supabase.from('transactions').select('*').eq('type', 'SALE').eq('status', 'APPROVED').is('invoice_id', null).order('created_at', { ascending: false });
-  if (error || !data) return [];
-  const saleIds = data.map(s => s.id);
-  const { data: returns } = await supabase.from('transactions').select('related_transaction_id, quantity').eq('type', 'RETURN').eq('status', 'APPROVED').in('related_transaction_id', saleIds);
-  const returnMap = new Map<string, number>();
-  if (returns) returns.forEach((r: any) => { const current = returnMap.get(r.related_transaction_id) || 0; returnMap.set(r.related_transaction_id, current + r.quantity); });
-  const validData = data.filter((s: any) => { const returned = returnMap.get(s.id) || 0; return s.quantity > returned; });
-  return validData.map(mapDBToTransaction);
+  const { data } = await supabase.from('transactions').select('*').eq('type', 'SALE').eq('status', 'APPROVED').is('invoice_id', null).order('created_at', { ascending: false });
+  if (!data) return [];
+  return data.map(mapDBToTransaction);
 };
 
 export const fetchInvoices = async (): Promise<Invoice[]> => {
   if (!supabase) return [];
-  const { data, error } = await supabase.from('invoices').select('*').order('date', { ascending: false });
-  if (error || !data) return [];
-  // Fix: changed property name tax_amount to taxAmount to match Invoice interface
+  const { data } = await supabase.from('invoices').select('*').order('date', { ascending: false });
+  if (!data) return [];
   return data.map((i: any) => ({
       id: i.id, invoiceNumber: i.invoice_number, date: i.date, customerName: i.customer_name,
       customerPhone: i.customer_phone, customerAddress: i.customer_address, customerGst: i.customer_gst,

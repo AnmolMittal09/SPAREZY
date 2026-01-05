@@ -289,12 +289,18 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
           };
       });
       const res = await createBulkTransactions(payload);
+      
+      if (res.success) {
+          alert(user.role === Role.MANAGER ? "Stock updated. Sale logged." : "Stock updated.");
+          setCart([]); 
+          setCustomerName(''); 
+          setReceivedAmount(''); 
+          await loadBaseData(); // Refresh current inventory levels in UI
+      } else {
+          alert("Error: " + res.message);
+      }
       setLoading(false);
       setShowConfirm(false);
-      if (res.success) {
-          alert(user.role === Role.MANAGER ? "Sent to owner for verification." : "Stock updated.");
-          setCart([]); setCustomerName(''); setReceivedAmount(''); loadBaseData();
-      } else alert("Error: " + res.message);
   };
 
   const accentColor = mode === 'RETURN' ? 'bg-rose-600' : mode === 'PURCHASE' ? 'bg-slate-900' : 'bg-brand-600';
