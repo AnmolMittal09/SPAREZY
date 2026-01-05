@@ -336,7 +336,8 @@ export const fetchInvoices = async (): Promise<Invoice[]> => {
       totalAmount: i.total_amount,
       taxAmount: i.tax_amount,
       paymentMode: i.payment_mode,
-      items_count: i.items_count,
+      // Fix: Changed items_count to itemsCount to match Invoice interface
+      itemsCount: i.items_count,
       generatedBy: i.generated_by
   }));
 };

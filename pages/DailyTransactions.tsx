@@ -161,7 +161,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
       if (mode === 'SALES' && available === 0) return alert("Item out of stock!");
 
       const initialDiscount = mode === 'PURCHASE' ? 12 : 0;
-      const initialPrice = mode === 'PURCHASE' ? item.price * 0.88 : item.price;
+      const initialPrice = item.price * (1 - initialDiscount / 100);
 
       const newItem: CartItem = {
           tempId: Math.random().toString(36).substring(2),
@@ -196,6 +196,9 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
       const mrpValue = parseFloat(newSkuForm.mrp);
       if (isNaN(mrpValue)) return alert("Invalid MRP amount.");
 
+      const initialDiscount = 12;
+      const initialPrice = mrpValue * (1 - initialDiscount / 100);
+
       const newItem: CartItem = {
           tempId: Math.random().toString(36).substring(2),
           partNumber: newSkuForm.partNumber.toUpperCase().trim(),
@@ -203,8 +206,8 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
           type: TransactionType.PURCHASE,
           quantity: 1,
           mrp: mrpValue,
-          discount: 12,
-          price: mrpValue * 0.88,
+          discount: initialDiscount,
+          price: initialPrice,
           customerName: customerName || 'Direct Acquisition',
           isNewSku: true,
           brand: newSkuForm.brand
@@ -237,6 +240,20 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
           }
           return item;
       }));
+  };
+
+  const updateDiscount = (id: string, newDiscount: number) => {
+    setCart(prev => prev.map(item => {
+      if (item.tempId === id) {
+        const disc = Math.max(0, Math.min(100, newDiscount));
+        return { 
+          ...item, 
+          discount: disc,
+          price: item.mrp * (1 - disc / 100)
+        };
+      }
+      return item;
+    }));
   };
 
   const removeItem = (id: string) => {
@@ -537,13 +554,24 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                                 </div>
                             </div>
                             
-                            <div className="flex items-center justify-between pt-2 border-t border-white/5">
-                                <div className="flex items-center gap-4 bg-white/5 p-2 rounded-2xl">
-                                    <button onClick={() => updateQty(item.tempId, -1)} className="w-9 h-9 bg-white/10 rounded-xl flex items-center justify-center hover:bg-white/20 active:scale-90 transition-all"><Minus size={16} strokeWidth={3}/></button>
-                                    <span className="font-black text-lg min-w-[30px] text-center tabular-nums">{item.quantity}</span>
-                                    <button onClick={() => updateQty(item.tempId, 1)} className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center hover:bg-blue-500 active:scale-90 transition-all"><Plus size={16} strokeWidth={3}/></button>
+                            <div className="flex flex-col gap-3 pt-4 border-t border-white/5">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-4 bg-white/5 p-2 rounded-2xl">
+                                        <button onClick={() => updateQty(item.tempId, -1)} className="w-9 h-9 bg-white/10 rounded-xl flex items-center justify-center hover:bg-white/20 active:scale-90 transition-all"><Minus size={16} strokeWidth={3}/></button>
+                                        <span className="font-black text-lg min-w-[30px] text-center tabular-nums">{item.quantity}</span>
+                                        <button onClick={() => updateQty(item.tempId, 1)} className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center hover:bg-blue-500 active:scale-90 transition-all"><Plus size={16} strokeWidth={3}/></button>
+                                    </div>
+                                    <div className="flex items-center gap-3 bg-white/5 p-2 px-4 rounded-2xl border border-white/5">
+                                        <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Disc %</span>
+                                        <input 
+                                          type="number"
+                                          className="w-12 bg-transparent text-white font-black text-center outline-none"
+                                          value={item.discount}
+                                          onChange={(e) => updateDiscount(item.tempId, parseFloat(e.target.value) || 0)}
+                                        />
+                                    </div>
+                                    <button onClick={() => removeItem(item.tempId)} className="text-white/20 hover:text-rose-400 p-2.5 rounded-2xl transition-all ml-auto"><Trash2 size={20}/></button>
                                 </div>
-                                <button onClick={() => removeItem(item.tempId)} className="text-white/20 hover:text-rose-400 p-2.5 rounded-2xl transition-all"><Trash2 size={20}/></button>
                             </div>
                         </div>
                     ))}
@@ -594,10 +622,21 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                            </div>
                            <div className="flex items-center justify-between border-t border-slate-50 pt-6">
                                <button onClick={() => removeItem(item.tempId)} className="p-4 text-rose-500 bg-rose-50 rounded-2xl active:scale-90 transition-all border border-rose-100"><Trash2 size={24} /></button>
-                               <div className="flex items-center gap-8 bg-slate-100 p-2 rounded-2xl shadow-inner-soft">
-                                   <button onClick={() => updateQty(item.tempId, -1)} className="w-12 h-12 bg-white shadow-soft rounded-xl flex items-center justify-center text-slate-600 active:scale-90 transition-all"><Minus size={20} strokeWidth={4}/></button>
-                                   <span className="font-black text-2xl tabular-nums">{item.quantity}</span>
-                                   <button onClick={() => updateQty(item.tempId, 1)} className={`w-12 h-12 ${accentColor} text-white shadow-xl rounded-xl flex items-center justify-center active:scale-90 transition-all`}><Plus size={20} strokeWidth={4}/></button>
+                               <div className="flex flex-col items-center gap-3">
+                                   <div className="flex items-center gap-3 bg-slate-50 p-2 px-4 rounded-xl border border-slate-100 shadow-inner-soft">
+                                       <span className="text-[9px] font-black text-slate-400 uppercase">Discount %</span>
+                                       <input 
+                                         type="number"
+                                         className="w-10 bg-transparent text-slate-900 font-black text-center outline-none"
+                                         value={item.discount}
+                                         onChange={(e) => updateDiscount(item.tempId, parseFloat(e.target.value) || 0)}
+                                       />
+                                   </div>
+                                   <div className="flex items-center gap-8 bg-slate-100 p-2 rounded-2xl shadow-inner-soft">
+                                       <button onClick={() => updateQty(item.tempId, -1)} className="w-12 h-12 bg-white shadow-soft rounded-xl flex items-center justify-center text-slate-600 active:scale-90 transition-all"><Minus size={20} strokeWidth={4}/></button>
+                                       <span className="font-black text-2xl tabular-nums">{item.quantity}</span>
+                                       <button onClick={() => updateQty(item.tempId, 1)} className={`w-12 h-12 ${accentColor} text-white shadow-xl rounded-xl flex items-center justify-center active:scale-90 transition-all`}><Plus size={20} strokeWidth={4}/></button>
+                                   </div>
                                </div>
                            </div>
                         </div>
