@@ -30,7 +30,8 @@ import {
   Check,
   Download,
   ChevronRight as ChevronRightIcon,
-  X
+  X,
+  Filter
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -430,7 +431,7 @@ const StockTable: React.FC<StockTableProps> = ({
 
   const isOwner = userRole === Role.OWNER;
   const isManager = userRole === Role.MANAGER;
-  const effectiveSearch = externalSearch !== undefined ? externalSearch : internalSearch;
+  const effectiveSearch = externalSearch !== undefined ? (externalSearch || internalSearch) : internalSearch;
 
   const shouldHidePrice = hidePriceByDefault || isManager;
 
@@ -592,7 +593,7 @@ const StockTable: React.FC<StockTableProps> = ({
                 {isOwner && (
                     <button 
                         onClick={() => setIsEditMode(!isEditMode)}
-                        className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all shadow-md active:scale-95 ring-1 ${
+                        className={`hidden md:flex items-center gap-2 px-5 py-2.5 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all shadow-md active:scale-95 ring-1 ${
                             isEditMode 
                                 ? 'bg-indigo-600 text-white border-indigo-700 ring-indigo-400' 
                                 : 'bg-white text-indigo-600 border-slate-200 hover:bg-indigo-50 ring-transparent'
@@ -646,23 +647,37 @@ const StockTable: React.FC<StockTableProps> = ({
       )}
 
       {enableActions && isOwner && (
-        <div className="md:hidden p-4 bg-slate-50/30 border-b border-slate-100 flex items-center justify-between gap-3">
-           <button 
-             onClick={toggleSelectPage}
-             className="flex-1 flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 bg-white px-5 py-3.5 rounded-2xl border border-slate-200 shadow-sm active:scale-95"
-           >
-              {isAllMobileSelected ? <CheckSquare size={18} className="text-blue-600" /> : <Square size={18} className="text-slate-200" />}
-              Bulk Select
-           </button>
-           <button 
-             onClick={() => setIsEditMode(!isEditMode)}
-             className={`flex-1 flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] px-5 py-3.5 rounded-2xl border shadow-sm active:scale-95 transition-all ${
-               isEditMode ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-white text-indigo-600 border-slate-200'
-             }`}
-           >
-              {isEditMode ? <X size={18} /> : <Edit3 size={18} />}
-              {isEditMode ? 'Exit' : 'Edit'}
-           </button>
+        <div className="md:hidden flex flex-col gap-3 p-4 bg-slate-50/30 border-b border-slate-100">
+           {/* Mobile Search Bar */}
+           <div className="relative group">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={18} />
+              <input 
+                 type="text" 
+                 placeholder="Search part no, name..." 
+                 className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-bold shadow-soft outline-none focus:ring-4 focus:ring-blue-500/5 transition-all placeholder:text-slate-300 uppercase tracking-tight"
+                 value={internalSearch}
+                 onChange={e => setInternalSearch(e.target.value)}
+              />
+           </div>
+           
+           <div className="flex items-center justify-between gap-3">
+              <button 
+                onClick={toggleSelectPage}
+                className="flex-1 flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 bg-white px-5 py-3.5 rounded-2xl border border-slate-200 shadow-sm active:scale-95"
+              >
+                 {isAllMobileSelected ? <CheckSquare size={18} className="text-blue-600" /> : <Square size={18} className="text-slate-200" />}
+                 Select
+              </button>
+              <button 
+                onClick={() => setIsEditMode(!isEditMode)}
+                className={`flex-1 flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] px-5 py-3.5 rounded-2xl border shadow-sm active:scale-95 transition-all ${
+                  isEditMode ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-white text-indigo-600 border-slate-200'
+                }`}
+              >
+                 {isEditMode ? <X size={18} /> : <Edit3 size={18} />}
+                 {isEditMode ? 'Exit' : 'Edit'}
+              </button>
+           </div>
         </div>
       )}
 
