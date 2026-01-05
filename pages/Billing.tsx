@@ -32,7 +32,8 @@ import {
   AlertTriangle,
   Wallet,
   FileDown,
-  RotateCcw
+  RotateCcw,
+  Download
 } from 'lucide-react';
 import { createBulkTransactions, fetchTransactions, updateTransactionPayment } from '../services/transactionService';
 import TharLoader from '../components/TharLoader';
@@ -316,6 +317,7 @@ const Billing: React.FC<Props> = ({ user }) => {
       const paid = tx.paidAmount || 0;
       return {
         'Date': new Date(tx.createdAt).toLocaleDateString(),
+        'Time': new Date(tx.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         'Customer Name': tx.customerName || 'Walk-in',
         'Part Number': tx.partNumber,
         'Quantity': tx.quantity,
@@ -331,6 +333,28 @@ const Billing: React.FC<Props> = ({ user }) => {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Pending_Collections");
     XLSX.writeFile(wb, `Sparezy_Pending_Payments_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  const handleExportCustomerLedger = (customer: CustomerGroup) => {
+    const dataToExport = customer.transactions.map(tx => {
+      const amount = tx.price * tx.quantity;
+      const paid = tx.paidAmount || 0;
+      return {
+        'Date': new Date(tx.createdAt).toLocaleDateString(),
+        'Time': new Date(tx.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        'Part Number': tx.partNumber,
+        'Type': tx.type,
+        'Quantity': tx.type === TransactionType.RETURN ? -tx.quantity : tx.quantity,
+        'Total Billed': tx.type === TransactionType.RETURN ? -amount : amount,
+        'Total Paid': tx.type === TransactionType.RETURN ? -paid : paid,
+        'Outstanding': (tx.type === TransactionType.RETURN ? -amount : amount) - (tx.type === TransactionType.RETURN ? -paid : paid)
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Customer_Ledger");
+    XLSX.writeFile(wb, `Sparezy_Ledger_${customer.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   const submitReturns = async () => {
@@ -688,8 +712,9 @@ const Billing: React.FC<Props> = ({ user }) => {
                                     <div className="flex justify-between items-start mb-4">
                                         <div className="space-y-1">
                                             <div className="font-black text-slate-900 text-lg leading-tight group-hover:text-brand-600 transition-colors">{tx.partNumber}</div>
-                                            <div className="flex items-center gap-1.5 text-slate-400 text-[11px] font-bold">
-                                                <Calendar size={12} /> {new Date(tx.createdAt).toLocaleDateString()}
+                                            <div className="flex flex-col text-slate-400 text-[11px] font-bold">
+                                                <div className="flex items-center gap-1.5"><Calendar size={12} /> {new Date(tx.createdAt).toLocaleDateString()}</div>
+                                                <div className="flex items-center gap-1.5 mt-0.5"><Clock size={12} /> {new Date(tx.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
                                             </div>
                                         </div>
                                         <div className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${isReturn ? 'bg-rose-50 text-rose-600' : 'bg-teal-50 text-teal-600'}`}>
@@ -747,8 +772,9 @@ const Billing: React.FC<Props> = ({ user }) => {
                                                     {bill.type} Bill
                                                 </span>
                                             </div>
-                                            <div className="text-[11px] font-bold text-slate-400 flex items-center gap-2">
-                                                <Calendar size={12}/> {new Date(bill.createdAt).toLocaleDateString()}
+                                            <div className="text-[11px] font-bold text-slate-400 flex flex-col gap-1">
+                                                <div className="flex items-center gap-2"><Calendar size={12}/> {new Date(bill.createdAt).toLocaleDateString()}</div>
+                                                <div className="flex items-center gap-2"><Clock size={12}/> {new Date(bill.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
                                             </div>
                                         </div>
                                         {!isReturn && (
@@ -842,6 +868,7 @@ const Billing: React.FC<Props> = ({ user }) => {
                               <h3 className="font-black text-slate-900 text-2xl tracking-tight leading-none mb-2 uppercase">{selectedBill.customerName || 'Cash Bill'}</h3>
                               <div className="flex items-center gap-3 text-slate-400 text-sm font-bold uppercase tracking-widest">
                                   <Calendar size={14}/> {new Date(selectedBill.createdAt).toLocaleDateString()}
+                                  <Clock size={14} className="ml-2"/> {new Date(selectedBill.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                               </div>
                           </div>
                       </div>
@@ -961,7 +988,16 @@ const Billing: React.FC<Props> = ({ user }) => {
                           <button onClick={() => setSelectedCustomer(null)} className="p-3 bg-white text-slate-400 hover:text-slate-900 rounded-2xl shadow-sm border border-slate-100 transition-all active:scale-90"><ArrowLeft size={24}/></button>
                           <div>
                               <p className="text-[10px] font-black text-brand-600 uppercase tracking-[0.3em] mb-2">Customer Profile</p>
-                              <h3 className="font-black text-slate-900 text-3xl tracking-tight leading-none uppercase">{selectedCustomer.name}</h3>
+                              <div className="flex items-center gap-4">
+                                <h3 className="font-black text-slate-900 text-3xl tracking-tight leading-none uppercase">{selectedCustomer.name}</h3>
+                                <button 
+                                  onClick={() => handleExportCustomerLedger(selectedCustomer)}
+                                  className="p-2.5 bg-brand-50 text-brand-600 hover:bg-brand-100 rounded-xl transition-all shadow-sm active:scale-90"
+                                  title="Download Individual Ledger"
+                                >
+                                  <Download size={20} />
+                                </button>
+                              </div>
                           </div>
                       </div>
                       <div className="text-right">
@@ -992,7 +1028,10 @@ const Billing: React.FC<Props> = ({ user }) => {
                                                <div className={`font-black text-lg uppercase tracking-tight ${isReturn ? 'text-rose-700' : 'text-slate-900'}`}>{tx.partNumber}</div>
                                                {isReturn && <span className="text-[8px] font-black uppercase px-1.5 py-0.5 bg-rose-600 text-white rounded shadow-sm">Returned Part</span>}
                                             </div>
-                                            <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest mt-1">{new Date(tx.createdAt).toLocaleDateString()}</p>
+                                            <div className="flex items-center gap-3 mt-1 text-slate-400 text-[11px] font-bold uppercase tracking-widest">
+                                                <div className="flex items-center gap-1"><Calendar size={12}/> {new Date(tx.createdAt).toLocaleDateString()}</div>
+                                                <div className="flex items-center gap-1"><Clock size={12}/> {new Date(tx.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                                            </div>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-10">
@@ -1007,7 +1046,7 @@ const Billing: React.FC<Props> = ({ user }) => {
                                                    Stock Reverted
                                                 </span>
                                             ) : (
-                                                <span className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-lg border shadow-inner ${balance <= 0 ? 'bg-teal-50 text-teal-600 border-teal-100' : balance < amount ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
+                                                <span className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-lg border shadow-inner ${balance <= 0 ? 'bg-teal-50 text-teal-600 border-teal-100' : balance < amount ? `bg-amber-50 text-amber-600 border-amber-100` : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
                                                    {balance <= 0 ? 'Settled' : balance < amount ? `Partial: ₹${balance.toLocaleString()} Due` : 'Full Credit Due'}
                                                 </span>
                                             )}
