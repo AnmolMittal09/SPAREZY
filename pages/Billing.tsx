@@ -30,11 +30,13 @@ import {
   Users,
   CheckCircle,
   AlertTriangle,
-  Wallet
+  Wallet,
+  FileDown
 } from 'lucide-react';
 import { createBulkTransactions, fetchTransactions, updateTransactionPayment } from '../services/transactionService';
 import TharLoader from '../components/TharLoader';
 import ConfirmModal from '../components/ConfirmModal';
+import * as XLSX from 'xlsx';
 
 const fd = (n: number | string) => {
   const num = parseInt(n.toString()) || 0;
@@ -305,6 +307,31 @@ const Billing: React.FC<Props> = ({ user }) => {
     }
   };
 
+  const handleExportPendingPayments = () => {
+    const pending = history.filter(tx => tx.type === TransactionType.SALE && (tx.paidAmount || 0) < (tx.price * tx.quantity));
+    
+    const dataToExport = pending.map(tx => {
+      const total = tx.price * tx.quantity;
+      const paid = tx.paidAmount || 0;
+      return {
+        'Date': new Date(tx.createdAt).toLocaleDateString(),
+        'Customer Name': tx.customerName || 'Walk-in',
+        'Part Number': tx.partNumber,
+        'Quantity': tx.quantity,
+        'Billed Amount': total,
+        'Amount Received': paid,
+        'Balance Owed': total - paid
+      };
+    });
+
+    if (dataToExport.length === 0) return alert("No pending payments found in the ledger.");
+
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Pending_Collections");
+    XLSX.writeFile(wb, `Sparezy_Pending_Payments_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
   const submitReturns = async () => {
     const ids = Object.keys(selectedReturns);
     if (ids.length === 0) return;
@@ -529,6 +556,15 @@ const Billing: React.FC<Props> = ({ user }) => {
                    </div>
                    
                    <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto no-scrollbar pb-1 md:pb-0">
+                      <button 
+                        onClick={handleExportPendingPayments}
+                        className="p-2 rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-amber-600 transition-all shadow-sm active:scale-95 flex items-center gap-2 px-4 whitespace-nowrap"
+                        title="Export Pending Payments"
+                      >
+                        <FileDown size={16} />
+                        <span className="text-[10px] font-black uppercase tracking-widest">Export Dues</span>
+                      </button>
+
                       <div className="relative flex-1 md:w-64">
                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
                          <input 
@@ -722,7 +758,7 @@ const Billing: React.FC<Props> = ({ user }) => {
                                     </div>
                                     <div className="mb-6">
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Customer / Client</p>
-                                        <div className="font-black text-lg text-slate-900 leading-tight truncate group-hover:text-brand-600 transition-colors uppercase">
+                                        <div className="font-black text-lg text-slate-900 leading-tight truncate group-hover:text-blue-600 transition-colors uppercase">
                                             {bill.customerName || 'Standard Checkout'}
                                         </div>
                                     </div>

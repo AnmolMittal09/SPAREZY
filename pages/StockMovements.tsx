@@ -16,8 +16,10 @@ import {
   ChevronRight,
   Package,
   Clock,
-  ArrowUpDown
+  ArrowUpDown,
+  Download
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 const fd = (n: number | string) => {
   const num = parseInt(n.toString()) || 0;
@@ -82,6 +84,24 @@ const StockMovements: React.FC<Props> = ({ user }) => {
     });
   }, [transactions, typeFilter, startDate, endDate, searchQuery]);
 
+  const handleExport = () => {
+    const dataToExport = filteredTransactions.map(tx => ({
+      'Date': new Date(tx.createdAt).toLocaleDateString(),
+      'Time': new Date(tx.createdAt).toLocaleTimeString(),
+      'Process': tx.type,
+      'Part Number': tx.partNumber,
+      'Entity (Customer/Supplier)': tx.customerName || 'Direct Entry',
+      'Quantity': tx.quantity,
+      'Unit Rate': tx.price,
+      'Total Value': tx.price * tx.quantity
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Ledger");
+    XLSX.writeFile(wb, `Sparezy_Audit_Ledger_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
   const clearFilters = () => {
     setSearchQuery('');
     setTypeFilter('ALL');
@@ -109,6 +129,14 @@ const StockMovements: React.FC<Props> = ({ user }) => {
         </div>
 
         <div className="flex items-center gap-3 w-full md:w-auto">
+            <button 
+              onClick={handleExport}
+              className="p-3 rounded-2xl border bg-white text-slate-500 border-slate-200 hover:text-blue-600 hover:border-blue-200 transition-all shadow-soft active:scale-95 flex items-center gap-2"
+              title="Export Ledger"
+            >
+                <Download size={20} />
+                <span className="hidden md:inline text-[10px] font-black uppercase tracking-widest">Export Report</span>
+            </button>
             <div className="relative flex-1 md:w-80">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} strokeWidth={2.5} />
                 <input 
