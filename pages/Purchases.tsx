@@ -240,7 +240,6 @@ const Purchases: React.FC<Props> = ({ user }) => {
   const confirmBulkImport = async () => {
     if (previewData.length === 0) return;
     setImporting(true);
-    // Standardizing source name to be case-insensitive
     const sourceName = (extractedMetadata.dealerName ? `${extractedMetadata.dealerName} (Inv: ${extractedMetadata.invoiceDate})` : `AI Audit (${new Date().toLocaleDateString()})`).toUpperCase().trim();
     
     try {
@@ -277,11 +276,11 @@ const Purchases: React.FC<Props> = ({ user }) => {
   return (
     <div className="h-full flex flex-col bg-slate-50 md:bg-transparent">
        {!isSearchingOnMobile && (
-         <div className="md:hidden bg-white p-4 border-b border-slate-100 z-20 sticky top-0 shadow-sm">
-            <div className="flex bg-slate-100 p-1.5 rounded-2xl">
-               <button onClick={() => setActiveTab('NEW')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'NEW' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}>Entry</button>
-               <button onClick={() => setActiveTab('IMPORT')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'IMPORT' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400'}`}>Scan</button>
-               <button onClick={() => setActiveTab('HISTORY')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'HISTORY' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}>Ledger</button>
+         <div className="md:hidden bg-white p-4 border-b border-slate-100 z-20 sticky top-0 shadow-sm animate-fade-in">
+            <div className="flex bg-slate-100 p-1 rounded-2xl">
+               <button onClick={() => setActiveTab('NEW')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'NEW' ? 'bg-white text-slate-900 shadow-md ring-1 ring-slate-100' : 'text-slate-400'}`}>Manual</button>
+               <button onClick={() => setActiveTab('IMPORT')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'IMPORT' ? 'bg-blue-600 text-white shadow-md ring-1 ring-blue-100' : 'text-slate-400'}`}>AI Scan</button>
+               <button onClick={() => setActiveTab('HISTORY')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'HISTORY' ? 'bg-white text-slate-900 shadow-md ring-1 ring-slate-100' : 'text-slate-400'}`}>History</button>
             </div>
          </div>
        )}
@@ -308,122 +307,89 @@ const Purchases: React.FC<Props> = ({ user }) => {
              <div className="max-w-4xl mx-auto w-full p-4 md:p-6 space-y-6 flex flex-col h-full overflow-y-auto no-scrollbar pb-40">
                 {!previewData.length && !importLog && (
                   <div className="space-y-6 animate-fade-in">
-                    <div className="bg-white border-2 border-slate-200/60 rounded-[3rem] p-12 text-center hover:border-blue-300 hover:bg-blue-50/10 transition-all group shadow-premium">
-                        <div className="w-24 h-24 bg-slate-50 text-slate-200 rounded-[2.25rem] flex items-center justify-center mx-auto mb-10 group-hover:bg-blue-50 group-hover:text-blue-500 transition-all shadow-inner-soft"><ImageIcon size={48} /></div>
-                        <h2 className="text-3xl font-black text-slate-900 mb-3 tracking-tight">Invoice Digitization</h2>
-                        <p className="text-slate-400 mb-12 max-w-xs mx-auto text-[14px] font-bold leading-relaxed">Scan multi-page bills to verify 12% B.DC compliance automatically.</p>
-                        <label className="inline-flex items-center gap-4 bg-blue-600 hover:bg-blue-700 text-white font-black px-14 py-6 rounded-[2.5rem] cursor-pointer transition-all active:scale-95 shadow-elevated shadow-blue-500/20 uppercase text-[12px] tracking-[0.2em]">
-                           <Upload size={22} strokeWidth={3} /> Select Documents
+                    <div className="bg-white border-2 border-slate-200/60 rounded-[2.5rem] p-10 text-center hover:border-blue-300 hover:bg-blue-50/10 transition-all group shadow-premium">
+                        <div className="w-20 h-20 bg-slate-50 text-slate-200 rounded-[1.75rem] flex items-center justify-center mx-auto mb-8 group-hover:bg-blue-50 group-hover:text-blue-500 transition-all shadow-inner-soft"><ImageIcon size={40} /></div>
+                        <h2 className="text-2xl font-black text-slate-900 mb-2 tracking-tight uppercase">Invoice Scan</h2>
+                        <p className="text-slate-400 mb-10 max-w-xs mx-auto text-xs font-bold leading-relaxed uppercase tracking-widest">Verify 12% B.DC compliance automatically.</p>
+                        <label className="inline-flex items-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-black px-10 py-5 rounded-[1.75rem] cursor-pointer transition-all active:scale-95 shadow-xl shadow-blue-500/20 uppercase text-[11px] tracking-[0.15em]">
+                           <Upload size={20} strokeWidth={3} /> Select Docs
                            <input type="file" multiple accept="application/pdf, image/*, .xlsx, .xls, .xlsb, .csv" className="hidden" onChange={handleFileSelect} />
                         </label>
                     </div>
 
                     {queuedFiles.length > 0 && (
-                      <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-elevated">
-                        <div className="flex justify-between items-center mb-8">
-                           <h4 className="font-black text-slate-900 uppercase tracking-[0.2em] text-[10px]">Processing Queue ({fd(queuedFiles.length)}) Pages</h4>
-                           <button onClick={() => setQueuedFiles([])} className="text-rose-500 font-black text-[10px] uppercase tracking-widest hover:underline">Clear Registry</button>
+                      <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-elevated">
+                        <div className="flex justify-between items-center mb-6 px-2">
+                           <h4 className="font-black text-slate-900 uppercase tracking-[0.2em] text-[9px]">File Queue ({fd(queuedFiles.length)})</h4>
+                           <button onClick={() => setQueuedFiles([])} className="text-rose-500 font-black text-[9px] uppercase tracking-widest">Clear</button>
                         </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                        <div className="grid grid-cols-2 gap-4">
                            {queuedFiles.map((q) => (
-                             <div key={q.id} className="relative group aspect-[3/4] rounded-3xl overflow-hidden border border-slate-100 shadow-soft bg-slate-50">
-                                <img src={q.preview} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                                <button onClick={() => removeFileFromQueue(q.id)} className="absolute top-3 right-3 p-2 bg-rose-600 text-white rounded-xl shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={16}/></button>
-                                <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/60 to-transparent">
-                                   <p className="text-white text-[10px] font-black uppercase tracking-widest">Page {fd(queuedFiles.indexOf(q) + 1)}</p>
-                                </div>
+                             <div key={q.id} className="relative group aspect-[3/4] rounded-[1.5rem] overflow-hidden border border-slate-100 shadow-soft bg-slate-50">
+                                <img src={q.preview} className="w-full h-full object-cover" />
+                                <button onClick={() => removeFileFromQueue(q.id)} className="absolute top-2 right-2 p-2 bg-rose-600 text-white rounded-lg shadow-lg"><Trash2 size={14}/></button>
                              </div>
                            ))}
-                           <label className="aspect-[3/4] rounded-3xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-300 hover:bg-slate-50 cursor-pointer transition-all">
+                           <label className="aspect-[3/4] rounded-[1.5rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-300 bg-slate-50/50 cursor-pointer">
                               <Plus size={24} strokeWidth={3} />
                               <input type="file" multiple accept="image/*" className="hidden" onChange={handleFileSelect} />
                            </label>
                         </div>
-                        <div className="mt-10 border-t border-slate-50 pt-8">
-                          <button onClick={startAiAudit} disabled={importing} className="w-full bg-slate-900 hover:bg-black text-white font-black py-6 rounded-[2rem] shadow-xl flex items-center justify-center gap-4 active:scale-[0.98] transition-all text-sm uppercase tracking-[0.2em]">
-                            {importing ? <Loader2 className="animate-spin" /> : <ScanLine size={24} />}
-                            {importing ? 'Analyzing Ledger...' : 'Initialize AI Audit'}
+                        <div className="mt-8">
+                          <button onClick={startAiAudit} disabled={importing} className="w-full bg-slate-900 hover:bg-black text-white font-black py-5 rounded-[1.75rem] shadow-xl flex items-center justify-center gap-3 transition-all active:scale-[0.98] text-[13px] uppercase tracking-[0.15em]">
+                            {importing ? <Loader2 className="animate-spin" size={18}/> : <ScanLine size={20} />}
+                            {importing ? 'Scanning...' : 'Start Audit'}
                           </button>
                         </div>
                       </div>
                     )}
-                    {errorMsg && <div className="mt-10 p-6 bg-rose-50 text-rose-600 rounded-[2rem] border border-rose-100 text-xs font-black flex items-center gap-4 justify-center uppercase tracking-widest shadow-soft animate-shake"><AlertCircle size={22} /> {errorMsg}</div>}
                   </div>
                 )}
-
-                {importLog && (
-                  <div className="p-12 rounded-[3.5rem] border-2 flex flex-col items-center text-center animate-slide-up shadow-premium bg-white border-slate-100">
-                      <div className={`w-28 h-28 rounded-[2.5rem] mb-10 flex items-center justify-center shadow-xl ${importLog.success ? 'bg-teal-50 text-teal-600' : 'bg-rose-50 text-rose-600'}`}>
-                        {importLog.success ? <CheckCircle2 size={56} strokeWidth={2.5} /> : <AlertCircle size={56} strokeWidth={2.5} />}
-                      </div>
-                      <h3 className="text-4xl font-black text-slate-900 tracking-tighter">
-                        {importLog.success ? 'Sync Complete' : 'Process Halted'}
-                      </h3>
-                      <p className="mt-4 font-bold text-slate-400 text-base max-w-sm leading-relaxed">
-                         {importLog.success ? `Verified ${fd(importLog.count)} items. Stock balances updated across ${fd(importLog.updatedCount || 0)} existing and ${fd(importLog.addedCount || 0)} new SKUs.` : importLog.message}
-                      </p>
-                      <button onClick={() => { setImportLog(null); setPreviewData([]); setQueuedFiles([]); }} className="mt-14 text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] hover:text-blue-600 transition-colors">Start New Acquisition</button>
-                  </div>
-                )}
-
+                
                 {previewData.length > 0 && (
-                  <div className="bg-white rounded-[3rem] shadow-premium border border-slate-200/80 overflow-hidden flex flex-col max-h-[80vh] animate-fade-in">
-                     <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/30">
-                        <div className="flex items-center gap-5">
-                           <div className="bg-blue-600 text-white p-3.5 rounded-2xl shadow-xl shadow-blue-500/20"><ShieldCheck size={26} strokeWidth={2.5} /></div>
-                           <div>
-                              <h3 className="font-black text-slate-900 text-xl tracking-tight leading-none mb-1.5">Extraction Ledger</h3>
-                              <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Protocol Check: 12% B.DC Rule</p>
-                           </div>
-                        </div>
+                  <div className="bg-white rounded-[2rem] shadow-premium border border-slate-200/80 overflow-hidden flex flex-col animate-fade-in">
+                     <div className="p-6 border-b border-slate-100 bg-slate-50/30 flex justify-between items-center">
+                        <h3 className="font-black text-slate-900 text-sm uppercase tracking-widest">Verify Batch</h3>
+                        <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-full">{fd(previewData.length)} ITEMS</span>
                      </div>
-                     <div className="flex-1 overflow-y-auto no-scrollbar bg-white divide-y divide-slate-50">
+                     <div className="divide-y divide-slate-50 max-h-[60vh] overflow-y-auto no-scrollbar">
                         {previewData.map((row, i) => (
-                           <div key={i} className={`px-10 py-8 group transition-all ${row.hasError ? 'bg-rose-50/20' : 'hover:bg-slate-50/50'}`}>
-                                <div className="flex justify-between items-start gap-8 mb-6">
-                                   <div className="flex-1 min-w-0">
-                                      <div className="font-black text-slate-900 text-xl uppercase tracking-tight mb-2 group-hover:text-blue-600 transition-colors">{row.partNumber}</div>
-                                      <div className="text-[12px] text-slate-400 font-bold truncate uppercase tracking-tight">{row.name}</div>
+                           <div key={i} className={`p-5 flex flex-col gap-3 ${row.hasError ? 'bg-rose-50/30' : ''}`}>
+                                <div className="flex justify-between items-start">
+                                   <div className="flex-1 min-w-0 pr-4">
+                                      <div className="font-black text-slate-900 text-[15px] uppercase truncate">{row.partNumber}</div>
+                                      <div className="text-[10px] text-slate-400 font-bold truncate uppercase">{row.name}</div>
                                    </div>
-                                   <div className="flex items-center gap-3">
-                                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Qty</span>
+                                   <div className="text-right">
+                                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Quantity</span>
                                       <input 
                                         type="number" 
-                                        className="bg-slate-900 text-white px-4 py-2 rounded-2xl text-[12px] font-black tabular-nums shadow-lg w-20 text-center outline-none focus:ring-2 focus:ring-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                        className="bg-slate-900 text-white px-3 py-1 rounded-lg text-xs font-black w-16 text-center outline-none"
                                         value={fd(row.quantity)}
                                         onChange={(e) => updatePreviewQty(i, parseInt(e.target.value) || 1)}
-                                        onFocus={(e) => e.target.select()}
                                       />
                                    </div>
                                 </div>
-                                <div className="grid grid-cols-3 gap-10 py-5 border-t border-slate-100/60">
-                                    <div className="space-y-1">
-                                        <p className="text-[8px] font-black text-slate-300 uppercase tracking-[0.2em]">Market Price</p>
-                                        <p className="font-black text-slate-500 text-sm">₹{row.mrp.toLocaleString()}</p>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <p className="text-[8px] font-black text-slate-300 uppercase tracking-[0.2em]">Net Discount</p>
-                                        <p className={`font-black text-sm ${row.discountPercent < 12 ? 'text-rose-600' : 'text-slate-600'}`}>{row.discountPercent}%</p>
-                                    </div>
-                                    <div className="space-y-1 text-right">
-                                        <p className="text-[8px] font-black text-blue-400 uppercase tracking-[0.2em]">Billed Rate</p>
-                                        <p className="font-black text-blue-600 text-lg tracking-tighter">₹{row.printedUnitPrice.toLocaleString()}</p>
-                                    </div>
+                                <div className="flex justify-between items-center bg-white/50 p-3 rounded-xl border border-slate-100">
+                                   <div className="text-center">
+                                      <p className="text-[8px] font-black text-slate-300 uppercase">MRP</p>
+                                      <p className="font-black text-slate-600 text-xs">₹{row.mrp}</p>
+                                   </div>
+                                   <div className="text-center">
+                                      <p className="text-[8px] font-black text-slate-300 uppercase">Disc</p>
+                                      <p className={`font-black text-xs ${row.discountPercent < 12 ? 'text-rose-600' : 'text-slate-600'}`}>{row.discountPercent}%</p>
+                                   </div>
+                                   <div className="text-right">
+                                      <p className="text-[8px] font-black text-blue-400 uppercase">Rate</p>
+                                      <p className="font-black text-blue-600 text-sm">₹{row.printedUnitPrice}</p>
+                                   </div>
                                 </div>
-                                {row.hasError && (
-                                    <div className="mt-4 bg-rose-600 text-white p-4 rounded-2xl flex gap-3 items-center shadow-lg shadow-rose-200 animate-slide-up">
-                                        <AlertTriangle size={18} strokeWidth={3} className="flex-none" />
-                                        <div className="text-[10px] font-black uppercase tracking-widest leading-relaxed">
-                                          Discrepancy: {row.errorType === 'DISCOUNT_LOW' ? `Low DC (${row.discountPercent}% vs 12%)` : `Math mismatch of ₹${Math.abs(row.diff)} per unit`}
-                                        </div>
-                                    </div>
-                                )}
                            </div>
                         ))}
                      </div>
-                     <div className="p-10 border-t border-slate-100 bg-white shadow-[0_-15px_40px_rgba(0,0,0,0.04)]">
-                        <button onClick={confirmBulkImport} disabled={importing} className="w-full bg-slate-900 hover:bg-black text-white font-black py-6 rounded-[2rem] shadow-2xl flex items-center justify-center gap-4 active:scale-[0.98] transition-all uppercase text-xs tracking-[0.2em]">
-                          {importing ? <Loader2 className="animate-spin" /> : <Database size={24} />} Commit Changes to Master Ledger
+                     <div className="p-6 border-t border-slate-100 bg-white">
+                        <button onClick={confirmBulkImport} disabled={importing} className="w-full bg-slate-900 text-white font-black py-5 rounded-[1.5rem] shadow-xl flex items-center justify-center gap-3 active:scale-[0.98] uppercase text-[12px] tracking-widest">
+                          {importing ? <Loader2 className="animate-spin" size={20}/> : <Check size={20}/>} Confirm Inbound
                         </button>
                      </div>
                   </div>
@@ -432,152 +398,80 @@ const Purchases: React.FC<Props> = ({ user }) => {
           )}
 
           {activeTab === 'HISTORY' && (
-             <div className="bg-[#F8FAFC] md:bg-white md:rounded-[3rem] shadow-premium border border-slate-200/60 flex flex-col h-full overflow-hidden">
-                <div className="p-8 border-b border-slate-100 bg-white flex items-center justify-between">
-                   <div className="flex items-center gap-5">
-                      <div className="p-3 bg-slate-900 text-white rounded-2xl shadow-lg"><Truck size={24} strokeWidth={2.5} /></div>
-                      <div>
-                         <span className="font-black text-slate-900 text-xl tracking-tight block uppercase">Financial Journal</span>
-                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Inbound Logistics Log</span>
-                      </div>
-                   </div>
-                   
-                   {/* MOBILE VIEW MODE TOGGLE */}
-                   <div className="md:hidden flex bg-slate-100 p-1 rounded-xl">
-                      <button onClick={() => setViewMode('STACKED')} className={`p-2 rounded-lg transition-all ${viewMode === 'STACKED' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}><Layers size={16} /></button>
-                      <button onClick={() => setViewMode('LIST')} className={`p-2 rounded-lg transition-all ${viewMode === 'LIST' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}><List size={16} /></button>
-                   </div>
-
-                   <div className="hidden md:flex items-center gap-3">
-                      <button onClick={() => setSortOrder(s => s === 'asc' ? 'desc' : 'asc')} className="p-3.5 bg-slate-50 text-slate-400 rounded-2xl hover:text-slate-900 border border-slate-100 transition-all"><ArrowUpDown size={20} /></button>
-                      <button onClick={loadHistory} className="p-3.5 bg-slate-50 text-slate-400 rounded-2xl hover:text-slate-900 border border-slate-100 transition-all"><Clock size={20} /></button>
-                   </div>
-                </div>
-
-                <div className="flex-1 overflow-y-auto p-4 md:p-10 space-y-4 md:space-y-6 no-scrollbar pb-40 bg-slate-50/30">
-                  {loading ? <TharLoader /> : history.length === 0 ? <div className="p-40 text-center opacity-10"><History size={80} className="mx-auto" /></div> : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-                        {viewMode === 'STACKED' ? (
-                          stackedHistory.map(stack => (
-                            <div key={stack.id} onClick={() => setSelectedInbound(stack)} className="p-6 md:p-8 bg-white rounded-[2.5rem] border-2 border-slate-100 shadow-soft hover:border-blue-200 hover:shadow-xl transition-all cursor-pointer group relative animate-fade-in">
-                                <div className="absolute -bottom-2 left-10 right-10 h-2 bg-slate-200 rounded-b-3xl opacity-20 group-hover:-bottom-3 transition-all"></div>
-                                <div className="flex justify-between items-start mb-6 md:mb-8">
-                                    <div className="space-y-1.5">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <div className="p-1.5 rounded-lg bg-blue-50 text-blue-600"><FileText size={14}/></div>
-                                            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-600">INBOUND REGISTER</span>
-                                        </div>
-                                        <div className="text-[11px] font-bold text-slate-400 flex items-center gap-2">
-                                            <Calendar size={12}/> {new Date(stack.createdAt).toLocaleDateString()}
-                                        </div>
-                                    </div>
-                                    <div className="bg-slate-900 text-white w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg active:scale-90 transition-all"><ChevronRight size={20} /></div>
-                                </div>
-                                <div className="mb-6 md:mb-8 min-h-[40px] md:min-h-[50px]">
-                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Supplier / Dealer</p>
-                                    <div className="font-black text-base md:text-lg text-slate-900 leading-tight truncate group-hover:text-blue-600 transition-colors uppercase">{stack.customerName || 'Standard Batch'}</div>
-                                </div>
-                                <div className="flex justify-between items-end border-t border-slate-50 pt-5 md:pt-6">
-                                    <div className="text-right w-full">
-                                        <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-0.5">Asset Value</p>
-                                        <p className="text-2xl font-black text-slate-900 tracking-tighter tabular-nums">₹{stack.totalValue.toLocaleString()}</p>
-                                    </div>
-                                </div>
-                            </div>
-                          ))
-                        ) : (
-                          sortedListHistory.map(tx => (
-                            <div key={tx.id} className="p-5 bg-white rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col animate-fade-in relative overflow-hidden group">
-                                <div className="flex justify-between items-start mb-4">
-                                    <div className="space-y-1">
-                                        <div className="font-black text-slate-900 text-lg leading-tight uppercase group-hover:text-blue-600 transition-colors">{tx.partNumber}</div>
-                                        <div className="flex items-center gap-1.5 text-slate-400 text-[11px] font-bold">
-                                            <Calendar size={12} /> {new Date(tx.createdAt).toLocaleDateString()}
-                                        </div>
-                                    </div>
-                                    <div className="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-blue-50 text-blue-600">
-                                        INBOUND
-                                    </div>
-                                </div>
-
-                                {/* MOBILE DEALER NAME COLUMN FEEL */}
-                                <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 flex items-center gap-3 mb-5">
-                                    <div className="p-1.5 bg-white rounded-lg text-slate-400 border border-slate-100">
-                                        <UserIcon size={14} />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Inbound From</p>
-                                        <p className="text-[11px] font-black text-slate-800 truncate uppercase">{tx.customerName || 'Direct Provider'}</p>
-                                    </div>
-                                </div>
-
-                                <div className="mt-auto flex justify-between items-center">
-                                    <span className="bg-slate-100 px-3 py-1 rounded-xl text-[11px] font-black text-slate-500 uppercase tracking-widest">{fd(tx.quantity)} units</span>
-                                    <div className="text-right">
-                                        <p className="text-xl font-black text-slate-900 tracking-tight">₹{(tx.price * tx.quantity).toLocaleString()}</p>
-                                    </div>
-                                </div>
-                            </div>
-                          ))
-                        )}
-                    </div>
-                  )}
-                </div>
+             <div className="p-4 space-y-4 overflow-y-auto no-scrollbar pb-40 animate-fade-in">
+                {loading ? <TharLoader /> : history.length === 0 ? <div className="p-40 text-center opacity-10"><History size={80} className="mx-auto" /></div> : (
+                    stackedHistory.map(stack => (
+                        <div key={stack.id} onClick={() => setSelectedInbound(stack)} className="bg-white p-5 rounded-[2rem] shadow-soft border border-slate-200/60 flex flex-col gap-4 active:scale-[0.98] transition-all relative overflow-hidden group">
+                           <div className="absolute top-0 right-0 w-24 h-full bg-blue-600/[0.02] -skew-x-12 translate-x-12"></div>
+                           <div className="flex justify-between items-start relative z-10">
+                              <div className="flex items-center gap-2">
+                                 <div className="p-2 bg-blue-50 text-blue-600 rounded-xl"><FileText size={16}/></div>
+                                 <div className="flex flex-col">
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">INBOUND BATCH</span>
+                                    <span className="text-[11px] font-bold text-slate-900">{new Date(stack.createdAt).toLocaleDateString()}</span>
+                                 </div>
+                              </div>
+                              <ChevronRight size={18} className="text-slate-200" />
+                           </div>
+                           <div className="relative z-10">
+                              <span className="text-[8px] font-black uppercase text-slate-300 tracking-widest block mb-1">Source Dealer</span>
+                              <div className="font-black text-[15px] text-slate-900 truncate uppercase leading-tight">{stack.customerName || 'Direct Provider'}</div>
+                           </div>
+                           <div className="flex justify-between items-end border-t border-slate-50 pt-4 relative z-10">
+                              <span className="text-[9px] font-black bg-slate-100 px-2 py-0.5 rounded-md text-slate-500">{fd(stack.items.length)} ITEMS</span>
+                              <div className="text-right">
+                                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Batch Total</span>
+                                 <span className="font-black text-xl text-slate-900 tracking-tighter tabular-nums">₹{stack.totalValue.toLocaleString()}</span>
+                              </div>
+                           </div>
+                        </div>
+                    ))
+                )}
              </div>
           )}
        </div>
 
-       {/* INBOUND DETAIL MODAL */}
+       {/* INBOUND DETAIL MODAL - MOBILE REFINED */}
        {selectedInbound && (
-          <div className="fixed inset-0 z-[200] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
-              <div className="bg-white w-full max-w-4xl rounded-[3rem] shadow-2xl flex flex-col max-h-[85vh] overflow-hidden animate-slide-up">
-                  <div className="p-8 md:p-10 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                      <div className="flex items-center gap-6">
-                          <button onClick={() => setSelectedInbound(null)} className="p-3.5 bg-white text-slate-400 hover:text-slate-900 rounded-2xl shadow-soft border border-slate-100 active:scale-90"><ArrowLeft size={24}/></button>
+          <div className="fixed inset-0 z-[200] bg-slate-900/60 backdrop-blur-md flex items-end justify-center animate-fade-in">
+              <div className="bg-white w-full rounded-t-[2.5rem] shadow-2xl flex flex-col max-h-[85vh] overflow-hidden animate-slide-up">
+                  <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                      <div className="flex items-center gap-4">
+                          <button onClick={() => setSelectedInbound(null)} className="p-2.5 bg-white text-slate-400 rounded-xl shadow-soft border border-slate-100 active:scale-90"><ArrowLeft size={20}/></button>
                           <div>
-                              <h3 className="font-black text-slate-900 text-2xl tracking-tight leading-none mb-2 uppercase">{selectedInbound.customerName || 'Bulk Inbound'}</h3>
-                              <div className="flex items-center gap-3 text-slate-400 text-xs font-black uppercase tracking-widest">
-                                  <Calendar size={14}/> {new Date(selectedInbound.createdAt).toLocaleDateString()}
-                                  <span className="text-slate-200">|</span>
-                                  <Clock size={14}/> {new Date(selectedInbound.createdAt).toLocaleTimeString()}
-                              </div>
+                              <h3 className="font-black text-slate-900 text-lg uppercase leading-tight truncate max-w-[200px]">{selectedInbound.customerName || 'Bulk Inbound'}</h3>
+                              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{new Date(selectedInbound.createdAt).toLocaleDateString()} • {new Date(selectedInbound.createdAt).toLocaleTimeString()}</p>
                           </div>
                       </div>
                   </div>
-                  <div className="flex-1 overflow-y-auto p-6 md:p-10 no-scrollbar space-y-4">
-                      <div className="space-y-3">
-                          {selectedInbound.items.map((item, idx) => (
-                              <div key={item.id} className="p-6 md:p-8 bg-slate-50/40 rounded-[2.5rem] border border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-6 hover:bg-white hover:border-blue-200 hover:shadow-soft transition-all">
-                                  <div className="flex items-center gap-6">
-                                      <div className="w-12 h-12 bg-white rounded-2xl border border-slate-100 flex items-center justify-center font-black text-slate-200 text-sm">{fd(idx + 1)}</div>
-                                      <div>
-                                          <div className="font-black text-slate-900 text-lg leading-tight tracking-tight uppercase mb-1">{item.partNumber}</div>
-                                          <p className="text-[11px] text-slate-400 font-black uppercase tracking-widest">Rate: ₹{item.price.toLocaleString()}</p>
-                                      </div>
+                  <div className="flex-1 overflow-y-auto p-4 no-scrollbar space-y-3">
+                      {selectedInbound.items.map((item, idx) => (
+                          <div key={item.id} className="p-5 bg-slate-50/40 rounded-2xl border border-slate-100 flex flex-col gap-4">
+                              <div className="flex justify-between items-start">
+                                  <div className="min-w-0 pr-4">
+                                      <div className="font-black text-slate-900 text-base uppercase leading-none mb-1">{item.partNumber}</div>
+                                      <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Rate: ₹{item.price.toLocaleString()}</p>
                                   </div>
-                                  <div className="flex items-center justify-between md:justify-end gap-10 md:gap-14 border-t md:border-t-0 border-slate-100 pt-6 md:pt-0">
-                                      <div className="text-right">
-                                          <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">Quantity</p>
-                                          <p className="text-xl font-black text-slate-900">{fd(item.quantity)}</p>
-                                      </div>
-                                      <div className="text-right">
-                                          <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">Subtotal</p>
-                                          <p className="text-xl font-black text-slate-900 tracking-tighter">₹{(item.price * item.quantity).toLocaleString()}</p>
-                                      </div>
+                                  <div className="text-right">
+                                      <p className="text-[8px] font-black text-slate-300 uppercase mb-0.5">Qty</p>
+                                      <p className="text-lg font-black text-slate-900 tabular-nums">{fd(item.quantity)}</p>
                                   </div>
                               </div>
-                          ))}
-                      </div>
-                  </div>
-                  <div className="p-8 md:p-10 border-t border-slate-100 bg-white flex flex-col md:flex-row justify-between items-center gap-6 shadow-inner-soft">
-                      <div className="flex items-center gap-6">
-                          <div className="p-4 bg-blue-600 text-white rounded-3xl shadow-xl shadow-blue-500/20"><Database size={32} /></div>
-                          <div>
-                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Total Acquisition Value</p>
-                              <p className="text-3xl md:text-4xl font-black text-slate-900 tracking-tighter tabular-nums">₹{selectedInbound.totalValue.toLocaleString()}</p>
+                              <div className="flex justify-between items-center border-t border-white pt-4">
+                                  <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Item Subtotal</span>
+                                  <span className="font-black text-slate-900 text-base">₹{(item.price * item.quantity).toLocaleString()}</span>
+                              </div>
                           </div>
+                      ))}
+                  </div>
+                  <div className="p-6 border-t border-slate-100 bg-white pb-safe">
+                      <div className="flex justify-between items-center mb-6">
+                          <div className="flex flex-col">
+                              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Acquisition Value</span>
+                              <span className="text-3xl font-black text-slate-900 tracking-tighter">₹{selectedInbound.totalValue.toLocaleString()}</span>
+                          </div>
+                          <button onClick={() => setSelectedInbound(null)} className="px-8 py-4 bg-slate-100 text-slate-600 font-black rounded-2xl active:scale-95 text-[11px] uppercase tracking-widest">Close</button>
                       </div>
-                      <button onClick={() => setSelectedInbound(null)} className="w-full md:w-auto bg-slate-100 hover:bg-slate-200 text-slate-600 font-black px-14 py-5 rounded-[2rem] active:scale-95 transition-all text-xs uppercase tracking-widest">Dismiss Log View</button>
                   </div>
               </div>
           </div>

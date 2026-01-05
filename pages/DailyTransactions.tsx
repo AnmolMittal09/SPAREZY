@@ -31,7 +31,8 @@ import {
   Wallet,
   CheckCircle2,
   CreditCard,
-  CircleSlash
+  CircleSlash,
+  ChevronRight
 } from 'lucide-react';
 import ConfirmModal from '../components/ConfirmModal';
 
@@ -288,7 +289,6 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
 
   const totalAmount = cart.reduce((sum, item) => sum + (item.quantity * item.price), 0);
   
-  // Helper to get actual paid amount as number
   const getPaidVal = () => {
       if (!isPaymentReceived) return 0;
       if (paidAmount === '') return totalAmount;
@@ -297,8 +297,6 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
 
   const executeSubmit = async () => {
       setLoading(true);
-      
-      // 1. Process New SKUs first
       const newItems = cart.filter(c => c.isNewSku);
       if (newItems.length > 0) {
           const payload = newItems.map(c => ({
@@ -311,7 +309,6 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
           await updateOrAddItems(payload);
       }
 
-      // 2. Transmit all ledger entries with payment distribution and CASE-INSENSITIVE name normalization
       let remainingPayment = getPaidVal();
       const normalizedCustomer = (customerName || (mode === 'PURCHASE' ? 'Standard Supplier' : 'Walk-in')).toUpperCase().trim();
 
@@ -445,7 +442,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                     <input 
                         autoFocus
                         type="text" 
-                        className="w-full bg-slate-100/50 p-5 pl-14 rounded-3xl border-none text-[18px] font-black shadow-inner outline-none ring-2 ring-transparent focus:ring-blue-500/10 transition-all placeholder:text-white/20 uppercase tracking-tight"
+                        className="w-full bg-slate-100/50 p-5 pl-14 rounded-3xl border-none text-[18px] font-black shadow-inner outline-none ring-2 ring-transparent focus:ring-blue-500/10 transition-all placeholder:text-slate-300 uppercase tracking-tight"
                         placeholder="Scan Part No..."
                         value={search}
                         onChange={e => handleSearch(e.target.value)}
@@ -589,7 +586,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                         <div className="space-y-6">
                             <div className="flex items-center justify-between px-2 bg-white/5 p-4 rounded-2xl border border-white/10">
                                <div className="flex items-center gap-4">
-                                  <div className={`p-3 rounded-xl transition-all ${isPaymentReceived ? 'bg-teal-500/20 text-teal-400' : 'bg-slate-700/50 text-slate-500'}`}>
+                                  <div className={`p-3 rounded-xl transition-all ${isPaymentReceived ? 'bg-teal-50/20 text-teal-400' : 'bg-slate-700/50 text-slate-500'}`}>
                                      {isPaymentReceived ? <CheckCircle2 size={20} /> : <CircleSlash size={20} />}
                                   </div>
                                   <div>
@@ -651,7 +648,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                                           onChange={(e) => setQtyDirect(item.tempId, parseInt(e.target.value) || 1)}
                                           onFocus={(e) => e.target.select()}
                                         />
-                                        <button onClick={() => updateQty(item.tempId, 1)} className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center hover:bg-blue-500 active:scale-90 transition-all"><Plus size={16} strokeWidth={3}/></button>
+                                        <button onClick={() => updateQty(item.tempId, 1)} className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center hover:bg-blue-50 active:scale-90 transition-all"><Plus size={16} strokeWidth={3}/></button>
                                     </div>
                                     <div className="flex items-center gap-3 bg-white/5 p-2 px-4 rounded-2xl border border-white/5">
                                         <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Disc %</span>
@@ -695,52 +692,71 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
 
        {/* MOBILE UI */}
        <div className="lg:hidden flex flex-col h-full bg-slate-50">
-          <div className="flex-1 overflow-y-auto px-6 pt-6 pb-60 no-scrollbar">
-              <div className="space-y-5">
-                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] ml-2">Active Registry ({fd(cart.length)})</h4>
+          <div className="flex-1 overflow-y-auto px-4 pt-4 pb-72 no-scrollbar">
+              <div className="space-y-4">
+                  <div className="flex items-center justify-between px-2 mb-4">
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Active Registry ({fd(cart.length)})</h4>
+                    {cart.length > 0 && (
+                      <input 
+                        type="text" 
+                        className="bg-white/60 border border-slate-200 px-4 py-2 rounded-xl text-xs font-black uppercase outline-none focus:bg-white transition-all w-40"
+                        placeholder="ENTITY NAME"
+                        value={customerName}
+                        onChange={e => handleCustomerType(e.target.value)}
+                      />
+                    )}
+                  </div>
+
                   {cart.length === 0 ? (
-                      <div className="bg-white/40 border-4 border-dashed border-slate-200 rounded-[3rem] p-24 text-center">
-                         <ShoppingCart size={40} className="mx-auto mb-6 text-slate-200 opacity-50" />
-                         <p className="font-black text-slate-300 uppercase tracking-[0.4em] text-[10px]">Session Empty</p>
+                      <div className="bg-white/40 border-4 border-dashed border-slate-200 rounded-[2.5rem] py-32 text-center animate-fade-in">
+                         <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner-soft">
+                            <ShoppingCart size={32} className="text-slate-300" />
+                         </div>
+                         <p className="font-black text-slate-300 uppercase tracking-[0.4em] text-[10px]">Registry Empty</p>
                       </div>
                   ) : (
                      cart.map(item => (
-                        <div key={item.tempId} className={`bg-white p-8 rounded-[2.5rem] shadow-soft border border-slate-200/60 flex flex-col gap-6 animate-fade-in ${item.isNewSku ? 'ring-2 ring-indigo-500 ring-offset-2' : ''}`}>
+                        <div key={item.tempId} className={`bg-white p-6 rounded-[2rem] shadow-soft border border-slate-200/60 flex flex-col gap-5 animate-fade-in ${item.isNewSku ? 'ring-2 ring-indigo-500/20' : ''}`}>
                            <div className="flex justify-between items-start">
                                <div className="flex-1 min-w-0 pr-4">
-                                  <div className="flex items-center gap-2 mb-1.5">
-                                    <div className="font-black text-slate-900 text-2xl tracking-tighter leading-none uppercase">{item.partNumber}</div>
-                                    {item.isNewSku && <span className="text-[10px] font-black bg-indigo-600 px-2 py-0.5 rounded text-white uppercase tracking-widest">New Part</span>}
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <div className="font-black text-slate-900 text-lg tracking-tighter uppercase leading-none">{item.partNumber}</div>
+                                    {item.isNewSku && <span className="text-[8px] font-black bg-indigo-600 px-1.5 py-0.5 rounded text-white uppercase tracking-widest">New</span>}
                                   </div>
-                                  <div className="text-[13px] text-slate-400 font-bold truncate leading-none uppercase tracking-tight">{item.name}</div>
+                                  <div className="text-[11px] text-slate-400 font-bold truncate uppercase tracking-tight">{item.name}</div>
                                </div>
                                <div className="text-right">
-                                  <div className="font-black text-slate-900 text-2xl tracking-tighter tabular-nums">₹{(item.price * item.quantity).toLocaleString()}</div>
+                                  <div className="font-black text-slate-900 text-lg tracking-tighter tabular-nums">₹{(item.price * item.quantity).toLocaleString()}</div>
                                </div>
                            </div>
-                           <div className="flex items-center justify-between border-t border-slate-50 pt-6">
-                               <button onClick={() => removeItem(item.tempId)} className="p-4 text-rose-500 bg-rose-50 rounded-2xl active:scale-90 transition-all border border-rose-100"><Trash2 size={24} /></button>
-                               <div className="flex flex-col items-center gap-3">
-                                   <div className="flex items-center gap-3 bg-slate-50 p-2 px-4 rounded-xl border border-slate-100 shadow-inner-soft">
-                                       <span className="text-[9px] font-black text-slate-400 uppercase">Discount %</span>
+                           
+                           <div className="flex items-center justify-between border-t border-slate-50 pt-5">
+                               <button onClick={() => removeItem(item.tempId)} className="p-3 text-rose-500 bg-rose-50 rounded-xl active:scale-90 transition-all">
+                                  <Trash2 size={20} />
+                               </button>
+                               
+                               <div className="flex items-center gap-4">
+                                   <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100 shadow-inner-soft">
+                                       <span className="text-[9px] font-black text-slate-400 uppercase">Disc %</span>
                                        <input 
                                          type="number"
-                                         className="w-10 bg-transparent text-slate-900 font-black text-center outline-none"
+                                         className="w-8 bg-transparent text-slate-900 font-black text-center outline-none text-xs"
                                          value={item.discount}
                                          onChange={(e) => updateDiscount(item.tempId, parseFloat(e.target.value) || 0)}
                                          onFocus={(e) => e.target.select()}
                                        />
                                    </div>
-                                   <div className="flex items-center gap-8 bg-slate-100 p-2 rounded-2xl shadow-inner-soft">
-                                       <button onClick={() => updateQty(item.tempId, -1)} className="w-12 h-12 bg-white shadow-soft rounded-xl flex items-center justify-center text-slate-600 active:scale-90 transition-all"><Minus size={20} strokeWidth={4}/></button>
+                                   
+                                   <div className="flex items-center bg-slate-100 p-1.5 rounded-2xl shadow-inner-soft">
+                                       <button onClick={() => updateQty(item.tempId, -1)} className="w-9 h-9 bg-white shadow-soft rounded-xl flex items-center justify-center text-slate-600 active:scale-90 transition-all"><Minus size={16} strokeWidth={4}/></button>
                                        <input 
                                           type="number"
-                                          className="w-12 bg-transparent text-slate-900 font-black text-center outline-none text-2xl [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                          className="w-10 bg-transparent text-slate-900 font-black text-center outline-none text-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                           value={fd(item.quantity)}
                                           onChange={(e) => setQtyDirect(item.tempId, parseInt(e.target.value) || 1)}
                                           onFocus={(e) => e.target.select()}
                                         />
-                                       <button onClick={() => updateQty(item.tempId, 1)} className={`w-12 h-12 ${accentColor} text-white shadow-xl rounded-xl flex items-center justify-center active:scale-90 transition-all`}><Plus size={20} strokeWidth={4}/></button>
+                                       <button onClick={() => updateQty(item.tempId, 1)} className={`w-9 h-9 ${accentColor} text-white shadow-xl rounded-xl flex items-center justify-center active:scale-90 transition-all`}><Plus size={16} strokeWidth={4}/></button>
                                    </div>
                                </div>
                            </div>
@@ -750,36 +766,36 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
               </div>
           </div>
 
-          <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-3xl border-t border-slate-200/60 p-8 shadow-[0_-20px_50px_rgba(0,0,0,0.1)] z-[80] pb-safe rounded-t-[3rem]">
+          <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-3xl border-t border-slate-200/60 p-6 shadow-[0_-20px_50px_rgba(0,0,0,0.08)] z-[80] pb-safe rounded-t-[2.5rem]">
               <button 
                  onClick={() => setShowMobileSearch(true)}
-                 className="w-full bg-slate-900 text-white font-black py-6 rounded-[2rem] flex items-center justify-center gap-4 mb-8 transition-all active:scale-95 text-[17px] uppercase tracking-widest shadow-2xl border border-white/10"
+                 className="w-full bg-slate-900 text-white font-black py-5 rounded-[1.75rem] flex items-center justify-center gap-3 mb-6 transition-all active:scale-[0.98] text-[15px] uppercase tracking-widest shadow-xl border border-white/5"
               >
-                  <PackagePlus size={26} strokeWidth={2.5} /> Open Catalog Scan
+                  <PackagePlus size={22} strokeWidth={2.5} /> Catalog Scanner
               </button>
               
-              {mode === 'SALES' && (
-                  <div className="mb-8 space-y-4">
-                     <div className="flex items-center justify-between bg-slate-100 p-4 rounded-2xl">
+              {mode === 'SALES' && cart.length > 0 && (
+                  <div className="mb-6 space-y-4">
+                     <div className="flex items-center justify-between bg-slate-100/60 p-4 rounded-2xl border border-slate-200/40">
                         <div className="flex items-center gap-3">
-                           <CreditCard size={18} className="text-slate-400" />
-                           <span className="text-[11px] font-black uppercase tracking-widest text-slate-700">Payment Received?</span>
+                           <CreditCard size={16} className="text-slate-400" />
+                           <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">Register Payment?</span>
                         </div>
                         <button 
                           onClick={() => setIsPaymentReceived(!isPaymentReceived)}
-                          className={`w-12 h-7 rounded-full p-1 transition-all ${isPaymentReceived ? 'bg-teal-500' : 'bg-slate-400'}`}
+                          className={`w-11 h-6 rounded-full p-1 transition-all ${isPaymentReceived ? 'bg-teal-500' : 'bg-slate-300'}`}
                         >
-                           <div className={`w-5 h-5 bg-white rounded-full transition-transform ${isPaymentReceived ? 'translate-x-5' : 'translate-x-0'}`} />
+                           <div className={`w-4 h-4 bg-white rounded-full transition-transform ${isPaymentReceived ? 'translate-x-5' : 'translate-x-0'} shadow-md`} />
                         </button>
                      </div>
 
                      {isPaymentReceived && (
-                        <div className="relative animate-fade-in">
-                            <Wallet className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
+                        <div className="relative animate-slide-up">
+                            <Wallet className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
                             <input 
                                 type="number"
-                                className="w-full pl-14 pr-6 py-4 bg-teal-50 text-teal-700 border-2 border-teal-100 rounded-2xl outline-none font-black focus:ring-4 focus:ring-teal-500/10 transition-all"
-                                placeholder={`Total: ₹${totalAmount.toLocaleString()}`}
+                                className="w-full pl-11 pr-5 py-4 bg-teal-50 text-teal-700 border-2 border-teal-100/50 rounded-2xl outline-none font-black text-sm focus:ring-4 focus:ring-teal-500/5 transition-all"
+                                placeholder={`Net: ₹${totalAmount.toLocaleString()}`}
                                 value={paidAmount}
                                 onChange={e => setPaidAmount(e.target.value)}
                             />
@@ -788,18 +804,18 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                   </div>
               )}
 
-              <div className="flex items-center gap-8">
-                  <div className="flex-1 px-2">
-                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Net Total</p>
-                     <p className="text-3xl font-black text-slate-900 tracking-tighter">₹{totalAmount.toLocaleString()}</p>
+              <div className="flex items-center gap-5">
+                  <div className="flex-1 min-w-0">
+                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Grand Total</p>
+                     <p className="text-2xl font-black text-slate-900 tracking-tighter truncate">₹{totalAmount.toLocaleString()}</p>
                   </div>
                   <button 
                      onClick={executeSubmit}
                      disabled={loading || cart.length === 0}
-                     className={`flex-[1.5] text-white font-black py-6 rounded-[2rem] shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-30 text-[18px] ${accentColor}`}
+                     className={`flex-[1.8] text-white font-black py-5 rounded-[1.75rem] shadow-2xl flex items-center justify-center gap-2 active:scale-[0.98] transition-all disabled:opacity-20 text-[16px] ${accentColor}`}
                   >
-                     {loading ? <Loader2 className="animate-spin" size={28} /> : (
-                        <><span className="uppercase text-[12px] tracking-widest">Commit</span> <ArrowRight size={24} strokeWidth={3} /></>
+                     {loading ? <Loader2 className="animate-spin" size={24} /> : (
+                        <>COMMIT <ArrowRight size={20} strokeWidth={3} /></>
                      )}
                   </button>
               </div>
