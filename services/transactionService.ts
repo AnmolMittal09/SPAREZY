@@ -1,5 +1,7 @@
+
 import { supabase } from './supabase';
 import { Invoice, Role, Transaction, TransactionStatus, TransactionType } from '../types';
+import { completeRequestsForParts } from './requestService';
 
 // --- HELPERS ---
 
@@ -194,6 +196,12 @@ const updateStockForTransaction = async (partNumber: string, type: TransactionTy
     .from('inventory')
     .update(updatePayload)
     .eq('part_number', dbItem.part_number);
+
+  // --- AUTO-FULFILL REQUISITIONS ---
+  // If we just purchased a part, check if there are pending requisitions for it and mark them completed.
+  if (type === TransactionType.PURCHASE) {
+    await completeRequestsForParts([partNumber]);
+  }
 };
 
 export interface SoldItemStats {
