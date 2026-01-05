@@ -31,7 +31,8 @@ import {
   CheckCircle,
   AlertTriangle,
   Wallet,
-  FileDown
+  FileDown,
+  RotateCcw
 } from 'lucide-react';
 import { createBulkTransactions, fetchTransactions, updateTransactionPayment } from '../services/transactionService';
 import TharLoader from '../components/TharLoader';
@@ -976,28 +977,40 @@ const Billing: React.FC<Props> = ({ user }) => {
                              <History size={16} /> Transaction Timeline ({fd(selectedCustomer.transactions.length)})
                           </h4>
                           {selectedCustomer.transactions.map((tx, idx) => {
+                              const isReturn = tx.type === TransactionType.RETURN;
                               const amount = tx.price * tx.quantity;
                               const balance = amount - (tx.paidAmount || 0);
 
                               return (
-                                <div key={tx.id} className="p-6 bg-slate-50/50 rounded-3xl border border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-6 group hover:bg-white hover:border-brand-100 transition-all">
+                                <div key={tx.id} className={`p-6 rounded-3xl border flex flex-col md:flex-row md:items-center justify-between gap-6 group transition-all ${isReturn ? 'bg-rose-50/30 border-rose-100' : 'bg-slate-50/50 border-slate-100 hover:bg-white hover:border-brand-100'}`}>
                                     <div className="flex items-center gap-6">
-                                        <div className="w-10 h-10 bg-white rounded-xl border border-slate-100 flex items-center justify-center text-slate-300 font-black text-xs">{fd(idx + 1)}</div>
+                                        <div className={`w-10 h-10 rounded-xl border flex items-center justify-center font-black text-xs ${isReturn ? 'bg-rose-100 text-rose-600 border-rose-200' : 'bg-white text-slate-300 border-slate-100'}`}>
+                                           {isReturn ? <RotateCcw size={16}/> : fd(idx + 1)}
+                                        </div>
                                         <div>
-                                            <div className="font-black text-slate-900 text-lg uppercase tracking-tight">{tx.partNumber}</div>
+                                            <div className="flex items-center gap-3">
+                                               <div className={`font-black text-lg uppercase tracking-tight ${isReturn ? 'text-rose-700' : 'text-slate-900'}`}>{tx.partNumber}</div>
+                                               {isReturn && <span className="text-[8px] font-black uppercase px-1.5 py-0.5 bg-rose-600 text-white rounded shadow-sm">Returned Part</span>}
+                                            </div>
                                             <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest mt-1">{new Date(tx.createdAt).toLocaleDateString()}</p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-10">
                                         <div className="text-right">
-                                            <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-0.5">Bill Amt</p>
-                                            <p className="text-lg font-black text-slate-900">₹{amount.toLocaleString()}</p>
+                                            <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-0.5">Value</p>
+                                            <p className={`text-lg font-black ${isReturn ? 'text-rose-600' : 'text-slate-900'}`}>{isReturn ? '-' : ''}₹{amount.toLocaleString()}</p>
                                         </div>
                                         <div className="text-right min-w-[100px]">
                                             <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-0.5">Status</p>
-                                            <span className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-lg border shadow-inner ${balance <= 0 ? 'bg-teal-50 text-teal-600 border-teal-100' : balance < amount ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
-                                                {balance <= 0 ? 'Settled' : balance < amount ? `Partial: ₹${balance.toLocaleString()} Due` : 'Full Credit Due'}
-                                            </span>
+                                            {isReturn ? (
+                                                <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-lg border bg-slate-100 text-slate-500 border-slate-200 shadow-inner">
+                                                   Stock Reverted
+                                                </span>
+                                            ) : (
+                                                <span className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-lg border shadow-inner ${balance <= 0 ? 'bg-teal-50 text-teal-600 border-teal-100' : balance < amount ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
+                                                   {balance <= 0 ? 'Settled' : balance < amount ? `Partial: ₹${balance.toLocaleString()} Due` : 'Full Credit Due'}
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
                                 </div>

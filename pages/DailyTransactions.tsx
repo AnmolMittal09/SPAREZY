@@ -28,7 +28,10 @@ import {
   Layers,
   Sparkles,
   Banknote,
-  Wallet
+  Wallet,
+  CheckCircle2,
+  CreditCard,
+  CircleSlash
 } from 'lucide-react';
 import ConfirmModal from '../components/ConfirmModal';
 
@@ -76,6 +79,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
   const [showConfirm, setShowConfirm] = useState(false);
   
   // Payment state
+  const [isPaymentReceived, setIsPaymentReceived] = useState(false);
   const [paidAmount, setPaidAmount] = useState<string>('');
 
   // New SKU State
@@ -286,6 +290,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
   
   // Helper to get actual paid amount as number
   const getPaidVal = () => {
+      if (!isPaymentReceived) return 0;
       if (paidAmount === '') return totalAmount;
       return parseFloat(paidAmount) || 0;
   };
@@ -330,6 +335,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
           setCart([]);
           setCustomerName('');
           setPaidAmount('');
+          setIsPaymentReceived(false);
           loadBaseData();
       } else alert("Error: " + res.message);
   };
@@ -339,7 +345,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
   return (
     <div className="flex-1 h-full flex flex-col animate-fade-in overflow-hidden">
        
-       {/* RE-USABLE NEW SKU MODAL (MOBILE & DESKTOP) */}
+       {/* RE-USABLE NEW SKU MODAL */}
        {isAddingNewSku && (
          <div className="fixed inset-0 z-[1100] bg-slate-900/70 backdrop-blur-md flex items-center justify-center p-4 lg:p-6 animate-fade-in">
             <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-100 animate-slide-up">
@@ -418,7 +424,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
          </div>
        )}
 
-       {/* MOBILE SEARCH MODAL (ENHANCED FOR NEW SKU) */}
+       {/* MOBILE SEARCH MODAL */}
        {showMobileSearch && (
          <div className="fixed inset-0 z-[999] bg-white flex flex-col animate-slide-up h-[100dvh] w-screen overflow-hidden">
             <div className="flex-none h-24 flex items-end px-6 pb-5 gap-4 bg-white border-b border-slate-100 shadow-sm">
@@ -565,7 +571,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                     </h2>
                 </div>
 
-                <div className="p-10 pb-4 space-y-6">
+                <div className="p-10 pb-4 space-y-8">
                     <div>
                         <span className="text-[10px] font-black text-white/40 uppercase tracking-[0.25em] mb-4 block ml-2">Entity Profile</span>
                         <input 
@@ -578,18 +584,40 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                     </div>
 
                     {mode === 'SALES' && (
-                        <div>
-                            <span className="text-[10px] font-black text-white/40 uppercase tracking-[0.25em] mb-4 block ml-2">Cash Collected (Partial/Full)</span>
-                            <div className="relative group">
-                                <Banknote className="absolute left-6 top-1/2 -translate-y-1/2 text-white/20" size={24} />
-                                <input 
-                                    type="number" 
-                                    className="w-full pl-16 pr-8 py-5 bg-teal-500/10 border border-teal-500/30 rounded-3xl text-xl font-black text-teal-400 outline-none focus:bg-teal-500/20 transition-all placeholder:text-teal-400/30 tracking-tight"
-                                    placeholder={`Full: ₹${totalAmount.toLocaleString()}`}
-                                    value={paidAmount}
-                                    onChange={e => setPaidAmount(e.target.value)}
-                                />
+                        <div className="space-y-6">
+                            <div className="flex items-center justify-between px-2 bg-white/5 p-4 rounded-2xl border border-white/10">
+                               <div className="flex items-center gap-4">
+                                  <div className={`p-3 rounded-xl transition-all ${isPaymentReceived ? 'bg-teal-500/20 text-teal-400' : 'bg-slate-700/50 text-slate-500'}`}>
+                                     {isPaymentReceived ? <CheckCircle2 size={20} /> : <CircleSlash size={20} />}
+                                  </div>
+                                  <div>
+                                     <p className="text-xs font-black uppercase tracking-widest text-white/90">Register Payment?</p>
+                                     <p className="text-[10px] font-bold text-white/30 uppercase">Toggle cash collection</p>
+                                  </div>
+                               </div>
+                               <button 
+                                 onClick={() => setIsPaymentReceived(!isPaymentReceived)}
+                                 className={`w-14 h-8 rounded-full p-1 transition-all ${isPaymentReceived ? 'bg-teal-500' : 'bg-slate-700'}`}
+                               >
+                                  <div className={`w-6 h-6 bg-white rounded-full transition-transform ${isPaymentReceived ? 'translate-x-6' : 'translate-x-0'} shadow-lg`} />
+                               </button>
                             </div>
+
+                            {isPaymentReceived && (
+                                <div className="animate-slide-up">
+                                    <span className="text-[10px] font-black text-white/40 uppercase tracking-[0.25em] mb-4 block ml-2">Cash Collected (Partial/Full)</span>
+                                    <div className="relative group">
+                                        <Banknote className="absolute left-6 top-1/2 -translate-y-1/2 text-white/20" size={24} />
+                                        <input 
+                                            type="number" 
+                                            className="w-full pl-16 pr-8 py-5 bg-teal-500/10 border border-teal-500/30 rounded-3xl text-xl font-black text-teal-400 outline-none focus:bg-teal-500/20 transition-all placeholder:text-teal-400/30 tracking-tight"
+                                            placeholder={`Full: ₹${totalAmount.toLocaleString()}`}
+                                            value={paidAmount}
+                                            onChange={e => setPaidAmount(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
@@ -644,7 +672,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                     <div className="flex justify-between items-end mb-8 px-2">
                         <div className="flex flex-col gap-1">
                             <span className="text-white/40 font-black uppercase tracking-[0.3em] text-[10px]">Net Settlement</span>
-                            {mode === 'SALES' && paidAmount !== '' && (
+                            {mode === 'SALES' && isPaymentReceived && (
                                 <span className="text-[11px] font-black text-teal-400 uppercase tracking-widest">Collected: ₹{getPaidVal().toLocaleString()}</span>
                             )}
                         </div>
@@ -663,7 +691,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
            </div>
        </div>
 
-       {/* MOBILE UI (FOOTER & LIST) */}
+       {/* MOBILE UI */}
        <div className="lg:hidden flex flex-col h-full bg-slate-50">
           <div className="flex-1 overflow-y-auto px-6 pt-6 pb-60 no-scrollbar">
               <div className="space-y-5">
@@ -729,18 +757,32 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
               </button>
               
               {mode === 'SALES' && (
-                  <div className="mb-8">
-                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block ml-1">Collection Receipt</span>
-                     <div className="relative">
-                        <Wallet className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
-                        <input 
-                            type="number"
-                            className="w-full pl-14 pr-6 py-4 bg-slate-100 rounded-2xl border-none outline-none font-black text-slate-900 focus:ring-4 focus:ring-brand-500/10 transition-all"
-                            placeholder={`Total: ₹${totalAmount.toLocaleString()}`}
-                            value={paidAmount}
-                            onChange={e => setPaidAmount(e.target.value)}
-                        />
+                  <div className="mb-8 space-y-4">
+                     <div className="flex items-center justify-between bg-slate-100 p-4 rounded-2xl">
+                        <div className="flex items-center gap-3">
+                           <CreditCard size={18} className="text-slate-400" />
+                           <span className="text-[11px] font-black uppercase tracking-widest text-slate-700">Payment Received?</span>
+                        </div>
+                        <button 
+                          onClick={() => setIsPaymentReceived(!isPaymentReceived)}
+                          className={`w-12 h-7 rounded-full p-1 transition-all ${isPaymentReceived ? 'bg-teal-500' : 'bg-slate-400'}`}
+                        >
+                           <div className={`w-5 h-5 bg-white rounded-full transition-transform ${isPaymentReceived ? 'translate-x-5' : 'translate-x-0'}`} />
+                        </button>
                      </div>
+
+                     {isPaymentReceived && (
+                        <div className="relative animate-fade-in">
+                            <Wallet className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
+                            <input 
+                                type="number"
+                                className="w-full pl-14 pr-6 py-4 bg-teal-50 text-teal-700 border-2 border-teal-100 rounded-2xl outline-none font-black focus:ring-4 focus:ring-teal-500/10 transition-all"
+                                placeholder={`Total: ₹${totalAmount.toLocaleString()}`}
+                                value={paidAmount}
+                                onChange={e => setPaidAmount(e.target.value)}
+                            />
+                        </div>
+                     )}
                   </div>
               )}
 
