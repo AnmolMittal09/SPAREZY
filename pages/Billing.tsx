@@ -26,7 +26,8 @@ import {
   List,
   ChevronRight,
   Package,
-  ArrowLeft
+  ArrowLeft,
+  Users
 } from 'lucide-react';
 import { createBulkTransactions, fetchTransactions } from '../services/transactionService';
 import TharLoader from '../components/TharLoader';
@@ -43,15 +44,23 @@ interface Props {
 
 type SortField = 'date' | 'amount';
 type SortOrder = 'asc' | 'desc';
-type ViewMode = 'LIST' | 'STACKED';
+type ViewMode = 'LIST' | 'STACKED' | 'CUSTOMER';
 
 interface GroupedBill {
-  id: string; // usually first tx id
+  id: string; 
   createdAt: string;
   customerName: string;
   type: TransactionType;
   items: Transaction[];
   totalAmount: number;
+}
+
+interface CustomerGroup {
+  name: string;
+  totalSpent: number;
+  totalItems: number;
+  lastPurchase: string;
+  transactions: Transaction[];
 }
 
 const Billing: React.FC<Props> = ({ user }) => {
@@ -64,6 +73,7 @@ const Billing: React.FC<Props> = ({ user }) => {
   
   // Modal states
   const [selectedBill, setSelectedBill] = useState<GroupedBill | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerGroup | null>(null);
   const [showReturnConfirm, setShowReturnConfirm] = useState(false);
 
   // --- HISTORY FILTERS & SORTING STATE ---
@@ -124,7 +134,6 @@ const Billing: React.FC<Props> = ({ user }) => {
     setLoading(false);
   };
 
-  // --- COMPUTED FILTERED HISTORY ---
   const filteredHistory = useMemo(() => {
     let result = [...history];
 
@@ -161,12 +170,10 @@ const Billing: React.FC<Props> = ({ user }) => {
     return result;
   }, [history, historySearch, typeFilter, dateRange, minAmount, maxAmount]);
 
-  // --- GROUPING LOGIC FOR STACKED VIEW ---
   const stackedHistory = useMemo(() => {
     const groups: Record<string, GroupedBill> = {};
     
     filteredHistory.forEach(tx => {
-      // Group key: exact timestamp + customer name
       const key = `${tx.createdAt}_${tx.customerName}_${tx.type}`;
       if (!groups[key]) {
         groups[key] = {
@@ -184,7 +191,6 @@ const Billing: React.FC<Props> = ({ user }) => {
 
     const result = Object.values(groups);
 
-    // Sort the stacks
     result.sort((a, b) => {
       let valA = sortBy === 'date' ? new Date(a.createdAt).getTime() : a.totalAmount;
       let valB = sortBy === 'date' ? new Date(b.createdAt).getTime() : b.totalAmount;
@@ -196,7 +202,35 @@ const Billing: React.FC<Props> = ({ user }) => {
     return result;
   }, [filteredHistory, sortBy, sortOrder]);
 
-  // Final list for simple view sorting
+  const customerHistory = useMemo(() => {
+    const groups: Record<string, CustomerGroup> = {};
+    
+    filteredHistory.forEach(tx => {
+      const custName = tx.customerName || 'Anonymous';
+      if (!groups[custName]) {
+        groups[custName] = {
+          name: custName,
+          totalSpent: 0,
+          totalItems: 0,
+          lastPurchase: tx.createdAt,
+          transactions: []
+        };
+      }
+      const g = groups[custName];
+      const val = tx.price * tx.quantity;
+      g.transactions.push(tx);
+      g.totalSpent += tx.type === TransactionType.RETURN ? -val : val;
+      g.totalItems += tx.type === TransactionType.RETURN ? -tx.quantity : tx.quantity;
+      if (new Date(tx.createdAt) > new Date(g.lastPurchase)) {
+        g.lastPurchase = tx.createdAt;
+      }
+    });
+
+    const result = Object.values(groups);
+    result.sort((a, b) => sortOrder === 'desc' ? b.totalSpent - a.totalSpent : a.totalSpent - b.totalSpent);
+    return result;
+  }, [filteredHistory, sortOrder]);
+
   const sortedListHistory = useMemo(() => {
     const result = [...filteredHistory];
     result.sort((a, b) => {
@@ -356,7 +390,7 @@ const Billing: React.FC<Props> = ({ user }) => {
                           placeholder="Search Part No. or Customer..."
                           className="w-full pl-11 pr-4 py-3 bg-slate-50 border-none rounded-2xl text-sm font-bold shadow-inner focus:ring-2 focus:ring-rose-500/20"
                           value={returnSearch}
-                          onChange={e => setHistorySearch(e.target.value)}
+                          onChange={e => setReturnSearch(e.target.value)}
                        />
                    </div>
                 </div>
@@ -425,7 +459,6 @@ const Billing: React.FC<Props> = ({ user }) => {
                    )}
                 </div>
 
-                {/* Return Fixed Footer */}
                 <div className="fixed bottom-0 md:bottom-6 left-0 md:left-auto right-0 md:right-8 bg-white md:rounded-3xl border-t md:border border-slate-100 p-5 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] md:shadow-2xl z-[90] pb-safe flex justify-between items-center md:min-w-[400px]">
                    <div className="flex-1">
                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Refund Total ({fd(Object.keys(selectedReturns).length)})</p>
@@ -454,6 +487,7 @@ const Billing: React.FC<Props> = ({ user }) => {
                       <div className="ml-4 flex bg-slate-100 p-1 rounded-xl">
                           <button onClick={() => setViewMode('STACKED')} className={`p-2 rounded-lg transition-all ${viewMode === 'STACKED' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`} title="Bill Stack View"><Layers size={16} /></button>
                           <button onClick={() => setViewMode('LIST')} className={`p-2 rounded-lg transition-all ${viewMode === 'LIST' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`} title="Item List View"><List size={16} /></button>
+                          <button onClick={() => setViewMode('CUSTOMER')} className={`p-2 rounded-lg transition-all ${viewMode === 'CUSTOMER' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`} title="By Customer Registry"><Users size={16} /></button>
                       </div>
                    </div>
                    
@@ -560,7 +594,7 @@ const Billing: React.FC<Props> = ({ user }) => {
                 <div className="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar pb-24">
                   {loading ? (
                     <div className="flex justify-center p-12"><TharLoader /></div>
-                  ) : (viewMode === 'LIST' ? sortedListHistory : stackedHistory).length === 0 ? (
+                  ) : (viewMode === 'LIST' ? sortedListHistory : viewMode === 'STACKED' ? stackedHistory : customerHistory).length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-24 text-slate-300">
                         <AlertCircle size={64} className="mb-4 opacity-10" />
                         <p className="font-black text-xs uppercase tracking-widest">No entries found matching filters</p>
@@ -600,7 +634,7 @@ const Billing: React.FC<Props> = ({ user }) => {
                                 </div>
                             )
                         })
-                      ) : (
+                      ) : viewMode === 'STACKED' ? (
                         stackedHistory.map(bill => {
                             const isReturn = bill.type === TransactionType.RETURN;
                             return (
@@ -635,7 +669,7 @@ const Billing: React.FC<Props> = ({ user }) => {
 
                                     <div className="mb-6">
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Customer</p>
-                                        <div className="font-black text-lg text-slate-900 leading-tight truncate group-hover:text-brand-600 transition-colors">
+                                        <div className="font-black text-lg text-slate-900 leading-tight truncate group-hover:text-brand-600 transition-colors uppercase">
                                             {bill.customerName || 'Standard Checkout'}
                                         </div>
                                     </div>
@@ -655,6 +689,39 @@ const Billing: React.FC<Props> = ({ user }) => {
                                 </div>
                             )
                         })
+                      ) : (
+                        customerHistory.map(cust => (
+                          <div 
+                            key={cust.name} 
+                            onClick={() => setSelectedCustomer(cust)}
+                            className="p-8 rounded-[2.5rem] bg-white border-2 border-slate-100 shadow-soft hover:border-brand-300 hover:shadow-xl transition-all cursor-pointer group animate-fade-in relative overflow-hidden"
+                          >
+                            <div className="absolute top-0 right-0 w-32 h-full bg-brand-500/[0.02] -skew-x-12 translate-x-16 group-hover:translate-x-12 transition-transform"></div>
+                            <div className="flex justify-between items-start mb-10">
+                                <div className="w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-lg group-hover:bg-brand-600 transition-colors">
+                                    <UserIcon size={28} strokeWidth={2.5} />
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">Lifetime Value</p>
+                                    <p className="text-2xl font-black text-slate-900 tracking-tighter">₹{cust.totalSpent.toLocaleString()}</p>
+                                </div>
+                            </div>
+                            <div className="mb-8">
+                                <h3 className="font-black text-xl text-slate-900 uppercase tracking-tight group-hover:text-brand-600 transition-colors leading-tight truncate pr-4">{cust.name}</h3>
+                                <div className="flex items-center gap-3 mt-2">
+                                    <span className="text-[9px] font-black text-brand-600 bg-brand-50 px-2 py-0.5 rounded-md border border-brand-100 uppercase tracking-widest">{fd(cust.transactions.length)} Trans</span>
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Last: {new Date(cust.lastPurchase).toLocaleDateString()}</span>
+                                </div>
+                            </div>
+                            <div className="pt-6 border-t border-slate-50 flex items-center justify-between relative z-10">
+                                <div className="flex items-center gap-2">
+                                    <div className="p-1.5 bg-slate-50 rounded-lg text-slate-400"><Package size={14}/></div>
+                                    <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">{fd(cust.totalItems)} Units Total</span>
+                                </div>
+                                <ChevronRight size={20} className="text-slate-200 group-hover:text-brand-400 group-hover:translate-x-1 transition-all" />
+                            </div>
+                          </div>
+                        ))
                       )}
                     </div>
                   )}
@@ -673,7 +740,7 @@ const Billing: React.FC<Props> = ({ user }) => {
                       <div className="flex items-center gap-5">
                           <button onClick={() => setSelectedBill(null)} className="p-3 bg-white text-slate-400 hover:text-slate-900 rounded-2xl shadow-sm border border-slate-100 transition-all active:scale-90"><ArrowLeft size={24}/></button>
                           <div>
-                              <h3 className="font-black text-slate-900 text-2xl tracking-tight leading-none mb-2">{selectedBill.customerName || 'Cash Bill'}</h3>
+                              <h3 className="font-black text-slate-900 text-2xl tracking-tight leading-none mb-2 uppercase">{selectedBill.customerName || 'Cash Bill'}</h3>
                               <div className="flex items-center gap-3 text-slate-400 text-sm font-bold uppercase tracking-widest">
                                   <Calendar size={14}/> {new Date(selectedBill.createdAt).toLocaleDateString()}
                                   <span className="text-slate-200">|</span>
@@ -733,7 +800,60 @@ const Billing: React.FC<Props> = ({ user }) => {
           </div>
        )}
 
-       {/* STOCK RETURN CONFIRMATION */}
+       {/* CUSTOMER DETAIL MODAL */}
+       {selectedCustomer && (
+          <div className="fixed inset-0 z-[200] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 lg:p-8 animate-fade-in">
+              <div className="bg-white w-full max-w-4xl rounded-[3rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-slide-up">
+                  <div className="p-10 border-b border-slate-100 flex justify-between items-start bg-slate-50/40">
+                      <div className="flex items-center gap-6">
+                          <button onClick={() => setSelectedCustomer(null)} className="p-3 bg-white text-slate-400 hover:text-slate-900 rounded-2xl shadow-sm border border-slate-100 transition-all active:scale-90"><ArrowLeft size={24}/></button>
+                          <div>
+                              <p className="text-[10px] font-black text-brand-600 uppercase tracking-[0.3em] mb-2">Customer Profile</p>
+                              <h3 className="font-black text-slate-900 text-3xl tracking-tight leading-none uppercase">{selectedCustomer.name}</h3>
+                          </div>
+                      </div>
+                      <div className="text-right">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Life Value</p>
+                          <p className="text-3xl font-black text-slate-900 tracking-tighter">₹{selectedCustomer.totalSpent.toLocaleString()}</p>
+                      </div>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-10 no-scrollbar">
+                      <div className="space-y-4">
+                          <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
+                             <History size={16} /> Transaction Timeline ({fd(selectedCustomer.transactions.length)})
+                          </h4>
+                          {selectedCustomer.transactions.map((tx, idx) => (
+                              <div key={tx.id} className="p-6 bg-slate-50/50 rounded-3xl border border-slate-100 flex justify-between items-center group hover:bg-white hover:border-brand-100 transition-all">
+                                  <div className="flex items-center gap-6">
+                                      <div className="w-10 h-10 bg-white rounded-xl border border-slate-100 flex items-center justify-center text-slate-300 font-black text-xs">{fd(idx + 1)}</div>
+                                      <div>
+                                          <div className="font-black text-slate-900 text-lg uppercase tracking-tight">{tx.partNumber}</div>
+                                          <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest mt-1">{new Date(tx.createdAt).toLocaleDateString()}</p>
+                                      </div>
+                                  </div>
+                                  <div className="flex items-center gap-10">
+                                      <div className="text-right">
+                                          <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-0.5">Quantity</p>
+                                          <p className="text-lg font-black text-slate-900">{fd(tx.quantity)}</p>
+                                      </div>
+                                      <div className="text-right min-w-[100px]">
+                                          <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-0.5">Subtotal</p>
+                                          <p className={`text-lg font-black tracking-tight ${tx.type === 'RETURN' ? 'text-rose-600' : 'text-slate-900'}`}>
+                                              {tx.type === 'RETURN' ? '-' : ''}₹{(tx.price * tx.quantity).toLocaleString()}
+                                          </p>
+                                      </div>
+                                  </div>
+                              </div>
+                          ))}
+                      </div>
+                  </div>
+                  <div className="p-10 border-t border-slate-100 bg-white flex justify-end">
+                      <button onClick={() => setSelectedCustomer(null)} className="bg-slate-900 hover:bg-black text-white font-black px-14 py-5 rounded-[2rem] transition-all active:scale-95 uppercase text-xs tracking-widest shadow-xl shadow-slate-200">Done Viewing</button>
+                  </div>
+              </div>
+          </div>
+       )}
+
        <ConfirmModal
          isOpen={showReturnConfirm}
          onClose={() => setShowReturnConfirm(false)}
@@ -741,7 +861,7 @@ const Billing: React.FC<Props> = ({ user }) => {
          loading={processingReturns}
          variant="danger"
          title="Process Stock Return?"
-         message={`You are about to process returns for ${fd(Object.keys(selectedReturns).length)} items. Total refund amount is ₹${totalRefundAmount.toLocaleString()}. This will add units back to inventory. Please verify the physical condition of parts before proceeding.`}
+         message={`You are about to process returns for ${fd(Object.keys(selectedReturns).length)} items. Total refund amount is ₹${totalRefundAmount.toLocaleString()}. This will add units back to inventory.`}
          confirmLabel="Confirm Return"
        />
     </div>

@@ -40,6 +40,20 @@ export const createBulkTransactions = async (
   try {
     if (transactions.length === 0) return { success: true };
 
+    // --- AUTO CUSTOMER REGISTRATION ---
+    // Extract valid names, avoiding generic placeholders
+    const namesToRegister = [...new Set(transactions.map(t => t.customerName))]
+      .filter(name => {
+        if (!name) return false;
+        const lower = name.toLowerCase();
+        return !['walk-in', 'cash bill', 'standard checkout', 'cash', 'direct acquisition', 'verified provider'].includes(lower);
+      });
+
+    if (namesToRegister.length > 0) {
+      const customerRows = namesToRegister.map(name => ({ name }));
+      await supabase.from('customers').upsert(customerRows, { onConflict: 'name' });
+    }
+
     // 1. Pre-Validation (Stock Check)
     const saleTransactions = transactions.filter(t => t.type === TransactionType.SALE);
     if (saleTransactions.length > 0) {
@@ -198,7 +212,6 @@ const updateStockForTransaction = async (partNumber: string, type: TransactionTy
     .eq('part_number', dbItem.part_number);
 
   // --- AUTO-FULFILL REQUISITIONS ---
-  // If we just purchased a part, check if there are pending requisitions for it and mark them completed.
   if (type === TransactionType.PURCHASE) {
     await completeRequestsForParts([partNumber]);
   }
@@ -336,7 +349,6 @@ export const fetchInvoices = async (): Promise<Invoice[]> => {
       totalAmount: i.total_amount,
       taxAmount: i.tax_amount,
       paymentMode: i.payment_mode,
-      // Fix: Changed items_count to itemsCount to match Invoice interface
       itemsCount: i.items_count,
       generatedBy: i.generated_by
   }));
