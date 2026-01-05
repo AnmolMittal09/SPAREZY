@@ -25,7 +25,8 @@ import {
   History,
   PlusSquare,
   Tag,
-  Layers
+  Layers,
+  Sparkles
 } from 'lucide-react';
 import ConfirmModal from '../components/ConfirmModal';
 
@@ -51,7 +52,7 @@ interface CartItem {
   discount: number;
   customerName: string;
   stockError?: boolean;
-  isNewSku?: boolean; // Flag to indicate if we need to create this in inventory first
+  isNewSku?: boolean; 
   brand?: Brand;
 }
 
@@ -71,7 +72,6 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [showMobileSearch, setShowMobileSearch] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [hideFilters, setHideFilters] = useState(false);
 
   // New SKU State
   const [isAddingNewSku, setIsAddingNewSku] = useState(false);
@@ -99,7 +99,6 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
     setInventory(inv);
     if (Array.isArray(customers)) setSavedCustomers(customers);
 
-    // Fetch pending transactions to check available stock
     const pendingSales = await fetchTransactions(TransactionStatus.PENDING, TransactionType.SALE);
     const pMap: Record<string, number> = {};
     pendingSales.forEach(tx => {
@@ -118,7 +117,6 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
   const handleSearch = (val: string) => {
     setSearch(val);
     if (val.length > 0) {
-       if (val.length > 1) setHideFilters(true);
        let filtered = inventory.filter(i => 
          i.partNumber.toLowerCase().includes(val.toLowerCase()) || 
          i.name.toLowerCase().includes(val.toLowerCase())
@@ -127,7 +125,6 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
        setSuggestions(filtered.slice(0, 30));
     } else {
        setSuggestions([]);
-       setHideFilters(false);
     }
   };
 
@@ -153,7 +150,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
 
       if (existing) {
           if (mode === 'SALES' && existing.quantity + 1 > available) {
-            alert(`Insufficient available stock (Pending approvals considered). Max: ${available}`);
+            alert(`Insufficient stock. Available: ${available}`);
             return;
           }
           updateQty(existing.tempId, 1);
@@ -161,7 +158,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
           return;
       }
 
-      if (mode === 'SALES' && available === 0) return alert("Item out of stock (including pending approvals)!");
+      if (mode === 'SALES' && available === 0) return alert("Item out of stock!");
 
       const initialDiscount = mode === 'PURCHASE' ? 12 : 0;
       const initialPrice = mode === 'PURCHASE' ? item.price * 0.88 : item.price;
@@ -193,22 +190,22 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
 
   const confirmAddNewSku = () => {
       if (!newSkuForm.partNumber || !newSkuForm.name || !newSkuForm.mrp) {
-          return alert("Please fill all mandatory SKU details.");
+          return alert("All fields are mandatory for new SKU initialization.");
       }
 
-      const mrp = parseFloat(newSkuForm.mrp);
-      if (isNaN(mrp)) return alert("MRP must be a valid number.");
+      const mrpValue = parseFloat(newSkuForm.mrp);
+      if (isNaN(mrpValue)) return alert("Invalid MRP amount.");
 
       const newItem: CartItem = {
           tempId: Math.random().toString(36).substring(2),
           partNumber: newSkuForm.partNumber.toUpperCase().trim(),
-          name: newSkuForm.name,
+          name: newSkuForm.name.toUpperCase(),
           type: TransactionType.PURCHASE,
           quantity: 1,
-          mrp: mrp,
+          mrp: mrpValue,
           discount: 12,
-          price: mrp * 0.88,
-          customerName: customerName,
+          price: mrpValue * 0.88,
+          customerName: customerName || 'Direct Acquisition',
           isNewSku: true,
           brand: newSkuForm.brand
       };
@@ -222,7 +219,6 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
     setSearch('');
     setSuggestions([]);
     setShowMobileSearch(false);
-    setHideFilters(false);
   };
 
   const updateQty = (id: string, delta: number) => {
@@ -240,73 +236,33 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
               return { ...item, quantity: newQty };
           }
           return item;
-          }));
+      }));
   };
 
   const removeItem = (id: string) => {
     setCart(prev => prev.filter(item => item.tempId !== id));
   };
 
-  const handleManualQtyChange = (id: string, val: string) => {
-    let newQty = parseInt(val);
-    if (isNaN(newQty)) newQty = 0;
-    setCart(prev => prev.map(item => {
-        if (item.tempId === id) {
-            if (mode === 'SALES') {
-                const stockItem = inventory.find(i => i.partNumber === item.partNumber);
-                if (stockItem) {
-                    const available = getAvailableStock(stockItem);
-                    if (newQty > available) newQty = available;
-                }
-            }
-            return { ...item, quantity: newQty };
-        }
-        return item;
-    }));
-  };
-
-  const handleDiscountChange = (id: string, val: string) => {
-    const disc = parseFloat(val) || 0;
-    setCart(prev => prev.map(item => {
-      if (item.tempId === id) {
-        const netPrice = item.mrp * (1 - disc / 100);
-        return { ...item, discount: disc, price: netPrice };
-      }
-      return item;
-    }));
-  };
-
-  const handleNetPriceChange = (id: string, val: string) => {
-    const net = parseFloat(val) || 0;
-    setCart(prev => prev.map(item => {
-      if (item.tempId === id) {
-        const disc = item.mrp > 0 ? ((item.mrp - net) / item.mrp) * 100 : 0;
-        return { ...item, price: net, discount: parseFloat(disc.toFixed(2)) };
-      }
-      return item;
-    }));
-  };
-
   const executeSubmit = async () => {
       setLoading(true);
       
-      // 1. Check for New SKUs and initialize them in inventory with 0 stock
-      const newItemsToCreate = cart.filter(c => c.isNewSku);
-      if (newItemsToCreate.length > 0) {
-          const creationPayload = newItemsToCreate.map(c => ({
+      // 1. Process New SKUs first
+      const newItems = cart.filter(c => c.isNewSku);
+      if (newItems.length > 0) {
+          const payload = newItems.map(c => ({
               partNumber: c.partNumber,
               name: c.name,
               price: c.mrp,
               brand: c.brand,
-              quantity: 0 // Start at 0, purchase transaction will increment it
+              quantity: 0 
           }));
-          await updateOrAddItems(creationPayload);
+          await updateOrAddItems(payload);
       }
 
-      // 2. Process all transactions
+      // 2. Transmit all ledger entries
       const payload = cart.map(c => ({
           ...c,
-          customerName: customerName || (mode === 'PURCHASE' ? 'Manual Supplier' : 'Walk-in'),
+          customerName: customerName || (mode === 'PURCHASE' ? 'Standard Supplier' : 'Walk-in'),
           createdByRole: user.role
       }));
       
@@ -315,7 +271,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
       setShowConfirm(false);
       
       if (res.success) {
-          alert(user.role === Role.MANAGER ? "Sent for approval." : "Transaction successful.");
+          alert(user.role === Role.MANAGER ? "Sent to owner for verification." : "Stock updated and requisitions fulfilled.");
           setCart([]);
           setCustomerName('');
           loadBaseData();
@@ -328,24 +284,24 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
   return (
     <div className="flex-1 h-full flex flex-col animate-fade-in overflow-hidden">
        
-       {/* NEW SKU MODAL */}
+       {/* RE-USABLE NEW SKU MODAL (MOBILE & DESKTOP) */}
        {isAddingNewSku && (
-         <div className="fixed inset-0 z-[1100] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+         <div className="fixed inset-0 z-[1100] bg-slate-900/70 backdrop-blur-md flex items-center justify-center p-4 lg:p-6 animate-fade-in">
             <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-100 animate-slide-up">
                 <div className="p-8 pb-4">
-                    <div className="flex items-center gap-4 mb-6">
-                        <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl shadow-inner">
-                            <PlusSquare size={24} strokeWidth={2.5} />
+                    <div className="flex items-center gap-5 mb-8">
+                        <div className="p-3.5 bg-blue-50 text-blue-600 rounded-[1.25rem] shadow-inner">
+                            <Sparkles size={24} strokeWidth={2.5} />
                         </div>
                         <div>
-                            <h3 className="text-xl font-black text-slate-900 tracking-tight">Define New SKU</h3>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Inventory Catalog Registry</p>
+                            <h3 className="text-xl font-black text-slate-900 tracking-tight">Initialize SKU</h3>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Direct Database Injection</p>
                         </div>
                     </div>
 
                     <div className="space-y-5">
-                        <div>
-                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Part Number (PN)</label>
+                        <div className="relative group">
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Part Identifier (PN)</label>
                             <input 
                                 type="text"
                                 className="w-full bg-slate-50 p-4 rounded-2xl border-none outline-none font-black text-slate-900 focus:ring-4 focus:ring-blue-500/5 transition-all uppercase shadow-inner-soft"
@@ -354,10 +310,10 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                             />
                         </div>
                         <div>
-                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Part Description</label>
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Official Description</label>
                             <input 
                                 type="text"
-                                placeholder="e.g. FRONT BUMPER ASSEMBLY"
+                                placeholder="e.g. OIL FILTER GENUINE"
                                 className="w-full bg-slate-50 p-4 rounded-2xl border-none outline-none font-black text-slate-900 focus:ring-4 focus:ring-blue-500/5 transition-all uppercase shadow-inner-soft"
                                 value={newSkuForm.name}
                                 onChange={e => setNewSkuForm({...newSkuForm, name: e.target.value})}
@@ -389,10 +345,10 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                     </div>
                 </div>
 
-                <div className="p-6 bg-slate-50 flex gap-3 mt-4">
+                <div className="p-6 bg-slate-50 flex gap-3 mt-6">
                     <button 
                         onClick={() => setIsAddingNewSku(false)}
-                        className="flex-1 px-6 py-4 bg-white border border-slate-200 text-slate-600 font-bold rounded-2xl hover:bg-slate-100 transition-all active:scale-95"
+                        className="flex-1 px-6 py-4 bg-white border border-slate-200 text-slate-600 font-bold rounded-2xl hover:bg-slate-100 transition-all active:scale-95 text-sm"
                     >
                         Cancel
                     </button>
@@ -400,23 +356,23 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                         onClick={confirmAddNewSku}
                         className="flex-[1.5] px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-2xl shadow-xl shadow-blue-100 transition-all active:scale-95 flex items-center justify-center gap-2 uppercase text-xs tracking-widest"
                     >
-                        Initialize SKU
+                        Confirm SKU
                     </button>
                 </div>
             </div>
          </div>
        )}
 
-       {/* MOBILE SEARCH MODAL */}
+       {/* MOBILE SEARCH MODAL (ENHANCED FOR NEW SKU) */}
        {showMobileSearch && (
          <div className="fixed inset-0 z-[999] bg-white flex flex-col animate-slide-up h-[100dvh] w-screen overflow-hidden">
             <div className="flex-none h-24 flex items-end px-6 pb-5 gap-4 bg-white border-b border-slate-100 shadow-sm">
-               <button onClick={() => { setShowMobileSearch(false); setHideFilters(false); }} className="p-3 text-slate-900 bg-slate-50 rounded-2xl active:scale-90 transition-all border border-slate-100 shadow-soft">
+               <button onClick={() => { setShowMobileSearch(false); }} className="p-3 text-slate-900 bg-slate-50 rounded-2xl active:scale-90 transition-all border border-slate-100 shadow-soft">
                   <ArrowLeft size={24} strokeWidth={3} />
                </button>
                <div className="flex-1">
-                  <h3 className="font-black text-xl text-slate-900 tracking-tight leading-none uppercase">Database Search</h3>
-                  <p className="text-[10px] font-black text-blue-600 uppercase tracking-[0.25em] mt-2">Inventory Ledger v4.2</p>
+                  <h3 className="font-black text-xl text-slate-900 tracking-tight leading-none uppercase">Item Finder</h3>
+                  <p className="text-[10px] font-black text-blue-600 uppercase tracking-[0.25em] mt-2">Active Catalog Scan</p>
                </div>
             </div>
             
@@ -427,7 +383,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                         autoFocus
                         type="text" 
                         className="w-full bg-slate-100/50 p-5 pl-14 rounded-3xl border-none text-[18px] font-black shadow-inner outline-none ring-2 ring-transparent focus:ring-blue-500/10 transition-all placeholder:text-slate-300 uppercase tracking-tight"
-                        placeholder="Search Part No..."
+                        placeholder="Scan Part No..."
                         value={search}
                         onChange={e => handleSearch(e.target.value)}
                     />
@@ -452,7 +408,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                                 </div>
                                 <div className="text-[13px] text-slate-400 font-bold truncate mb-3 pl-1">{item.name}</div>
                                 <div className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border shadow-inner-soft inline-block ${available > 0 ? 'bg-teal-50 text-teal-600 border-teal-100' : 'bg-rose-50 text-rose-500 border-rose-100'}`}>
-                                   AVL: {formatQty(available)} Units
+                                   STK: {formatQty(available)}
                                 </div>
                             </div>
                             <div className="w-14 h-14 bg-blue-600 text-white rounded-[1.5rem] shadow-xl flex items-center justify-center group-active:scale-90 transition-all">
@@ -463,16 +419,19 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                 })}
 
                 {suggestions.length === 0 && search.length > 2 && mode === 'PURCHASE' && (
-                    <button 
-                       onClick={openNewSkuModal}
-                       className="w-full bg-indigo-50 border-2 border-dashed border-indigo-200 p-8 rounded-[2.5rem] text-center active:scale-95 transition-all group"
-                    >
-                        <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 text-indigo-600 shadow-soft group-hover:scale-110 transition-transform">
-                            <PlusSquare size={28} strokeWidth={2.5} />
+                    <div className="p-8 bg-white border-2 border-dashed border-indigo-100 rounded-[2.5rem] text-center animate-fade-in">
+                        <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-[1.5rem] flex items-center justify-center mx-auto mb-6 shadow-inner">
+                            <PlusSquare size={32} strokeWidth={2.5} />
                         </div>
-                        <p className="text-sm font-black text-indigo-900 uppercase tracking-tight mb-1">Part Not Found</p>
-                        <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest leading-relaxed">Initialize "{search.toUpperCase()}" in Master Registry</p>
-                    </button>
+                        <h4 className="font-black text-slate-900 text-lg mb-2 uppercase">Unregistered SKU</h4>
+                        <p className="text-slate-400 text-xs font-bold mb-10 leading-relaxed uppercase tracking-widest px-4">The part "{search.toUpperCase()}" is not in the system.</p>
+                        <button 
+                           onClick={openNewSkuModal}
+                           className="w-full bg-indigo-600 text-white font-black py-6 rounded-[2rem] shadow-xl shadow-indigo-100 flex items-center justify-center gap-3 transition-all active:scale-95 uppercase text-xs tracking-widest"
+                        >
+                           <Sparkles size={20} /> Initialize Registry
+                        </button>
+                    </div>
                 )}
             </div>
          </div>
@@ -480,7 +439,6 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
 
        {/* DESKTOP SPLIT UI */}
        <div className="hidden lg:grid grid-cols-12 gap-10 h-full p-2">
-           {/* Left Sidebar: Search & Results */}
            <div className="col-span-7 bg-white rounded-[3rem] shadow-premium border border-slate-200/60 flex flex-col overflow-hidden">
                <div className="p-8 border-b border-slate-50 bg-slate-50/20">
                    <div className="relative group">
@@ -488,7 +446,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                        <input 
                          type="text" 
                          className="w-full pl-16 pr-6 py-6 bg-white border border-slate-200 rounded-[2.5rem] text-2xl font-black placeholder:text-slate-200 focus:ring-12 focus:ring-blue-500/5 shadow-inner-soft outline-none transition-all uppercase tracking-tight"
-                         placeholder="Start Adding Spare Parts..."
+                         placeholder="Scan Part Number..."
                          value={search}
                          onChange={e => handleSearch(e.target.value)}
                        />
@@ -508,7 +466,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                                     <div className="flex justify-between items-start mb-3">
                                         <span className="font-black text-lg text-slate-900 tracking-tight uppercase leading-none">{item.partNumber}</span>
                                         <div className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${available > 0 ? 'bg-teal-50 text-teal-700 border-teal-100' : 'bg-rose-50 text-rose-700 border-rose-100'}`}>
-                                            {formatQty(available)} Avail.
+                                            {formatQty(available)} AVL
                                         </div>
                                     </div>
                                     <div className="text-[13px] text-slate-400 font-bold truncate mb-5 uppercase tracking-tight">{item.name}</div>
@@ -528,40 +486,36 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                               <Tag size={40} strokeWidth={2} />
                           </div>
                           <h3 className="font-black text-slate-900 text-2xl tracking-tight mb-2 uppercase">Unregistered SKU</h3>
-                          <p className="text-slate-400 font-bold text-sm mb-10 leading-relaxed uppercase tracking-widest">Part "{search.toUpperCase()}" is not in the system catalog.</p>
+                          <p className="text-slate-400 font-bold text-sm mb-10 leading-relaxed uppercase tracking-widest">Part "{search.toUpperCase()}" is not in the system.</p>
                           <button 
                              onClick={openNewSkuModal}
                              className="w-full bg-slate-900 hover:bg-black text-white font-black py-5 rounded-2xl shadow-xl shadow-slate-200 transition-all active:scale-95 flex items-center justify-center gap-3 uppercase text-xs tracking-widest"
                           >
-                             <PlusSquare size={20} /> Create Part Registry
+                             <PlusSquare size={20} /> Create Registry
                           </button>
                       </div>
                   ) : (
                       <div className="flex flex-col items-center justify-center h-full text-slate-200">
                           <PackagePlus size={80} className="mb-8 opacity-10" />
-                          <p className="font-black text-slate-300 uppercase tracking-[0.4em] text-xs text-center">Catalogue Scan Protocol<br/><span className="text-[10px] font-bold text-slate-200 lowercase mt-2 block">Enter SKU to open session</span></p>
+                          <p className="font-black text-slate-300 uppercase tracking-[0.4em] text-xs text-center">Protocol Scanner Offline</p>
                       </div>
                   )}
                </div>
            </div>
 
-           {/* Right Sidebar: Cart & Checkout */}
            <div className="col-span-5 bg-[#1E293B] rounded-[3rem] shadow-premium border border-white/5 flex flex-col overflow-hidden relative text-white">
                 <div className="p-10 border-b border-white/5 flex justify-between items-center">
                     <h2 className="font-black text-2xl tracking-tight flex items-center gap-4">
                         <div className="p-3 bg-blue-600 text-white rounded-2xl shadow-xl shadow-blue-500/20"><ShoppingCart size={24} strokeWidth={2.5} /></div> REGISTRY
                     </h2>
-                    {cart.length > 0 && (
-                      <button onClick={() => setCart([])} className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] hover:text-rose-400 transition-colors">Clear Draft</button>
-                    )}
                 </div>
 
                 <div className="p-10 pb-6">
-                    <span className="text-[10px] font-black text-white/40 uppercase tracking-[0.25em] mb-4 block ml-2">Customer Assignment</span>
+                    <span className="text-[10px] font-black text-white/40 uppercase tracking-[0.25em] mb-4 block ml-2">Entity Profile</span>
                     <input 
                         type="text" 
                         className="w-full px-8 py-5 bg-white/5 border border-white/10 rounded-3xl text-lg font-black text-white outline-none focus:bg-white/10 transition-all placeholder:text-white/20 uppercase tracking-tight"
-                        placeholder="Verified Entity Name"
+                        placeholder="Verified Provider"
                         value={customerName}
                         onChange={e => handleCustomerType(e.target.value)}
                     />
@@ -574,13 +528,12 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                                 <div className="min-w-0 pr-4 flex-1">
                                     <div className="flex items-center gap-2 mb-1.5">
                                         <div className="font-black text-white text-lg tracking-tight uppercase leading-none">{item.partNumber}</div>
-                                        {item.isNewSku && <span className="text-[8px] font-black bg-blue-600 px-1.5 py-0.5 rounded text-white uppercase tracking-widest">New</span>}
+                                        {item.isNewSku && <span className="text-[8px] font-black bg-blue-600 px-1.5 py-0.5 rounded text-white uppercase tracking-widest">NEW SKU</span>}
                                     </div>
                                     <div className="text-[11px] text-white/40 font-bold truncate uppercase tracking-tight">{item.name}</div>
                                 </div>
                                 <div className="text-right">
                                     <div className="font-black text-white text-lg tracking-tighter">₹{(item.price * item.quantity).toLocaleString()}</div>
-                                    <div className="text-[9px] text-white/20 font-black uppercase mt-1 tracking-widest">Rate ₹{item.price.toFixed(0)}</div>
                                 </div>
                             </div>
                             
@@ -598,10 +551,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
 
                 <div className="p-10 border-t border-white/5 bg-black/20">
                     <div className="flex justify-between items-end mb-8 px-2">
-                        <div className="space-y-1">
-                           <span className="text-white/40 font-black uppercase tracking-[0.3em] text-[10px]">Net Settlement</span>
-                           <p className="text-[10px] font-black text-teal-400 uppercase tracking-widest flex items-center gap-2"><Lock size={12}/> Verified Protocol</p>
-                        </div>
+                        <span className="text-white/40 font-black uppercase tracking-[0.3em] text-[10px]">Net Settlement</span>
                         <span className="text-4xl font-black text-white tracking-tighter tabular-nums">₹{totalAmount.toLocaleString()}</span>
                     </div>
                     <button 
@@ -617,37 +567,24 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
            </div>
        </div>
 
-       {/* MOBILE POS FOOTER */}
+       {/* MOBILE UI (FOOTER & LIST) */}
        <div className="lg:hidden flex flex-col h-full bg-slate-50">
           <div className="flex-1 overflow-y-auto px-6 pt-6 pb-60 no-scrollbar">
-              {mode === 'SALES' && (
-                <div className="bg-white p-8 rounded-[2.5rem] shadow-soft border border-slate-200/60 mb-8">
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 block ml-1">Customer Profile</span>
-                    <input 
-                        type="text"
-                        className="w-full bg-slate-50 p-5 rounded-2xl outline-none font-black text-slate-900 placeholder:text-slate-300 text-xl tracking-tight uppercase border-2 border-transparent focus:border-blue-500/10 focus:bg-white transition-all shadow-inner-soft"
-                        placeholder="Identity Check..."
-                        value={customerName}
-                        onChange={e => handleCustomerType(e.target.value)}
-                    />
-                </div>
-              )}
-
               <div className="space-y-5">
                   <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] ml-2">Active Registry ({cart.length})</h4>
                   {cart.length === 0 ? (
                       <div className="bg-white/40 border-4 border-dashed border-slate-200 rounded-[3rem] p-24 text-center">
                          <ShoppingCart size={40} className="mx-auto mb-6 text-slate-200 opacity-50" />
-                         <p className="font-black text-slate-300 uppercase tracking-[0.4em] text-[10px]">Session Closed</p>
+                         <p className="font-black text-slate-300 uppercase tracking-[0.4em] text-[10px]">Session Empty</p>
                       </div>
                   ) : (
                      cart.map(item => (
-                        <div key={item.tempId} className={`bg-white p-8 rounded-[2.5rem] shadow-soft border border-slate-200/60 flex flex-col gap-6 animate-fade-in ${item.isNewSku ? 'ring-2 ring-blue-500 ring-offset-2' : ''}`}>
+                        <div key={item.tempId} className={`bg-white p-8 rounded-[2.5rem] shadow-soft border border-slate-200/60 flex flex-col gap-6 animate-fade-in ${item.isNewSku ? 'ring-2 ring-indigo-500 ring-offset-2' : ''}`}>
                            <div className="flex justify-between items-start">
                                <div className="flex-1 min-w-0 pr-4">
                                   <div className="flex items-center gap-2 mb-1.5">
                                     <div className="font-black text-slate-900 text-2xl tracking-tighter leading-none uppercase">{item.partNumber}</div>
-                                    {item.isNewSku && <span className="text-[10px] font-black bg-blue-600 px-2 py-0.5 rounded text-white uppercase tracking-widest">New SKU</span>}
+                                    {item.isNewSku && <span className="text-[10px] font-black bg-indigo-600 px-2 py-0.5 rounded text-white uppercase tracking-widest">New Part</span>}
                                   </div>
                                   <div className="text-[13px] text-slate-400 font-bold truncate leading-none uppercase tracking-tight">{item.name}</div>
                                </div>
@@ -674,7 +611,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                  onClick={() => setShowMobileSearch(true)}
                  className="w-full bg-slate-900 text-white font-black py-6 rounded-[2rem] flex items-center justify-center gap-4 mb-8 transition-all active:scale-95 text-[17px] uppercase tracking-widest shadow-2xl border border-white/10"
               >
-                  <PackagePlus size={26} strokeWidth={2.5} /> Catalog Scanner
+                  <PackagePlus size={26} strokeWidth={2.5} /> Open Catalog Scan
               </button>
               <div className="flex items-center gap-8">
                   <div className="flex-1 px-2">
@@ -687,7 +624,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                      className={`flex-[1.5] text-white font-black py-6 rounded-[2rem] shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-30 text-[18px] ${accentColor}`}
                   >
                      {loading ? <Loader2 className="animate-spin" size={28} /> : (
-                        <><span className="uppercase text-[12px] tracking-widest">Post Tx</span> <ArrowRight size={24} strokeWidth={3} /></>
+                        <><span className="uppercase text-[12px] tracking-widest">Commit</span> <ArrowRight size={24} strokeWidth={3} /></>
                      )}
                   </button>
               </div>
@@ -700,9 +637,9 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
          onConfirm={executeSubmit}
          loading={loading}
          variant="danger"
-         title="Verify System Protocol"
-         message={`Security checkpoint: Confirm restock of ${cart.length} unique units for a total ledger adjustment of ₹${totalAmount.toLocaleString()}. This action will be logged in the primary audit trail.`}
-         confirmLabel="Proceed"
+         title="Verify Protocol"
+         message={`Security Checkpoint: Confirming acquisition of ${cart.length} units. Requisitions will be automatically marked as received.`}
+         confirmLabel="Confirm"
        />
     </div>
   );
