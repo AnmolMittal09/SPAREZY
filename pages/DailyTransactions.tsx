@@ -26,7 +26,9 @@ import {
   PlusSquare,
   Tag,
   Layers,
-  Sparkles
+  Sparkles,
+  Banknote,
+  Wallet
 } from 'lucide-react';
 import ConfirmModal from '../components/ConfirmModal';
 
@@ -72,6 +74,9 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [showMobileSearch, setShowMobileSearch] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  
+  // Payment state
+  const [paidAmount, setPaidAmount] = useState<string>('');
 
   // New SKU State
   const [isAddingNewSku, setIsAddingNewSku] = useState(false);
@@ -277,6 +282,14 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
     setCart(prev => prev.filter(item => item.tempId !== id));
   };
 
+  const totalAmount = cart.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+  
+  // Helper to get actual paid amount as number
+  const getPaidVal = () => {
+      if (paidAmount === '') return totalAmount;
+      return parseFloat(paidAmount) || 0;
+  };
+
   const executeSubmit = async () => {
       setLoading(true);
       
@@ -293,26 +306,34 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
           await updateOrAddItems(payload);
       }
 
-      // 2. Transmit all ledger entries
-      const payload = cart.map(c => ({
-          ...c,
-          customerName: customerName || (mode === 'PURCHASE' ? 'Standard Supplier' : 'Walk-in'),
-          createdByRole: user.role
-      }));
+      // 2. Transmit all ledger entries with payment distribution
+      let remainingPayment = getPaidVal();
+      const payload = cart.map(c => {
+          const itemTotal = c.price * c.quantity;
+          const assignedPaid = mode === 'SALES' ? Math.min(remainingPayment, itemTotal) : itemTotal;
+          remainingPayment = Math.max(0, remainingPayment - assignedPaid);
+
+          return {
+              ...c,
+              paidAmount: assignedPaid,
+              customerName: customerName || (mode === 'PURCHASE' ? 'Standard Supplier' : 'Walk-in'),
+              createdByRole: user.role
+          };
+      });
       
       const res = await createBulkTransactions(payload);
       setLoading(false);
       setShowConfirm(false);
       
       if (res.success) {
-          alert(user.role === Role.MANAGER ? "Sent to owner for verification." : "Stock updated and requisitions fulfilled.");
+          alert(user.role === Role.MANAGER ? "Sent to owner for verification." : "Stock updated and transactions finalized.");
           setCart([]);
           setCustomerName('');
+          setPaidAmount('');
           loadBaseData();
       } else alert("Error: " + res.message);
   };
 
-  const totalAmount = cart.reduce((sum, item) => sum + (item.quantity * item.price), 0);
   const accentColor = mode === 'RETURN' ? 'bg-rose-600' : mode === 'PURCHASE' ? 'bg-slate-900' : 'bg-brand-600';
 
   return (
@@ -544,18 +565,36 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                     </h2>
                 </div>
 
-                <div className="p-10 pb-6">
-                    <span className="text-[10px] font-black text-white/40 uppercase tracking-[0.25em] mb-4 block ml-2">Entity Profile</span>
-                    <input 
-                        type="text" 
-                        className="w-full px-8 py-5 bg-white/5 border border-white/10 rounded-3xl text-lg font-black text-white outline-none focus:bg-white/10 transition-all placeholder:text-white/20 uppercase tracking-tight"
-                        placeholder="Verified Provider"
-                        value={customerName}
-                        onChange={e => handleCustomerType(e.target.value)}
-                    />
+                <div className="p-10 pb-4 space-y-6">
+                    <div>
+                        <span className="text-[10px] font-black text-white/40 uppercase tracking-[0.25em] mb-4 block ml-2">Entity Profile</span>
+                        <input 
+                            type="text" 
+                            className="w-full px-8 py-5 bg-white/5 border border-white/10 rounded-3xl text-lg font-black text-white outline-none focus:bg-white/10 transition-all placeholder:text-white/20 uppercase tracking-tight"
+                            placeholder="Verified Provider"
+                            value={customerName}
+                            onChange={e => handleCustomerType(e.target.value)}
+                        />
+                    </div>
+
+                    {mode === 'SALES' && (
+                        <div>
+                            <span className="text-[10px] font-black text-white/40 uppercase tracking-[0.25em] mb-4 block ml-2">Cash Collected (Partial/Full)</span>
+                            <div className="relative group">
+                                <Banknote className="absolute left-6 top-1/2 -translate-y-1/2 text-white/20" size={24} />
+                                <input 
+                                    type="number" 
+                                    className="w-full pl-16 pr-8 py-5 bg-teal-500/10 border border-teal-500/30 rounded-3xl text-xl font-black text-teal-400 outline-none focus:bg-teal-500/20 transition-all placeholder:text-teal-400/30 tracking-tight"
+                                    placeholder={`Full: ₹${totalAmount.toLocaleString()}`}
+                                    value={paidAmount}
+                                    onChange={e => setPaidAmount(e.target.value)}
+                                />
+                            </div>
+                        </div>
+                    )}
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-10 pt-0 space-y-4 no-scrollbar">
+                <div className="flex-1 overflow-y-auto p-10 pt-4 space-y-4 no-scrollbar">
                     {cart.map(item => (
                         <div key={item.tempId} className={`p-6 rounded-[2rem] border border-white/5 bg-white/[0.03] flex flex-col gap-4 animate-fade-in hover:bg-white/[0.05] transition-all ${item.isNewSku ? 'ring-1 ring-blue-500/30' : ''}`}>
                             <div className="flex justify-between items-start">
@@ -603,7 +642,12 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
 
                 <div className="p-10 border-t border-white/5 bg-black/20">
                     <div className="flex justify-between items-end mb-8 px-2">
-                        <span className="text-white/40 font-black uppercase tracking-[0.3em] text-[10px]">Net Settlement</span>
+                        <div className="flex flex-col gap-1">
+                            <span className="text-white/40 font-black uppercase tracking-[0.3em] text-[10px]">Net Settlement</span>
+                            {mode === 'SALES' && paidAmount !== '' && (
+                                <span className="text-[11px] font-black text-teal-400 uppercase tracking-widest">Collected: ₹{getPaidVal().toLocaleString()}</span>
+                            )}
+                        </div>
                         <span className="text-4xl font-black text-white tracking-tighter tabular-nums">₹{totalAmount.toLocaleString()}</span>
                     </div>
                     <button 
@@ -683,6 +727,23 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
               >
                   <PackagePlus size={26} strokeWidth={2.5} /> Open Catalog Scan
               </button>
+              
+              {mode === 'SALES' && (
+                  <div className="mb-8">
+                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block ml-1">Collection Receipt</span>
+                     <div className="relative">
+                        <Wallet className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
+                        <input 
+                            type="number"
+                            className="w-full pl-14 pr-6 py-4 bg-slate-100 rounded-2xl border-none outline-none font-black text-slate-900 focus:ring-4 focus:ring-brand-500/10 transition-all"
+                            placeholder={`Total: ₹${totalAmount.toLocaleString()}`}
+                            value={paidAmount}
+                            onChange={e => setPaidAmount(e.target.value)}
+                        />
+                     </div>
+                  </div>
+              )}
+
               <div className="flex items-center gap-8">
                   <div className="flex-1 px-2">
                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Net Total</p>

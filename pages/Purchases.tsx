@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { User, Transaction, TransactionStatus, TransactionType, Brand } from '../types';
+import { User, Transaction, TransactionStatus, TransactionType, Brand, Role } from '../types';
 import DailyTransactions from './DailyTransactions';
 import { 
   History, 
@@ -31,7 +31,8 @@ import {
   CheckCircle2,
   AlertCircle,
   MessageCircle,
-  Upload
+  Upload,
+  User as UserIcon
 } from 'lucide-react';
 import { fetchTransactions, createBulkTransactions } from '../services/transactionService';
 import { fetchInventory, updateOrAddItems } from '../services/inventoryService';
@@ -180,6 +181,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
     try {
       const excelFile = queuedFiles.find(q => q.file.name.match(/\.(xlsx|xls|xlsb|xlsm|csv)$/i));
       if (excelFile) {
+        // Fix: Call arrayBuffer() on the file property of the QueuedFile object
         const data = await excelFile.file.arrayBuffer();
         const workbook = XLSX.read(data, { type: 'array' });
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -251,8 +253,13 @@ const Purchases: React.FC<Props> = ({ user }) => {
         });
         const syncRes = await updateOrAddItems(inventoryPayload, { fileName: `Bill: ${sourceName}`, mode: 'AI_AUDIT_PURCHASE' });
         const txPayload = previewData.map(item => ({
-            partNumber: item.partNumber, type: TransactionType.PURCHASE, quantity: item.quantity,
-            price: item.printedUnitPrice, customerName: sourceName, createdByRole: user.role
+            partNumber: item.partNumber, 
+            type: TransactionType.PURCHASE, 
+            quantity: item.quantity,
+            price: item.printedUnitPrice, 
+            paidAmount: item.printedUnitPrice * item.quantity,
+            customerName: sourceName, 
+            createdByRole: user.role as Role
         }));
         await createBulkTransactions(txPayload);
         setImportLog({ 
@@ -433,19 +440,27 @@ const Purchases: React.FC<Props> = ({ user }) => {
                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Inbound Logistics Log</span>
                       </div>
                    </div>
-                   <div className="flex items-center gap-3">
+                   
+                   {/* MOBILE VIEW MODE TOGGLE */}
+                   <div className="md:hidden flex bg-slate-100 p-1 rounded-xl">
+                      <button onClick={() => setViewMode('STACKED')} className={`p-2 rounded-lg transition-all ${viewMode === 'STACKED' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}><Layers size={16} /></button>
+                      <button onClick={() => setViewMode('LIST')} className={`p-2 rounded-lg transition-all ${viewMode === 'LIST' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}><List size={16} /></button>
+                   </div>
+
+                   <div className="hidden md:flex items-center gap-3">
                       <button onClick={() => setSortOrder(s => s === 'asc' ? 'desc' : 'asc')} className="p-3.5 bg-slate-50 text-slate-400 rounded-2xl hover:text-slate-900 border border-slate-100 transition-all"><ArrowUpDown size={20} /></button>
                       <button onClick={loadHistory} className="p-3.5 bg-slate-50 text-slate-400 rounded-2xl hover:text-slate-900 border border-slate-100 transition-all"><Clock size={20} /></button>
                    </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-6 md:p-10 space-y-6 no-scrollbar pb-40 bg-slate-50/30">
+                <div className="flex-1 overflow-y-auto p-4 md:p-10 space-y-4 md:space-y-6 no-scrollbar pb-40 bg-slate-50/30">
                   {loading ? <TharLoader /> : history.length === 0 ? <div className="p-40 text-center opacity-10"><History size={80} className="mx-auto" /></div> : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {stackedHistory.map(stack => (
-                            <div key={stack.id} onClick={() => setSelectedInbound(stack)} className="p-8 bg-white rounded-[2.5rem] border-2 border-slate-100 shadow-soft hover:border-blue-200 hover:shadow-xl transition-all cursor-pointer group relative animate-fade-in">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                        {viewMode === 'STACKED' ? (
+                          stackedHistory.map(stack => (
+                            <div key={stack.id} onClick={() => setSelectedInbound(stack)} className="p-6 md:p-8 bg-white rounded-[2.5rem] border-2 border-slate-100 shadow-soft hover:border-blue-200 hover:shadow-xl transition-all cursor-pointer group relative animate-fade-in">
                                 <div className="absolute -bottom-2 left-10 right-10 h-2 bg-slate-200 rounded-b-3xl opacity-20 group-hover:-bottom-3 transition-all"></div>
-                                <div className="flex justify-between items-start mb-8">
+                                <div className="flex justify-between items-start mb-6 md:mb-8">
                                     <div className="space-y-1.5">
                                         <div className="flex items-center gap-2 mb-1">
                                             <div className="p-1.5 rounded-lg bg-blue-50 text-blue-600"><FileText size={14}/></div>
@@ -457,18 +472,53 @@ const Purchases: React.FC<Props> = ({ user }) => {
                                     </div>
                                     <div className="bg-slate-900 text-white w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg active:scale-90 transition-all"><ChevronRight size={20} /></div>
                                 </div>
-                                <div className="mb-8 min-h-[50px]">
-                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Supplier / Entity</p>
-                                    <div className="font-black text-lg text-slate-900 leading-tight truncate group-hover:text-blue-600 transition-colors uppercase">{stack.customerName || 'Standard Batch'}</div>
+                                <div className="mb-6 md:mb-8 min-h-[40px] md:min-h-[50px]">
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Supplier / Dealer</p>
+                                    <div className="font-black text-base md:text-lg text-slate-900 leading-tight truncate group-hover:text-blue-600 transition-colors uppercase">{stack.customerName || 'Standard Batch'}</div>
                                 </div>
-                                <div className="flex justify-between items-end border-t border-slate-50 pt-6">
-                                    <div className="text-right">
+                                <div className="flex justify-between items-end border-t border-slate-50 pt-5 md:pt-6">
+                                    <div className="text-right w-full">
                                         <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-0.5">Asset Value</p>
                                         <p className="text-2xl font-black text-slate-900 tracking-tighter tabular-nums">₹{stack.totalValue.toLocaleString()}</p>
                                     </div>
                                 </div>
                             </div>
-                        ))}
+                          ))
+                        ) : (
+                          sortedListHistory.map(tx => (
+                            <div key={tx.id} className="p-5 bg-white rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col animate-fade-in relative overflow-hidden group">
+                                <div className="flex justify-between items-start mb-4">
+                                    <div className="space-y-1">
+                                        <div className="font-black text-slate-900 text-lg leading-tight uppercase group-hover:text-blue-600 transition-colors">{tx.partNumber}</div>
+                                        <div className="flex items-center gap-1.5 text-slate-400 text-[11px] font-bold">
+                                            <Calendar size={12} /> {new Date(tx.createdAt).toLocaleDateString()}
+                                        </div>
+                                    </div>
+                                    <div className="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-blue-50 text-blue-600">
+                                        INBOUND
+                                    </div>
+                                </div>
+
+                                {/* MOBILE DEALER NAME COLUMN FEEL */}
+                                <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 flex items-center gap-3 mb-5">
+                                    <div className="p-1.5 bg-white rounded-lg text-slate-400 border border-slate-100">
+                                        <UserIcon size={14} />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Inbound From</p>
+                                        <p className="text-[11px] font-black text-slate-800 truncate uppercase">{tx.customerName || 'Direct Provider'}</p>
+                                    </div>
+                                </div>
+
+                                <div className="mt-auto flex justify-between items-center">
+                                    <span className="bg-slate-100 px-3 py-1 rounded-xl text-[11px] font-black text-slate-500 uppercase tracking-widest">{fd(tx.quantity)} units</span>
+                                    <div className="text-right">
+                                        <p className="text-xl font-black text-slate-900 tracking-tight">₹{(tx.price * tx.quantity).toLocaleString()}</p>
+                                    </div>
+                                </div>
+                            </div>
+                          ))
+                        )}
                     </div>
                   )}
                 </div>
@@ -480,7 +530,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
        {selectedInbound && (
           <div className="fixed inset-0 z-[200] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
               <div className="bg-white w-full max-w-4xl rounded-[3rem] shadow-2xl flex flex-col max-h-[85vh] overflow-hidden animate-slide-up">
-                  <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                  <div className="p-8 md:p-10 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                       <div className="flex items-center gap-6">
                           <button onClick={() => setSelectedInbound(null)} className="p-3.5 bg-white text-slate-400 hover:text-slate-900 rounded-2xl shadow-soft border border-slate-100 active:scale-90"><ArrowLeft size={24}/></button>
                           <div>
@@ -493,10 +543,10 @@ const Purchases: React.FC<Props> = ({ user }) => {
                           </div>
                       </div>
                   </div>
-                  <div className="flex-1 overflow-y-auto p-10 no-scrollbar space-y-4">
+                  <div className="flex-1 overflow-y-auto p-6 md:p-10 no-scrollbar space-y-4">
                       <div className="space-y-3">
                           {selectedInbound.items.map((item, idx) => (
-                              <div key={item.id} className="p-8 bg-slate-50/40 rounded-[2.5rem] border border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-6 hover:bg-white hover:border-blue-200 hover:shadow-soft transition-all">
+                              <div key={item.id} className="p-6 md:p-8 bg-slate-50/40 rounded-[2.5rem] border border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-6 hover:bg-white hover:border-blue-200 hover:shadow-soft transition-all">
                                   <div className="flex items-center gap-6">
                                       <div className="w-12 h-12 bg-white rounded-2xl border border-slate-100 flex items-center justify-center font-black text-slate-200 text-sm">{fd(idx + 1)}</div>
                                       <div>
@@ -504,7 +554,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
                                           <p className="text-[11px] text-slate-400 font-black uppercase tracking-widest">Rate: ₹{item.price.toLocaleString()}</p>
                                       </div>
                                   </div>
-                                  <div className="flex items-center justify-between md:justify-end gap-14 border-t md:border-t-0 border-slate-100 pt-6 md:pt-0">
+                                  <div className="flex items-center justify-between md:justify-end gap-10 md:gap-14 border-t md:border-t-0 border-slate-100 pt-6 md:pt-0">
                                       <div className="text-right">
                                           <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">Quantity</p>
                                           <p className="text-xl font-black text-slate-900">{fd(item.quantity)}</p>
@@ -518,15 +568,15 @@ const Purchases: React.FC<Props> = ({ user }) => {
                           ))}
                       </div>
                   </div>
-                  <div className="p-10 border-t border-slate-100 bg-white flex flex-col md:flex-row justify-between items-center gap-8 shadow-inner-soft">
+                  <div className="p-8 md:p-10 border-t border-slate-100 bg-white flex flex-col md:flex-row justify-between items-center gap-6 shadow-inner-soft">
                       <div className="flex items-center gap-6">
                           <div className="p-4 bg-blue-600 text-white rounded-3xl shadow-xl shadow-blue-500/20"><Database size={32} /></div>
                           <div>
                               <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Total Acquisition Value</p>
-                              <p className="text-4xl font-black text-slate-900 tracking-tighter tabular-nums">₹{selectedInbound.totalValue.toLocaleString()}</p>
+                              <p className="text-3xl md:text-4xl font-black text-slate-900 tracking-tighter tabular-nums">₹{selectedInbound.totalValue.toLocaleString()}</p>
                           </div>
                       </div>
-                      <button onClick={() => setSelectedInbound(null)} className="w-full md:w-auto bg-slate-100 hover:bg-slate-200 text-slate-600 font-black px-14 py-6 rounded-[2rem] active:scale-95 transition-all text-xs uppercase tracking-widest">Dismiss Log View</button>
+                      <button onClick={() => setSelectedInbound(null)} className="w-full md:w-auto bg-slate-100 hover:bg-slate-200 text-slate-600 font-black px-14 py-5 rounded-[2rem] active:scale-95 transition-all text-xs uppercase tracking-widest">Dismiss Log View</button>
                   </div>
               </div>
           </div>

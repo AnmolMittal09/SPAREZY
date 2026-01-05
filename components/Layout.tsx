@@ -24,7 +24,8 @@ import {
   Zap,
   RefreshCw,
   PieChart,
-  Bell
+  Bell,
+  History
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -93,6 +94,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
       items: [
         { label: 'Dashboard', path: '/', icon: LayoutDashboard },
         { label: 'Inventory', path: '/parts', icon: Package },
+        { label: 'Trans. History', path: '/movements', icon: History },
         { label: 'Tasks & Reminders', path: '/tasks', icon: Bell },
       ]
     },

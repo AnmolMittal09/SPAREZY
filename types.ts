@@ -60,6 +60,7 @@ export interface Transaction {
   type: TransactionType;
   quantity: number;
   price: number;
+  paidAmount: number; // Added to track payments
   customerName: string; 
   status: TransactionStatus;
   createdByRole: Role;
@@ -143,8 +144,6 @@ export interface Invoice {
   itemsCount: number;
   generatedBy: string;
 }
-
-// --- NEW TASK TYPES ---
 
 export enum TaskPriority {
   LOW = 'LOW',

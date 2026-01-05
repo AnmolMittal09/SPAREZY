@@ -27,9 +27,12 @@ import {
   ChevronRight,
   Package,
   ArrowLeft,
-  Users
+  Users,
+  CheckCircle,
+  AlertTriangle,
+  Wallet
 } from 'lucide-react';
-import { createBulkTransactions, fetchTransactions } from '../services/transactionService';
+import { createBulkTransactions, fetchTransactions, updateTransactionPayment } from '../services/transactionService';
 import TharLoader from '../components/TharLoader';
 import ConfirmModal from '../components/ConfirmModal';
 
@@ -53,11 +56,13 @@ interface GroupedBill {
   type: TransactionType;
   items: Transaction[];
   totalAmount: number;
+  totalPaid: number;
 }
 
 interface CustomerGroup {
   name: string;
   totalSpent: number;
+  totalPaid: number;
   totalItems: number;
   lastPurchase: string;
   transactions: Transaction[];
@@ -75,6 +80,11 @@ const Billing: React.FC<Props> = ({ user }) => {
   const [selectedBill, setSelectedBill] = useState<GroupedBill | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerGroup | null>(null);
   const [showReturnConfirm, setShowReturnConfirm] = useState(false);
+  
+  // Payment tracking for modal
+  const [isAddingPayment, setIsAddingPayment] = useState<string | null>(null);
+  const [newPaidVal, setNewPaidVal] = useState<string>('');
+  const [submittingPayment, setSubmittingPayment] = useState(false);
 
   // --- HISTORY FILTERS & SORTING STATE ---
   const [historySearch, setHistorySearch] = useState('');
@@ -109,6 +119,28 @@ const Billing: React.FC<Props> = ({ user }) => {
     );
     setHistory(data);
     setLoading(false);
+  };
+
+  const handleRegisterPayment = async (txId: string) => {
+      const val = parseFloat(newPaidVal);
+      if (isNaN(val)) return;
+      
+      setSubmittingPayment(true);
+      const res = await updateTransactionPayment(txId, val);
+      if (res.success) {
+          setIsAddingPayment(null);
+          setNewPaidVal('');
+          loadHistory(); 
+          if (selectedBill) {
+              const updatedItems = selectedBill.items.map(i => i.id === txId ? {...i, paidAmount: val} : i);
+              setSelectedBill({
+                  ...selectedBill,
+                  items: updatedItems,
+                  totalPaid: updatedItems.reduce((s, i) => s + i.paidAmount, 0)
+              });
+          }
+      } else alert("Error updating payment: " + res.message);
+      setSubmittingPayment(false);
   };
 
   const loadSalesForReturn = async () => {
@@ -182,11 +214,13 @@ const Billing: React.FC<Props> = ({ user }) => {
           customerName: tx.customerName,
           type: tx.type,
           items: [],
-          totalAmount: 0
+          totalAmount: 0,
+          totalPaid: 0
         };
       }
       groups[key].items.push(tx);
       groups[key].totalAmount += (tx.price * tx.quantity);
+      groups[key].totalPaid += (tx.paidAmount || 0);
     });
 
     const result = Object.values(groups);
@@ -211,6 +245,7 @@ const Billing: React.FC<Props> = ({ user }) => {
         groups[custName] = {
           name: custName,
           totalSpent: 0,
+          totalPaid: 0,
           totalItems: 0,
           lastPurchase: tx.createdAt,
           transactions: []
@@ -220,6 +255,7 @@ const Billing: React.FC<Props> = ({ user }) => {
       const val = tx.price * tx.quantity;
       g.transactions.push(tx);
       g.totalSpent += tx.type === TransactionType.RETURN ? -val : val;
+      g.totalPaid += tx.type === TransactionType.RETURN ? -(tx.paidAmount || 0) : (tx.paidAmount || 0);
       g.totalItems += tx.type === TransactionType.RETURN ? -tx.quantity : tx.quantity;
       if (new Date(tx.createdAt) > new Date(g.lastPurchase)) {
         g.lastPurchase = tx.createdAt;
@@ -282,6 +318,7 @@ const Billing: React.FC<Props> = ({ user }) => {
          type: TransactionType.RETURN,
          quantity: selectedReturns[id],
          price: originalSale.price,
+         paidAmount: originalSale.price * selectedReturns[id], 
          customerName: originalSale.customerName || 'Customer Return',
          createdByRole: user.role,
          relatedTransactionId: originalSale.id
@@ -468,7 +505,7 @@ const Billing: React.FC<Props> = ({ user }) => {
                    <button 
                       onClick={() => setShowReturnConfirm(true)}
                       disabled={Object.keys(selectedReturns).length === 0 || processingReturns}
-                      className="bg-rose-600 hover:bg-rose-700 text-white px-8 py-4 rounded-2xl font-black shadow-xl shadow-rose-200 transition-all flex items-center gap-3 active:scale-[0.95] disabled:opacity-30 disabled:shadow-none"
+                      className="bg-rose-600 hover:bg-rose-700 text-white px-8 py-4 rounded-2xl font-black shadow-xl shadow-rose-200 transition-all flex items-center gap-3 active:scale-[0.95] disabled:shadow-none"
                    >
                       {processingReturns ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle2 size={20} />}
                       Process
@@ -605,6 +642,10 @@ const Billing: React.FC<Props> = ({ user }) => {
                         sortedListHistory.map(tx => {
                             const isReturn = tx.type === TransactionType.RETURN;
                             const amount = tx.price * tx.quantity;
+                            const paid = tx.paidAmount || 0;
+                            const isFullyPaid = paid >= amount;
+                            const isPartial = paid > 0 && paid < amount;
+
                             return (
                                 <div key={tx.id} className="p-5 rounded-[2.5rem] bg-white border border-slate-100 shadow-sm flex flex-col animate-fade-in relative overflow-hidden group">
                                     <div className="flex justify-between items-start mb-4">
@@ -612,24 +653,36 @@ const Billing: React.FC<Props> = ({ user }) => {
                                             <div className="font-black text-slate-900 text-lg leading-tight group-hover:text-brand-600 transition-colors">{tx.partNumber}</div>
                                             <div className="flex items-center gap-1.5 text-slate-400 text-[11px] font-bold">
                                                 <Calendar size={12} /> {new Date(tx.createdAt).toLocaleDateString()}
-                                                <span className="text-slate-200">|</span>
-                                                <Clock size={12} /> {new Date(tx.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                                             </div>
                                         </div>
                                         <div className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${isReturn ? 'bg-rose-50 text-rose-600' : 'bg-teal-50 text-teal-600'}`}>
                                             {tx.type}
                                         </div>
                                     </div>
-                                    <div className="bg-slate-50/50 p-3 rounded-2xl border border-slate-50 flex items-center gap-3 mb-5">
-                                        <UserIcon size={14} className="text-slate-300" />
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Billed To</p>
-                                            <p className="text-[13px] font-bold text-slate-800 truncate">{tx.customerName || 'Walk-in'}</p>
+                                    
+                                    {/* MOBILE-CENTRIC CUSTOMER NAME ROW */}
+                                    <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 flex items-center justify-between mb-5">
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <div className="p-1.5 bg-white rounded-lg text-slate-400 border border-slate-100">
+                                                <UserIcon size={14} />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-[11px] font-black text-slate-800 truncate uppercase">{tx.customerName || 'Standard Client'}</p>
+                                            </div>
                                         </div>
+                                        {!isReturn && (
+                                            <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-md shadow-inner border ${isFullyPaid ? 'bg-teal-50 text-teal-600 border-teal-100' : isPartial ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
+                                                {isFullyPaid ? 'Paid' : isPartial ? 'Partial' : 'Credit'}
+                                            </span>
+                                        )}
                                     </div>
+
                                     <div className="mt-auto flex justify-between items-center">
                                         <span className="bg-slate-100 px-3 py-1 rounded-xl text-[11px] font-black text-slate-500 uppercase tracking-widest">{fd(tx.quantity)} units</span>
-                                        <p className={`text-xl font-black tracking-tight ${isReturn ? 'text-rose-600' : 'text-slate-900'}`}>₹{amount.toLocaleString()}</p>
+                                        <div className="text-right">
+                                            <p className={`text-xl font-black tracking-tight ${isReturn ? 'text-rose-600' : 'text-slate-900'}`}>₹{amount.toLocaleString()}</p>
+                                            {!isReturn && !isFullyPaid && <p className="text-[9px] font-bold text-rose-500 uppercase">Bal: ₹{(amount - paid).toLocaleString()}</p>}
+                                        </div>
                                     </div>
                                 </div>
                             )
@@ -637,6 +690,9 @@ const Billing: React.FC<Props> = ({ user }) => {
                       ) : viewMode === 'STACKED' ? (
                         stackedHistory.map(bill => {
                             const isReturn = bill.type === TransactionType.RETURN;
+                            const isFullyPaid = bill.totalPaid >= bill.totalAmount;
+                            const isPartial = bill.totalPaid > 0 && bill.totalPaid < bill.totalAmount;
+
                             return (
                                 <div 
                                     key={bill.id} 
@@ -644,8 +700,6 @@ const Billing: React.FC<Props> = ({ user }) => {
                                     className="p-6 rounded-[2.5rem] bg-white border-2 border-slate-100 shadow-premium hover:border-slate-300 hover:shadow-xl transition-all cursor-pointer group relative animate-fade-in"
                                 >
                                     <div className="absolute -bottom-2 left-8 right-8 h-2 bg-slate-200 rounded-b-3xl -z-10 group-hover:-bottom-3 transition-all opacity-40"></div>
-                                    <div className="absolute -bottom-4 left-14 right-14 h-2 bg-slate-100 rounded-b-3xl -z-20 group-hover:-bottom-5 transition-all opacity-20"></div>
-
                                     <div className="flex justify-between items-start mb-6">
                                         <div className="space-y-1.5">
                                             <div className="flex items-center gap-2">
@@ -658,22 +712,20 @@ const Billing: React.FC<Props> = ({ user }) => {
                                             </div>
                                             <div className="text-[11px] font-bold text-slate-400 flex items-center gap-2">
                                                 <Calendar size={12}/> {new Date(bill.createdAt).toLocaleDateString()}
-                                                <span className="text-slate-200">•</span>
-                                                <Clock size={12}/> {new Date(bill.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                                             </div>
                                         </div>
-                                        <div className="bg-slate-900 text-white w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg active:scale-90 transition-all">
-                                            <ChevronRight size={20} />
-                                        </div>
+                                        {!isReturn && (
+                                            <div className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border shadow-soft ${isFullyPaid ? 'bg-teal-50 text-teal-700 border-teal-100' : isPartial ? 'bg-amber-50 text-amber-700 border-amber-100' : 'bg-rose-50 text-rose-700 border-rose-100'}`}>
+                                                {isFullyPaid ? 'Settled' : isPartial ? 'Partial' : 'Credit'}
+                                            </div>
+                                        )}
                                     </div>
-
                                     <div className="mb-6">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Customer</p>
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Customer / Client</p>
                                         <div className="font-black text-lg text-slate-900 leading-tight truncate group-hover:text-brand-600 transition-colors uppercase">
                                             {bill.customerName || 'Standard Checkout'}
                                         </div>
                                     </div>
-
                                     <div className="flex justify-between items-end border-t border-slate-50 pt-5 mt-auto">
                                         <div className="bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100 flex items-center gap-2">
                                             <Package size={14} className="text-slate-400"/>
@@ -684,44 +736,56 @@ const Billing: React.FC<Props> = ({ user }) => {
                                             <p className={`text-2xl font-black tracking-tighter ${isReturn ? 'text-rose-600' : 'text-slate-900'}`}>
                                                 ₹{bill.totalAmount.toLocaleString()}
                                             </p>
+                                            {!isReturn && !isFullyPaid && <p className="text-[10px] font-black text-rose-500 mt-1 uppercase tracking-wider">₹{(bill.totalAmount - bill.totalPaid).toLocaleString()} Due</p>}
                                         </div>
                                     </div>
                                 </div>
                             )
                         })
                       ) : (
-                        customerHistory.map(cust => (
-                          <div 
-                            key={cust.name} 
-                            onClick={() => setSelectedCustomer(cust)}
-                            className="p-8 rounded-[2.5rem] bg-white border-2 border-slate-100 shadow-soft hover:border-brand-300 hover:shadow-xl transition-all cursor-pointer group animate-fade-in relative overflow-hidden"
-                          >
-                            <div className="absolute top-0 right-0 w-32 h-full bg-brand-500/[0.02] -skew-x-12 translate-x-16 group-hover:translate-x-12 transition-transform"></div>
-                            <div className="flex justify-between items-start mb-10">
-                                <div className="w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-lg group-hover:bg-brand-600 transition-colors">
-                                    <UserIcon size={28} strokeWidth={2.5} />
+                        customerHistory.map(cust => {
+                          const isFullySettled = cust.totalPaid >= cust.totalSpent;
+                          const balance = cust.totalSpent - cust.totalPaid;
+
+                          return (
+                            <div 
+                                key={cust.name} 
+                                onClick={() => setSelectedCustomer(cust)}
+                                className="p-8 rounded-[2.5rem] bg-white border-2 border-slate-100 shadow-soft hover:border-brand-300 hover:shadow-xl transition-all cursor-pointer group animate-fade-in relative overflow-hidden"
+                            >
+                                <div className="absolute top-0 right-0 w-32 h-full bg-brand-500/[0.02] -skew-x-12 translate-x-16 group-hover:translate-x-12 transition-transform"></div>
+                                <div className="flex justify-between items-start mb-10">
+                                    <div className="w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-lg group-hover:bg-brand-600 transition-colors">
+                                        <UserIcon size={28} strokeWidth={2.5} />
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">Outstanding Balance</p>
+                                        <p className={`text-2xl font-black tracking-tighter ${balance > 0 ? 'text-rose-600' : 'text-teal-600'}`}>
+                                            ₹{balance.toLocaleString()}
+                                        </p>
+                                    </div>
                                 </div>
-                                <div className="text-right">
-                                    <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">Lifetime Value</p>
-                                    <p className="text-2xl font-black text-slate-900 tracking-tighter">₹{cust.totalSpent.toLocaleString()}</p>
+                                <div className="mb-8">
+                                    <h3 className="font-black text-xl text-slate-900 uppercase tracking-tight group-hover:text-brand-600 transition-colors leading-tight truncate pr-4">{cust.name}</h3>
+                                    <div className="flex items-center gap-3 mt-2">
+                                        <span className="text-[9px] font-black text-brand-600 bg-brand-50 px-2 py-0.5 rounded-md border border-brand-100 uppercase tracking-widest">{fd(cust.transactions.length)} Trans</span>
+                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">LTV: ₹{cust.totalSpent.toLocaleString()}</span>
+                                    </div>
+                                </div>
+                                <div className="pt-6 border-t border-slate-50 flex items-center justify-between relative z-10">
+                                    <div className="flex items-center gap-2">
+                                        <div className={`p-1.5 rounded-lg ${isFullySettled ? 'bg-teal-50 text-teal-400' : 'bg-rose-50 text-rose-400'}`}>
+                                            {isFullySettled ? <CheckCircle size={14}/> : <AlertTriangle size={14}/>}
+                                        </div>
+                                        <span className={`text-[11px] font-black uppercase tracking-widest ${isFullySettled ? 'text-teal-600' : 'text-rose-500'}`}>
+                                            {isFullySettled ? 'Clear Ledger' : 'Due Payment'}
+                                        </span>
+                                    </div>
+                                    <ChevronRight size={20} className="text-slate-200 group-hover:text-brand-400 group-hover:translate-x-1 transition-all" />
                                 </div>
                             </div>
-                            <div className="mb-8">
-                                <h3 className="font-black text-xl text-slate-900 uppercase tracking-tight group-hover:text-brand-600 transition-colors leading-tight truncate pr-4">{cust.name}</h3>
-                                <div className="flex items-center gap-3 mt-2">
-                                    <span className="text-[9px] font-black text-brand-600 bg-brand-50 px-2 py-0.5 rounded-md border border-brand-100 uppercase tracking-widest">{fd(cust.transactions.length)} Trans</span>
-                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Last: {new Date(cust.lastPurchase).toLocaleDateString()}</span>
-                                </div>
-                            </div>
-                            <div className="pt-6 border-t border-slate-50 flex items-center justify-between relative z-10">
-                                <div className="flex items-center gap-2">
-                                    <div className="p-1.5 bg-slate-50 rounded-lg text-slate-400"><Package size={14}/></div>
-                                    <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">{fd(cust.totalItems)} Units Total</span>
-                                </div>
-                                <ChevronRight size={20} className="text-slate-200 group-hover:text-brand-400 group-hover:translate-x-1 transition-all" />
-                            </div>
-                          </div>
-                        ))
+                          )
+                        })
                       )}
                     </div>
                   )}
@@ -733,9 +797,7 @@ const Billing: React.FC<Props> = ({ user }) => {
        {/* BILL DETAIL MODAL */}
        {selectedBill && (
           <div className="fixed inset-0 z-[200] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 lg:p-8 animate-fade-in">
-              <div 
-                className="bg-white w-full max-w-4xl rounded-[3rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-slide-up"
-              >
+              <div className="bg-white w-full max-w-4xl rounded-[3rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-slide-up">
                   <div className="p-8 md:p-10 border-b border-slate-100 flex justify-between items-center bg-slate-50/40">
                       <div className="flex items-center gap-5">
                           <button onClick={() => setSelectedBill(null)} className="p-3 bg-white text-slate-400 hover:text-slate-900 rounded-2xl shadow-sm border border-slate-100 transition-all active:scale-90"><ArrowLeft size={24}/></button>
@@ -743,54 +805,107 @@ const Billing: React.FC<Props> = ({ user }) => {
                               <h3 className="font-black text-slate-900 text-2xl tracking-tight leading-none mb-2 uppercase">{selectedBill.customerName || 'Cash Bill'}</h3>
                               <div className="flex items-center gap-3 text-slate-400 text-sm font-bold uppercase tracking-widest">
                                   <Calendar size={14}/> {new Date(selectedBill.createdAt).toLocaleDateString()}
-                                  <span className="text-slate-200">|</span>
-                                  <Clock size={14}/> {new Date(selectedBill.createdAt).toLocaleTimeString()}
                               </div>
                           </div>
                       </div>
-                      <div className={`hidden md:block px-5 py-2.5 rounded-2xl text-sm font-black uppercase tracking-widest ${selectedBill.type === 'RETURN' ? 'bg-rose-50 text-rose-600' : 'bg-teal-50 text-teal-600'}`}>
-                          {selectedBill.type} INVOICE
+                      {selectedBill.type !== 'RETURN' && (
+                          <div className={`hidden md:flex flex-col items-end gap-1.5`}>
+                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Liquidity Status</span>
+                             <div className={`px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-widest shadow-inner border ${selectedBill.totalPaid >= selectedBill.totalAmount ? 'bg-teal-50 text-teal-600 border-teal-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
+                                {selectedBill.totalPaid >= selectedBill.totalAmount ? 'FULLY PAID' : `₹${(selectedBill.totalAmount - selectedBill.totalPaid).toLocaleString()} OUTSTANDING`}
+                             </div>
+                          </div>
+                      )}
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-6 md:p-10 no-scrollbar space-y-8">
+                      <div className="space-y-4">
+                          <div className="flex items-center gap-3 mb-4">
+                             <div className="w-1.5 h-6 bg-brand-600 rounded-full"></div>
+                             <h4 className="font-black text-slate-900 uppercase tracking-widest text-sm">Line Items ({fd(selectedBill.items.length)})</h4>
+                          </div>
+                          {selectedBill.items.map((item, idx) => {
+                              const isItemFullyPaid = item.paidAmount >= (item.price * item.quantity);
+                              const isOpeningPayment = isAddingPayment === item.id;
+
+                              return (
+                                <div key={item.id} className="p-6 bg-slate-50/50 rounded-3xl border border-slate-100 flex flex-col gap-6 group hover:bg-white hover:border-brand-100 transition-all">
+                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                        <div className="flex items-center gap-5">
+                                            <div className="w-12 h-12 bg-white rounded-2xl border border-slate-100 flex items-center justify-center font-black text-slate-300 text-sm">{fd(idx + 1)}</div>
+                                            <div>
+                                                <div className="font-black text-slate-900 text-lg leading-tight tracking-tight uppercase">{item.partNumber}</div>
+                                                <p className="text-[13px] text-slate-400 font-bold uppercase tracking-widest mt-1">Rate: ₹{item.price.toLocaleString()}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center justify-between md:justify-end gap-12 pt-4 md:pt-0">
+                                            <div className="text-center md:text-right">
+                                                <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-0.5">Quantity</p>
+                                                <p className="text-xl font-black text-slate-900">{fd(item.quantity)}</p>
+                                            </div>
+                                            <div className="text-right min-w-[120px]">
+                                                <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-0.5">Total Value</p>
+                                                <p className="text-xl font-black text-slate-900 tracking-tight">₹{(item.price * item.quantity).toLocaleString()}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {selectedBill.type !== 'RETURN' && (
+                                        <div className="pt-4 border-t border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/40 p-4 rounded-2xl">
+                                            <div className="flex items-center gap-4">
+                                                <div className="p-2 bg-teal-50 text-teal-600 rounded-lg"><Wallet size={16}/></div>
+                                                <div>
+                                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Amount Received</p>
+                                                    <p className={`font-black text-base ${isItemFullyPaid ? 'text-teal-600' : 'text-amber-600'}`}>₹{(item.paidAmount || 0).toLocaleString()}</p>
+                                                </div>
+                                            </div>
+                                            
+                                            {isOpeningPayment ? (
+                                                <div className="flex items-center gap-2 animate-slide-up">
+                                                    <div className="relative">
+                                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400">₹</span>
+                                                        <input 
+                                                            autoFocus
+                                                            type="number" 
+                                                            className="w-32 pl-6 pr-3 py-2 bg-white border border-brand-200 rounded-xl text-sm font-black outline-none focus:ring-4 focus:ring-brand-500/5 transition-all shadow-inner-soft"
+                                                            placeholder="Collect..."
+                                                            value={newPaidVal}
+                                                            onChange={e => setNewPaidVal(e.target.value)}
+                                                        />
+                                                    </div>
+                                                    <button 
+                                                        onClick={() => handleRegisterPayment(item.id)}
+                                                        disabled={submittingPayment}
+                                                        className="px-4 py-2 bg-brand-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-700 transition-all shadow-lg active:scale-95 disabled:opacity-30"
+                                                    >
+                                                        {submittingPayment ? <Loader2 size={14} className="animate-spin"/> : 'Confirm'}
+                                                    </button>
+                                                    <button onClick={() => setIsAddingPayment(null)} className="p-2 text-slate-300 hover:text-rose-500 transition-colors"><X size={16}/></button>
+                                                </div>
+                                            ) : (
+                                                <button 
+                                                    onClick={() => {
+                                                        setIsAddingPayment(item.id);
+                                                        setNewPaidVal(item.paidAmount.toString());
+                                                    }}
+                                                    className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm flex items-center gap-2 border ${isItemFullyPaid ? 'bg-slate-50 text-slate-400 border-slate-100 hover:bg-white hover:border-slate-200' : 'bg-brand-50 text-brand-600 border-brand-100 hover:bg-brand-100'}`}
+                                                >
+                                                    <PlusCircle size={14}/> {isItemFullyPaid ? 'Adjust Payment' : 'Collect Balance'}
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                              )
+                          })}
                       </div>
                   </div>
-
-                  <div className="flex-1 overflow-y-auto p-6 md:p-10 no-scrollbar space-y-4">
-                      <div className="flex items-center gap-3 mb-4">
-                         <div className="w-1.5 h-6 bg-brand-600 rounded-full"></div>
-                         <h4 className="font-black text-slate-900 uppercase tracking-widest text-sm">Line Items ({fd(selectedBill.items.length)})</h4>
-                      </div>
-                      
-                      <div className="space-y-3">
-                          {selectedBill.items.map((item, idx) => (
-                              <div key={item.id} className="p-6 bg-slate-50/50 rounded-3xl border border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4 group hover:bg-white hover:border-brand-100 hover:shadow-md transition-all">
-                                  <div className="flex items-center gap-5">
-                                      <div className="w-12 h-12 bg-white rounded-2xl border border-slate-100 flex items-center justify-center font-black text-slate-300 text-sm">{fd(idx + 1)}</div>
-                                      <div className="min-w-0">
-                                          <div className="font-black text-slate-900 text-lg leading-tight tracking-tight group-hover:text-brand-600 transition-colors">{item.partNumber}</div>
-                                          <p className="text-[13px] text-slate-400 font-bold uppercase tracking-widest mt-1">Net Rate: ₹{item.price.toLocaleString()}</p>
-                                      </div>
-                                  </div>
-                                  <div className="flex items-center justify-between md:justify-end gap-12 border-t md:border-t-0 border-slate-100 pt-4 md:pt-0">
-                                      <div className="text-center md:text-right">
-                                          <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-0.5">Quantity</p>
-                                          <p className="text-xl font-black text-slate-900">{fd(item.quantity)}</p>
-                                      </div>
-                                      <div className="text-right">
-                                          <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-0.5">Subtotal</p>
-                                          <p className="text-xl font-black text-slate-900 tracking-tight">₹{(item.price * item.quantity).toLocaleString()}</p>
-                                      </div>
-                                  </div>
-                              </div>
-                          ))}
-                      </div>
-                  </div>
-
                   <div className="p-8 md:p-10 border-t border-slate-100 bg-white flex flex-col md:flex-row justify-between items-center gap-6">
                       <div className="flex items-center gap-5">
                           <div className="p-4 bg-slate-900 text-white rounded-3xl shadow-xl"><Banknote size={32} /></div>
                           <div>
-                              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Final Bill Amount</p>
-                              <p className={`text-4xl font-black tracking-tighter ${selectedBill.type === 'RETURN' ? 'text-rose-600' : 'text-slate-900'}`}>
-                                  {selectedBill.type === 'RETURN' ? '-' : ''}₹{selectedBill.totalAmount.toLocaleString()}
+                              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Final Amount</p>
+                              <p className={`text-4xl font-black tracking-tighter tabular-nums ${selectedBill.type === 'RETURN' ? 'text-rose-600' : 'text-slate-900'}`}>
+                                  ₹{selectedBill.totalAmount.toLocaleString()}
                               </p>
                           </div>
                       </div>
@@ -813,8 +928,10 @@ const Billing: React.FC<Props> = ({ user }) => {
                           </div>
                       </div>
                       <div className="text-right">
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Life Value</p>
-                          <p className="text-3xl font-black text-slate-900 tracking-tighter">₹{selectedCustomer.totalSpent.toLocaleString()}</p>
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Outstanding</p>
+                          <p className={`text-3xl font-black tracking-tighter ${selectedCustomer.totalSpent > selectedCustomer.totalPaid ? 'text-rose-600' : 'text-teal-600'}`}>
+                              ₹{(selectedCustomer.totalSpent - selectedCustomer.totalPaid).toLocaleString()}
+                          </p>
                       </div>
                   </div>
                   <div className="flex-1 overflow-y-auto p-10 no-scrollbar">
@@ -822,29 +939,34 @@ const Billing: React.FC<Props> = ({ user }) => {
                           <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
                              <History size={16} /> Transaction Timeline ({fd(selectedCustomer.transactions.length)})
                           </h4>
-                          {selectedCustomer.transactions.map((tx, idx) => (
-                              <div key={tx.id} className="p-6 bg-slate-50/50 rounded-3xl border border-slate-100 flex justify-between items-center group hover:bg-white hover:border-brand-100 transition-all">
-                                  <div className="flex items-center gap-6">
-                                      <div className="w-10 h-10 bg-white rounded-xl border border-slate-100 flex items-center justify-center text-slate-300 font-black text-xs">{fd(idx + 1)}</div>
-                                      <div>
-                                          <div className="font-black text-slate-900 text-lg uppercase tracking-tight">{tx.partNumber}</div>
-                                          <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest mt-1">{new Date(tx.createdAt).toLocaleDateString()}</p>
-                                      </div>
-                                  </div>
-                                  <div className="flex items-center gap-10">
-                                      <div className="text-right">
-                                          <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-0.5">Quantity</p>
-                                          <p className="text-lg font-black text-slate-900">{fd(tx.quantity)}</p>
-                                      </div>
-                                      <div className="text-right min-w-[100px]">
-                                          <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-0.5">Subtotal</p>
-                                          <p className={`text-lg font-black tracking-tight ${tx.type === 'RETURN' ? 'text-rose-600' : 'text-slate-900'}`}>
-                                              {tx.type === 'RETURN' ? '-' : ''}₹{(tx.price * tx.quantity).toLocaleString()}
-                                          </p>
-                                      </div>
-                                  </div>
-                              </div>
-                          ))}
+                          {selectedCustomer.transactions.map((tx, idx) => {
+                              const amount = tx.price * tx.quantity;
+                              const balance = amount - (tx.paidAmount || 0);
+
+                              return (
+                                <div key={tx.id} className="p-6 bg-slate-50/50 rounded-3xl border border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-6 group hover:bg-white hover:border-brand-100 transition-all">
+                                    <div className="flex items-center gap-6">
+                                        <div className="w-10 h-10 bg-white rounded-xl border border-slate-100 flex items-center justify-center text-slate-300 font-black text-xs">{fd(idx + 1)}</div>
+                                        <div>
+                                            <div className="font-black text-slate-900 text-lg uppercase tracking-tight">{tx.partNumber}</div>
+                                            <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest mt-1">{new Date(tx.createdAt).toLocaleDateString()}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-10">
+                                        <div className="text-right">
+                                            <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-0.5">Bill Amt</p>
+                                            <p className="text-lg font-black text-slate-900">₹{amount.toLocaleString()}</p>
+                                        </div>
+                                        <div className="text-right min-w-[100px]">
+                                            <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-0.5">Status</p>
+                                            <span className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-lg border shadow-inner ${balance <= 0 ? 'bg-teal-50 text-teal-600 border-teal-100' : balance < amount ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
+                                                {balance <= 0 ? 'Settled' : balance < amount ? `Partial: ₹${balance.toLocaleString()} Due` : 'Full Credit Due'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                              )
+                          })}
                       </div>
                   </div>
                   <div className="p-10 border-t border-slate-100 bg-white flex justify-end">

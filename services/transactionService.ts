@@ -11,6 +11,7 @@ const mapDBToTransaction = (item: any): Transaction => ({
   type: item.type as TransactionType,
   quantity: item.quantity,
   price: item.price,
+  paidAmount: item.paid_amount || 0, // Map from DB
   customerName: item.customer_name,
   status: item.status as TransactionStatus,
   createdByRole: item.created_by_role as Role,
@@ -27,6 +28,13 @@ export const createTransaction = async (
   return createBulkTransactions([transaction]);
 };
 
+export const updateTransactionPayment = async (id: string, amount: number): Promise<{ success: boolean, message?: string }> => {
+  if (!supabase) return { success: false, message: "Database not connected" };
+  const { error } = await supabase.from('transactions').update({ paid_amount: amount }).eq('id', id);
+  if (error) return { success: false, message: error.message };
+  return { success: true };
+};
+
 export const createBulkTransactions = async (
   transactions: Omit<Transaction, 'id' | 'status' | 'createdAt'>[]
 ): Promise<{ success: boolean; message?: string }> => {
@@ -41,7 +49,6 @@ export const createBulkTransactions = async (
     if (transactions.length === 0) return { success: true };
 
     // --- AUTO CUSTOMER REGISTRATION ---
-    // Extract valid names, avoiding generic placeholders
     const namesToRegister = [...new Set(transactions.map(t => t.customerName))]
       .filter(name => {
         if (!name) return false;
@@ -87,6 +94,7 @@ export const createBulkTransactions = async (
       type: t.type,
       quantity: t.quantity,
       price: t.price,
+      paid_amount: t.paidAmount || 0, // Store paid amount
       customer_name: t.customerName,
       status: initialStatus,
       created_by_role: t.createdByRole,
