@@ -522,7 +522,6 @@ const StockTable: React.FC<StockTableProps> = ({
           if (result.errors.length > 0) {
               alert("Error updating: " + result.errors[0]);
           } else {
-              // We refresh manually to ensure data consistency
               window.location.reload(); 
           }
       } catch (e) {
@@ -647,15 +646,23 @@ const StockTable: React.FC<StockTableProps> = ({
       )}
 
       {enableActions && isOwner && (
-        <div className="md:hidden p-4 bg-slate-50/30 border-b border-slate-100 flex items-center justify-between">
+        <div className="md:hidden p-4 bg-slate-50/30 border-b border-slate-100 flex items-center justify-between gap-3">
            <button 
              onClick={toggleSelectPage}
-             className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 bg-white px-5 py-3.5 rounded-2xl border border-slate-200 shadow-sm active:scale-95"
+             className="flex-1 flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 bg-white px-5 py-3.5 rounded-2xl border border-slate-200 shadow-sm active:scale-95"
            >
               {isAllMobileSelected ? <CheckSquare size={18} className="text-blue-600" /> : <Square size={18} className="text-slate-200" />}
               Bulk Select
            </button>
-           {selectedParts.size > 0 && <span className="text-[10px] font-black text-white bg-blue-600 px-3 py-1.5 rounded-xl shadow-md">{formatQty(selectedParts.size)} Active</span>}
+           <button 
+             onClick={() => setIsEditMode(!isEditMode)}
+             className={`flex-1 flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] px-5 py-3.5 rounded-2xl border shadow-sm active:scale-95 transition-all ${
+               isEditMode ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-white text-indigo-600 border-slate-200'
+             }`}
+           >
+              {isEditMode ? <X size={18} /> : <Edit3 size={18} />}
+              {isEditMode ? 'Exit' : 'Edit'}
+           </button>
         </div>
       )}
 
