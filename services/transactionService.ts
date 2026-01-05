@@ -69,8 +69,6 @@ export const createBulkTransactions = async (
     }
 
     // 2. Insert Transactions
-    // Note: paid_amount and payment_status are purely for ledger. 
-    // Stock is ALWAYS deducted if status is APPROVED, regardless of payment.
     const dbRows = transactions.map(t => ({
       part_number: t.partNumber,
       type: t.type,
@@ -88,6 +86,7 @@ export const createBulkTransactions = async (
     if (insertError) throw new Error(insertError.message);
 
     // 3. Update Inventory (if Approved immediately - typically Owner role)
+    // Note: Stock decreases only on APPROVED status. Manager sales remain PENDING for owner review.
     if (initialStatus === TransactionStatus.APPROVED) {
       for (const tx of transactions) {
          if (tx.type !== TransactionType.PURCHASE_ORDER) {
@@ -186,12 +185,11 @@ const updateStockForTransaction = async (partNumber: string, type: TransactionTy
   await supabase.from('inventory').update(updatePayload).eq('part_number', dbItem.part_number);
 };
 
-// Post-sale payment collection logic
 export const updateBillPayment = async (createdAt: string, customerName: string, additionalAmount: number): Promise<{ success: boolean; message?: string }> => {
   if (!supabase) return { success: false, message: "Database not connected" };
   try {
     const { data: items, error: fetchError } = await supabase.from('transactions').select('*').eq('created_at', createdAt).eq('customer_name', customerName).eq('type', 'SALE');
-    if (fetchError || !items || items.length === 0) throw new Error("Bill not found or contains no items.");
+    if (fetchError || !items || items.length === 0) throw new Error("Bill not found.");
     const totalBillAmount = items.reduce((sum, i) => sum + (i.price * i.quantity), 0);
     const currentPaidAmount = items.reduce((sum, i) => sum + i.paid_amount, 0);
     const newTotalPaid = Math.min(totalBillAmount, currentPaidAmount + additionalAmount);
