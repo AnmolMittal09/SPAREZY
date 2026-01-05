@@ -28,7 +28,9 @@ import {
   Box,
   Edit3,
   Check,
-  Download
+  Download,
+  ChevronRight as ChevronRightIcon,
+  X
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -120,7 +122,7 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role; 
 
       {loadingHistory ? (
         <div className="py-10 flex flex-col items-center gap-3">
-          <Loader2 size={20} className="animate-spin text-indigo-500" />
+          <Loader2 size={20} className="animate-spin text-indigo-50" />
           <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Scanning Ledger</span>
         </div>
       ) : history.length > 0 ? (
@@ -208,9 +210,15 @@ interface SwipeableItemProps {
     toggleSelect: (partNumber: string) => void;
     enableSelection: boolean;
     onQuickRequest: (pn: string) => void;
+    isEditMode?: boolean;
+    onInlineUpdate?: (pn: string, qty: number) => void;
+    isUpdating?: boolean;
 }
 
-const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({ item, userRole, shouldHidePrice, isSelected, toggleSelect, enableSelection, onQuickRequest }) => {
+const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({ 
+    item, userRole, shouldHidePrice, isSelected, toggleSelect, enableSelection, 
+    onQuickRequest, isEditMode, onInlineUpdate, isUpdating 
+}) => {
     const navigate = useNavigate();
     const [startX, setStartX] = useState(0);
     const [currentX, setCurrentX] = useState(0);
@@ -219,6 +227,11 @@ const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({ item, userRole, sho
     const [showHistory, setShowHistory] = useState(false);
     const [history, setHistory] = useState<PriceHistoryEntry[]>([]);
     const [loadingHistory, setLoadingHistory] = useState(false);
+    const [localQty, setLocalQty] = useState<string>(item.quantity.toString());
+
+    useEffect(() => {
+        setLocalQty(item.quantity.toString());
+    }, [item.quantity]);
 
     const maxSwipe = -140; 
 
@@ -315,19 +328,42 @@ const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({ item, userRole, sho
                                     <span className={`flex-none text-[8px] px-1.5 py-0.5 rounded-md font-black uppercase tracking-widest shadow-sm ${item.brand === Brand.HYUNDAI ? 'bg-blue-600 text-white' : 'bg-red-600 text-white'}`}>
                                         {item.brand.slice(0,3)}
                                     </span>
-                                    <span className="font-black text-slate-900 text-[17px] leading-none tracking-tight truncate">
+                                    <span className="font-black text-slate-900 text-[17px] leading-none tracking-tight truncate uppercase">
                                         {item.partNumber}
                                     </span>
                                 </div>
-                                <p className="text-xs text-slate-500 font-semibold truncate leading-snug">{item.name}</p>
+                                <p className="text-xs text-slate-500 font-semibold truncate leading-snug uppercase tracking-tight">{item.name}</p>
                             </div>
                             <div className="text-right flex flex-col items-end flex-none ml-2">
-                                <div className={`font-black text-xl leading-none tracking-tighter ${isZero ? 'text-rose-600' : isLow ? 'text-amber-500' : 'text-slate-900'}`}>
-                                    {formatQty(item.quantity)}
-                                    <span className="text-[9px] uppercase font-black text-slate-400 ml-1 tracking-widest">PCS</span>
-                                </div>
-                                {isLow && !isZero && <span className="text-[8px] font-black text-amber-600 uppercase tracking-widest mt-1">Refill Soon</span>}
-                                {isZero && <span className="text-[8px] font-black text-rose-600 uppercase tracking-widest mt-1">Out Stock</span>}
+                                {isEditMode && userRole === Role.OWNER ? (
+                                    <div className="flex flex-col items-end gap-2">
+                                        <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner-soft focus-within:border-indigo-400 transition-all">
+                                            <input 
+                                                type="number"
+                                                className="w-16 bg-white border border-slate-200 rounded-lg py-1.5 px-2 text-base font-black text-slate-900 text-center outline-none focus:ring-4 focus:ring-indigo-500/5"
+                                                value={localQty}
+                                                onChange={(e) => setLocalQty(e.target.value)}
+                                            />
+                                            <button 
+                                                onClick={() => onInlineUpdate?.(item.partNumber, parseInt(localQty) || 0)}
+                                                disabled={isUpdating}
+                                                className="p-2 ml-1 bg-indigo-600 text-white rounded-lg active:scale-90 transition-all disabled:opacity-30 shadow-sm"
+                                            >
+                                                {isUpdating ? <Loader2 size={14} className="animate-spin"/> : <Check size={14} strokeWidth={4} />}
+                                            </button>
+                                        </div>
+                                        <span className="text-[8px] font-black text-indigo-500 uppercase tracking-[0.2em] mr-1">COMMIT STOCK</span>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className={`font-black text-xl leading-none tracking-tighter ${isZero ? 'text-rose-600' : isLow ? 'text-amber-500' : 'text-slate-900'}`}>
+                                            {formatQty(item.quantity)}
+                                            <span className="text-[9px] uppercase font-black text-slate-400 ml-1 tracking-widest">PCS</span>
+                                        </div>
+                                        {isLow && !isZero && <span className="text-[8px] font-black text-amber-600 uppercase tracking-widest mt-1">Refill Soon</span>}
+                                        {isZero && <span className="text-[8px] font-black text-rose-600 uppercase tracking-widest mt-1">Out Stock</span>}
+                                    </>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -336,7 +372,7 @@ const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({ item, userRole, sho
                 <div className="pt-3.5 border-t border-slate-100 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <PriceCell price={item.price} partNumber={item.partNumber} userRole={userRole} align="left" />
-                        {userRole === Role.OWNER && (
+                        {userRole === Role.OWNER && !isEditMode && (
                             <button 
                                 onClick={toggleMobileHistory}
                                 className={`px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border ${showHistory ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-slate-50 text-slate-500 border-slate-100 hover:bg-white'}`}
@@ -345,10 +381,12 @@ const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({ item, userRole, sho
                             </button>
                         )}
                     </div>
-                    <div className="flex items-center gap-1.5 opacity-40">
-                       <span className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em]">Actions</span>
-                       <ChevronRight size={14} className="text-slate-400" />
-                    </div>
+                    {!isEditMode && (
+                        <div className="flex items-center gap-1.5 opacity-40">
+                           <span className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em]">Actions</span>
+                           <ChevronRightIcon size={14} className="text-slate-400" />
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
@@ -474,8 +512,8 @@ const StockTable: React.FC<StockTableProps> = ({
       }
   };
 
-  const handleInlineQtyUpdate = async (pn: string) => {
-      const newQty = editedQtys[pn];
+  const handleInlineQtyUpdate = async (pn: string, customQty?: number) => {
+      const newQty = customQty !== undefined ? customQty : editedQtys[pn];
       if (newQty === undefined) return;
       
       setUpdatingPn(pn);
@@ -484,6 +522,7 @@ const StockTable: React.FC<StockTableProps> = ({
           if (result.errors.length > 0) {
               alert("Error updating: " + result.errors[0]);
           } else {
+              // We refresh manually to ensure data consistency
               window.location.reload(); 
           }
       } catch (e) {
@@ -554,42 +593,42 @@ const StockTable: React.FC<StockTableProps> = ({
                 {isOwner && (
                     <button 
                         onClick={() => setIsEditMode(!isEditMode)}
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm ring-1 ${
+                        className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all shadow-md active:scale-95 ring-1 ${
                             isEditMode 
                                 ? 'bg-indigo-600 text-white border-indigo-700 ring-indigo-400' 
                                 : 'bg-white text-indigo-600 border-slate-200 hover:bg-indigo-50 ring-transparent'
                         }`}
                     >
-                        <Edit3 size={14} />
-                        {isEditMode ? 'Exit' : 'Edit'}
+                        {isEditMode ? <X size={16} strokeWidth={3} /> : <Edit3 size={16} strokeWidth={3} />}
+                        {isEditMode ? 'Exit' : 'Edit Mode'}
                     </button>
                 )}
 
                 <button 
                     onClick={handleExport}
-                    className="p-2.5 rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-blue-600 transition-all shadow-sm active:scale-95"
+                    className="p-3 rounded-2xl bg-white border border-slate-200 text-slate-400 hover:text-blue-600 transition-all shadow-sm active:scale-95"
                     title="Export to Excel"
                 >
-                    <Download size={18} />
+                    <Download size={20} />
                 </button>
 
                 {selectedParts.size > 0 && isOwner && (
                     <button 
                     onClick={handleBulkArchive} 
                     disabled={isArchiving}
-                    className="hidden md:flex bg-rose-50 text-rose-600 hover:bg-rose-100 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all items-center gap-2 shadow-sm ring-1 ring-rose-200/40"
+                    className="hidden md:flex bg-rose-50 text-rose-600 hover:bg-rose-100 px-5 py-2.5 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all items-center gap-2 shadow-sm ring-1 ring-rose-200/40"
                     >
-                        {isArchiving ? <Loader2 className="animate-spin" size={12} /> : null}
+                        {isArchiving ? <Loader2 className="animate-spin" size={14} /> : null}
                         Archive ({formatQty(selectedParts.size)})
                     </button>
                 )}
 
-                <div className="relative group">
-                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={16} />
+                <div className="relative group hidden md:block">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={18} />
                     <input 
                     type="text" 
                     placeholder="Quick Filter..." 
-                    className="pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold focus:ring-4 focus:ring-blue-500/5 focus:border-blue-300 w-full md:w-64 transition-all shadow-inner-soft outline-none"
+                    className="pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-2xl text-sm font-semibold focus:ring-4 focus:ring-blue-500/5 focus:border-blue-300 w-64 transition-all shadow-inner-soft outline-none"
                     value={internalSearch}
                     onChange={e => setInternalSearch(e.target.value)}
                     />
@@ -598,9 +637,9 @@ const StockTable: React.FC<StockTableProps> = ({
                 {isOwner && (
                     <button 
                         onClick={() => setShowArchived(!showArchived)}
-                        className={`hidden md:flex p-2.5 rounded-xl border transition-all shadow-sm ${showArchived ? 'bg-amber-50 border-amber-200 text-amber-600' : 'bg-white border-slate-200 text-slate-400 hover:bg-slate-50'}`}
+                        className={`hidden md:flex p-3 rounded-2xl border transition-all shadow-sm ${showArchived ? 'bg-amber-50 border-amber-200 text-amber-600' : 'bg-white border-slate-200 text-slate-400 hover:bg-slate-50'}`}
                     >
-                        {showArchived ? <ArchiveRestore size={18} /> : <Archive size={18} />}
+                        {showArchived ? <ArchiveRestore size={20} /> : <Archive size={20} />}
                     </button>
                 )}
             </div>
@@ -632,19 +671,19 @@ const StockTable: React.FC<StockTableProps> = ({
                         </th>
                     )}
                     <th className="px-8 py-5 font-black text-slate-400 uppercase tracking-[0.2em] text-[9px] cursor-pointer group/h" onClick={() => requestSort('partNumber')}>
-                        <div className="flex items-center gap-2 group-hover/h:text-slate-600 transition-colors">Part Number <SortIcon col="partNumber"/></div>
+                        <div className="flex items-center gap-2 group-hover/h:text-slate-600 transition-colors uppercase">Part Number <SortIcon col="partNumber"/></div>
                     </th>
                     <th className="px-8 py-5 font-black text-slate-400 uppercase tracking-[0.2em] text-[9px] cursor-pointer group/h" onClick={() => requestSort('name')}>
-                        <div className="flex items-center gap-2 group-hover/h:text-slate-600 transition-colors">Description <SortIcon col="name"/></div>
+                        <div className="flex items-center gap-2 group-hover/h:text-slate-600 transition-colors uppercase">Description <SortIcon col="name"/></div>
                     </th>
-                    <th className="px-8 py-5 font-black text-slate-400 uppercase tracking-[0.2em] text-[9px] text-center w-32">Catalog Brand</th>
+                    <th className="px-8 py-5 font-black text-slate-400 uppercase tracking-[0.2em] text-[9px] text-center w-32 uppercase">Brand</th>
                     <th className="px-8 py-5 font-black text-slate-400 uppercase tracking-[0.2em] text-[9px] text-center cursor-pointer group/h" onClick={() => requestSort('quantity')}>
-                         <div className="flex items-center justify-center gap-2 group-hover/h:text-slate-600 transition-colors">On-Hand <SortIcon col="quantity"/></div>
+                         <div className="flex items-center justify-center gap-2 group-hover/h:text-slate-600 transition-colors uppercase">On-Hand <SortIcon col="quantity"/></div>
                     </th>
                     <th className="px-8 py-5 font-black text-slate-400 uppercase tracking-[0.2em] text-[9px] text-right cursor-pointer group/h" onClick={() => requestSort('price')}>
-                         <div className="flex items-center justify-end gap-2 group-hover/h:text-slate-600 transition-colors">MRP Rate <SortIcon col="price"/></div>
+                         <div className="flex items-center justify-end gap-2 group-hover/h:text-slate-600 transition-colors uppercase">MRP Rate <SortIcon col="price"/></div>
                     </th>
-                    {enableActions && <th className="px-8 py-5 text-center text-slate-400 font-black uppercase tracking-[0.2em] text-[9px] w-32">Process</th>}
+                    {enableActions && <th className="px-8 py-5 text-center text-slate-400 font-black uppercase tracking-[0.2em] text-[9px] w-32 uppercase">Process</th>}
                 </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -676,7 +715,7 @@ const StockTable: React.FC<StockTableProps> = ({
                                     </Link>
                                     {isZero && <span className="ml-3 inline-flex items-center px-2 py-0.5 rounded text-[8px] font-black bg-rose-50 text-rose-500 border border-rose-100 uppercase tracking-widest shadow-sm">Out</span>}
                                 </td>
-                                <td className="px-8 py-5 text-slate-600 font-semibold leading-relaxed max-w-[240px] truncate">{item.name}</td>
+                                <td className="px-8 py-5 text-slate-600 font-semibold leading-relaxed max-w-[240px] truncate uppercase tracking-tight">{item.name}</td>
                                 <td className="px-8 py-5 text-center">
                                     <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest shadow-soft ring-1 ring-slate-200/40 ${item.brand === Brand.HYUNDAI ? 'bg-blue-50 text-blue-700' : 'bg-red-50 text-red-700'}`}>
                                         {item.brand.slice(0,3)}
@@ -685,23 +724,24 @@ const StockTable: React.FC<StockTableProps> = ({
                                 <td className="px-8 py-5 text-center">
                                     <div className="flex flex-col items-center">
                                         {isEditMode && isOwner ? (
-                                            <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-200 shadow-inner-soft group/edit-cell">
+                                            <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-200 shadow-inner-soft group/edit-cell focus-within:border-indigo-400 focus-within:ring-4 focus-within:ring-indigo-500/5 transition-all">
                                                 <input 
                                                     type="number"
                                                     disabled={isUpdating}
                                                     defaultValue={item.quantity}
-                                                    className="w-16 bg-white border border-slate-200 rounded-lg py-1 px-2 text-[15px] font-black text-slate-900 outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-400 disabled:opacity-50"
+                                                    className="w-16 bg-white border border-slate-200 rounded-lg py-1 px-2 text-[15px] font-black text-slate-900 outline-none disabled:opacity-50"
                                                     onChange={(e) => setEditedQtys({...editedQtys, [item.partNumber]: parseInt(e.target.value) || 0})}
                                                     onKeyDown={(e) => {
                                                         if (e.key === 'Enter') handleInlineQtyUpdate(item.partNumber);
+                                                        if (e.key === 'Escape') setIsEditMode(false);
                                                     }}
                                                 />
                                                 <button 
                                                     onClick={() => handleInlineQtyUpdate(item.partNumber)}
                                                     disabled={isUpdating || editedQtys[item.partNumber] === undefined}
-                                                    className="p-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-30 transition-all active:scale-90"
+                                                    className="p-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-30 transition-all active:scale-90 shadow-sm"
                                                 >
-                                                    {isUpdating ? <Loader2 size={12} className="animate-spin"/> : <Check size={12} strokeWidth={4} />}
+                                                    {isUpdating ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} strokeWidth={4} />}
                                                 </button>
                                             </div>
                                         ) : (
@@ -773,6 +813,9 @@ const StockTable: React.FC<StockTableProps> = ({
                     toggleSelect={toggleSelect}
                     enableSelection={enableActions}
                     onQuickRequest={handleQuickRequest}
+                    isEditMode={isEditMode}
+                    onInlineUpdate={handleInlineQtyUpdate}
+                    isUpdating={updatingPn === item.partNumber}
                 />
              ))
          )}
