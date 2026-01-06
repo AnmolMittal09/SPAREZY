@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { User, Transaction, TransactionStatus, TransactionType, Brand, Role } from '../types';
 import DailyTransactions from './DailyTransactions';
@@ -249,7 +248,8 @@ const Purchases: React.FC<Props> = ({ user }) => {
             price: item.printedUnitPrice, 
             paidAmount: item.printedUnitPrice * item.quantity,
             customerName: sourceName, 
-            createdByRole: user.role as Role
+            createdByRole: user.role as Role,
+            createdByName: user.name // Log name from user prop
         }));
         await createBulkTransactions(txPayload);
         setImportLog({ 
@@ -408,7 +408,10 @@ const Purchases: React.FC<Props> = ({ user }) => {
                               <div className="font-black text-[15px] text-slate-900 truncate uppercase leading-tight">{stack.customerName || 'Direct Provider'}</div>
                            </div>
                            <div className="flex justify-between items-end border-t border-slate-50 pt-4 relative z-10">
-                              <span className="text-[9px] font-black bg-slate-100 px-2 py-0.5 rounded-md text-slate-500">{fd(stack.items.length)} ITEMS</span>
+                              <div className="flex flex-col gap-1">
+                                 <span className="text-[9px] font-black bg-slate-100 px-2 py-0.5 rounded-md text-slate-500 w-fit">{fd(stack.items.length)} ITEMS</span>
+                                 <span className="text-[9px] font-bold text-slate-400 uppercase">By: {stack.items[0]?.createdByName}</span>
+                              </div>
                               <div className="text-right">
                                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Batch Total</span>
                                  <span className="font-black text-xl text-slate-900 tracking-tighter tabular-nums">₹{stack.totalValue.toLocaleString()}</span>
@@ -429,7 +432,11 @@ const Purchases: React.FC<Props> = ({ user }) => {
                           <button onClick={() => setSelectedInbound(null)} className="p-2.5 bg-white text-slate-400 rounded-xl shadow-soft border border-slate-100 active:scale-90"><ArrowLeft size={20}/></button>
                           <div>
                               <h3 className="font-black text-slate-900 text-lg uppercase leading-tight truncate max-w-[200px]">{selectedInbound.customerName || 'Bulk Inbound'}</h3>
-                              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{new Date(selectedInbound.createdAt).toLocaleDateString()} • {new Date(selectedInbound.createdAt).toLocaleTimeString()}</p>
+                              <div className="flex items-center gap-2">
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{new Date(selectedInbound.createdAt).toLocaleDateString()} • {new Date(selectedInbound.createdAt).toLocaleTimeString()}</p>
+                                <span className="opacity-30 text-[9px]">•</span>
+                                <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest">Added By: {selectedInbound.items[0]?.createdByName}</p>
+                              </div>
                           </div>
                       </div>
                   </div>

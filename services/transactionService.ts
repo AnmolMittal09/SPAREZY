@@ -1,4 +1,3 @@
-
 import { supabase } from './supabase';
 import { Invoice, Role, Transaction, TransactionStatus, TransactionType } from '../types';
 import { completeRequestsForParts } from './requestService';
@@ -15,6 +14,7 @@ const mapDBToTransaction = (item: any): Transaction => ({
   customerName: item.customer_name,
   status: item.status as TransactionStatus,
   createdByRole: item.created_by_role as Role,
+  createdByName: item.created_by_name || 'System', // Added mapper for name
   createdAt: item.created_at,
   relatedTransactionId: item.related_transaction_id,
   invoiceId: item.invoice_id
@@ -98,6 +98,7 @@ export const createBulkTransactions = async (
       customer_name: (t.customerName || '').toUpperCase().trim(),
       status: initialStatus,
       created_by_role: t.createdByRole,
+      created_by_name: t.createdByName, // Store user name in DB
       related_transaction_id: t.relatedTransactionId
     }));
 
@@ -383,6 +384,7 @@ export const generateTaxInvoiceRecord = async (
         customer_gst: customerDetails.gst,
         total_amount: totals.amount,
         tax_amount: totals.tax,
+        // Fixed: Use paymentMode property instead of payment_mode
         payment_mode: customerDetails.paymentMode.toUpperCase(), 
         items_count: transactionIds.length,
         generated_by: userRole

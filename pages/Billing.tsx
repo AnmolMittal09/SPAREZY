@@ -385,6 +385,7 @@ const Billing: React.FC<Props> = ({ user }) => {
          paidAmount: originalSale.price * selectedReturns[id], 
          customerName: originalSale.customerName || 'Customer Return',
          createdByRole: user.role,
+         createdByName: user.name, // Log who processed the return
          relatedTransactionId: originalSale.id
        };
     }).filter(Boolean) as any[];
@@ -741,6 +742,7 @@ const Billing: React.FC<Props> = ({ user }) => {
                                             <div className="flex flex-col text-slate-400 text-[10px] font-bold mt-2">
                                                 <div className="flex items-center gap-1.5"><Calendar size={10} /> {new Date(tx.createdAt).toLocaleDateString()}</div>
                                                 <div className="flex items-center gap-1.5 mt-0.5"><Clock size={10} /> {new Date(tx.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                                                <div className="flex items-center gap-1.5 mt-0.5"><UserIcon size={10} /> {tx.createdByName}</div>
                                             </div>
                                         </div>
                                         <div className={`px-2.5 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest ${isReturn ? 'bg-rose-50 text-rose-600' : 'bg-teal-50 text-teal-600'}`}>
@@ -880,6 +882,8 @@ const Billing: React.FC<Props> = ({ user }) => {
                               <h3 className="font-black text-slate-900 text-base tracking-tight leading-none mb-1.5 uppercase truncate max-w-[180px]">{selectedBill.customerName || 'Cash Bill'}</h3>
                               <div className="flex items-center gap-2 text-slate-400 text-[9px] font-black uppercase tracking-widest">
                                   <Calendar size={10}/> {new Date(selectedBill.createdAt).toLocaleDateString()}
+                                  <span className="opacity-30">•</span>
+                                  <UserIcon size={10}/> {selectedBill.items[0]?.createdByName}
                               </div>
                           </div>
                       </div>
@@ -1054,7 +1058,11 @@ const Billing: React.FC<Props> = ({ user }) => {
                                     <div className="col-span-2">
                                         <p className="font-black text-slate-900 text-sm md:text-base uppercase tracking-tight">{item.partNumber}</p>
                                         {part && <p className="text-[10px] text-slate-500 font-bold uppercase truncate pr-4">{part.name}</p>}
-                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Qty: {fd(item.quantity)} @ ₹{item.price.toLocaleString()}</span>
+                                        <div className="flex items-center gap-2 mt-1">
+                                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Qty: {fd(item.quantity)} @ ₹{item.price.toLocaleString()}</span>
+                                          <span className="opacity-20 text-[9px]">•</span>
+                                          <span className="text-[9px] font-bold text-slate-400 uppercase">By: {item.createdByName}</span>
+                                        </div>
                                     </div>
                                     <div className="col-span-1 flex md:justify-center">
                                         <span className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest border ${isReturn ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-teal-50 text-teal-600 border-teal-100'}`}>

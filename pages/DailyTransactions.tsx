@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useRef } from 'react';
 import { Role, TransactionType, User, StockItem, Customer, Brand, TransactionStatus } from '../types';
 import { createBulkTransactions, fetchTransactions } from '../services/transactionService';
@@ -337,7 +336,8 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
               ...c,
               paidAmount: assignedPaid,
               customerName: normalizedCustomer,
-              createdByRole: user.role
+              createdByRole: user.role,
+              createdByName: user.name // Passed the user's name here
           };
       });
       

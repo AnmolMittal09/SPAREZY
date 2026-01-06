@@ -1,4 +1,3 @@
-
 export enum Role {
   OWNER = 'OWNER',
   MANAGER = 'MANAGER',
@@ -64,6 +63,7 @@ export interface Transaction {
   customerName: string; 
   status: TransactionStatus;
   createdByRole: Role;
+  createdByName: string; // Track the name of the user who performed the transaction
   createdAt: string;
   relatedTransactionId?: string;
   invoiceId?: string; 

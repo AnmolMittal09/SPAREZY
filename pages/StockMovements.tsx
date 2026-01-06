@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useMemo } from 'react';
 import { User, Transaction, TransactionType } from '../types';
 import { fetchTransactions } from '../services/transactionService';
@@ -17,7 +16,8 @@ import {
   Package,
   Clock,
   ArrowUpDown,
-  Download
+  Download,
+  User as UserIcon
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -76,7 +76,8 @@ const StockMovements: React.FC<Props> = ({ user }) => {
         const query = searchQuery.toLowerCase();
         return (
           tx.partNumber.toLowerCase().includes(query) ||
-          (tx.customerName && tx.customerName.toLowerCase().includes(query))
+          (tx.customerName && tx.customerName.toLowerCase().includes(query)) ||
+          (tx.createdByName && tx.createdByName.toLowerCase().includes(query))
         );
       }
 
@@ -91,6 +92,7 @@ const StockMovements: React.FC<Props> = ({ user }) => {
       'Process': tx.type,
       'Part Number': tx.partNumber,
       'Entity (Customer/Supplier)': tx.customerName || 'Direct Entry',
+      'Logged By': tx.createdByName,
       'Quantity': tx.quantity,
       'Unit Rate': tx.price,
       'Total Value': tx.price * tx.quantity
@@ -264,9 +266,15 @@ const StockMovements: React.FC<Props> = ({ user }) => {
                           <td className="px-10 py-6">
                              <div className="flex flex-col gap-1">
                                 <span className="font-black text-slate-900 text-[15px] tracking-tight uppercase group-hover:text-blue-600 transition-colors">{tx.partNumber}</span>
-                                <div className="flex items-center gap-2">
-                                   <Package size={12} className="text-slate-300" />
-                                   <span className="text-[10px] font-bold text-slate-500 uppercase truncate max-w-[200px]">{tx.customerName || 'Direct Entry'}</span>
+                                <div className="flex flex-col gap-1">
+                                   <div className="flex items-center gap-2">
+                                      <Package size={12} className="text-slate-300" />
+                                      <span className="text-[10px] font-bold text-slate-500 uppercase truncate max-w-[200px]">{tx.customerName || 'Direct Entry'}</span>
+                                   </div>
+                                   <div className="flex items-center gap-2">
+                                      <UserIcon size={10} className="text-slate-300" />
+                                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Logged By: {tx.createdByName}</span>
+                                   </div>
                                 </div>
                              </div>
                           </td>
