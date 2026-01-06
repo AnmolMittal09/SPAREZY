@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { User } from '../types';
 import { authenticate } from '../services/userService';
 import { ShieldCheck, User as UserIcon, Lock, Loader2, ArrowRight, Fingerprint, Activity } from 'lucide-react';
@@ -14,10 +14,14 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
+  
+  // Refs for Direct DOM Access (fixes autofill/saved password sync issues)
+  const usernameRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
 
   // Security Entrance Animation
   useEffect(() => {
-    const timer = setTimeout(() => setIsInitializing(false), 1500);
+    const timer = setTimeout(() => setIsInitializing(false), 1200);
     return () => clearTimeout(timer);
   }, []);
 
@@ -26,8 +30,12 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     setError('');
     setLoading(true);
 
+    // Sync state with DOM values immediately (Critical for Saved Passwords)
+    const finalUsername = usernameRef.current?.value || username;
+    const finalPassword = passwordRef.current?.value || password;
+
     try {
-      const result = await authenticate(username, password);
+      const result = await authenticate(finalUsername, finalPassword);
       
       if (result.success && result.user) {
         onLogin(result.user);
@@ -74,26 +82,19 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   return (
     <div className="min-h-screen bg-[#020617] flex items-center justify-center relative overflow-hidden font-['Plus_Jakarta_Sans']">
       
-      {/* --- ENTERPRISE SECURITY BACKGROUND --- */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
          <div className="absolute inset-0 bg-gradient-to-br from-[#020617] via-[#0f172a] to-[#020617]"></div>
-         
-         {/* Mesh Gradients */}
          <div className="absolute top-[-10%] right-[-5%] w-[60%] h-[60%] bg-blue-600/10 rounded-full blur-[120px] animate-pulse"></div>
          <div className="absolute bottom-[-10%] left-[-5%] w-[60%] h-[60%] bg-emerald-600/5 rounded-full blur-[120px] animate-pulse delay-700"></div>
-         
-         {/* Cyber Grid */}
          <div className="absolute inset-0 opacity-[0.03]" style={{ 
              backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', 
              backgroundSize: '60px 60px' 
          }}></div>
       </div>
 
-      {/* --- SECURE VAULT CONTAINER --- */}
       <div className="relative z-10 w-full max-w-md p-6 md:p-4">
         <div className="bg-slate-900/40 backdrop-blur-3xl border border-white/10 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] rounded-[3rem] overflow-hidden animate-fade-in">
            
-           {/* Terminal Header */}
            <div className="px-10 py-10 text-center border-b border-white/5 relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-20 text-blue-500">
                  <Activity size={24} />
@@ -110,7 +111,6 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               </div>
            </div>
 
-           {/* Security Credentials */}
            <div className="p-10 space-y-8">
               <form onSubmit={handleSubmit} className="space-y-6">
                   {error && (
@@ -125,13 +125,14 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                       <div className="relative group">
                           <UserIcon className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-blue-400 transition-colors" size={20} />
                           <input 
+                              ref={usernameRef}
                               type="text" 
                               value={username}
                               onChange={(e) => setUsername(e.target.value)}
                               className="w-full bg-slate-950/50 border border-white/5 rounded-[1.25rem] px-14 py-4.5 text-white placeholder-slate-700 focus:outline-none focus:border-blue-500/40 focus:ring-8 focus:ring-blue-500/5 transition-all text-base font-bold shadow-inner"
                               placeholder="System ID"
                               required
-                              autoComplete="off"
+                              autoComplete="username"
                           />
                       </div>
                   </div>
@@ -141,12 +142,14 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                       <div className="relative group">
                           <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-blue-400 transition-colors" size={20} />
                           <input 
+                              ref={passwordRef}
                               type="password" 
                               value={password}
                               onChange={(e) => setPassword(e.target.value)}
                               className="w-full bg-slate-950/50 border border-white/5 rounded-[1.25rem] px-14 py-4.5 text-white placeholder-slate-700 focus:outline-none focus:border-blue-500/40 focus:ring-8 focus:ring-blue-500/5 transition-all text-base font-bold shadow-inner"
                               placeholder="••••••••••••"
                               required
+                              autoComplete="current-password"
                           />
                       </div>
                   </div>
@@ -165,7 +168,6 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               </form>
            </div>
            
-           {/* Terminal Footer */}
            <div className="bg-white/[0.02] p-6 text-center border-t border-white/5">
               <p className="text-[8px] text-slate-600 uppercase tracking-[0.4em] font-black flex items-center justify-center gap-3">
                  <Activity size={10} className="text-emerald-500" />

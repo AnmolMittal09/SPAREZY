@@ -31,6 +31,7 @@ const App: React.FC = () => {
   const [showWarning, setShowWarning] = useState(false);
   const warningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const logoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const visibilityTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleLogin = (newUser: User) => {
     setUser(newUser);
@@ -40,7 +41,6 @@ const App: React.FC = () => {
   const handleLogout = useCallback(() => {
     setUser(null);
     setShowWarning(false);
-    // Force a clean state by removing any temporary UI state
     if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
     if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
   }, []);
@@ -72,10 +72,24 @@ const App: React.FC = () => {
     
     events.forEach(event => window.addEventListener(event, resetHandler));
     
-    // Privacy Shield: Detect tab visibility
+    // Privacy Shield: Detect tab visibility with Debounce
+    // (Debounce fixes issues where browser 'Save Password' prompts trigger false hidden states)
     const handleVisibilityChange = () => {
-      setIsTabFocused(document.visibilityState === 'visible');
+      if (visibilityTimeoutRef.current) clearTimeout(visibilityTimeoutRef.current);
+      
+      const newState = document.visibilityState === 'visible';
+      
+      if (!newState) {
+        // If becoming hidden, wait 500ms before showing privacy shield
+        visibilityTimeoutRef.current = setTimeout(() => {
+          setIsTabFocused(false);
+        }, 500);
+      } else {
+        // If becoming visible, show immediately
+        setIsTabFocused(true);
+      }
     };
+    
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     resetTimers();
@@ -85,6 +99,7 @@ const App: React.FC = () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
       if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
+      if (visibilityTimeoutRef.current) clearTimeout(visibilityTimeoutRef.current);
     };
   }, [user, resetTimers]);
 
@@ -94,7 +109,7 @@ const App: React.FC = () => {
 
   return (
     <div className="relative h-screen w-full overflow-hidden">
-      {/* PRIVACY SHIELD: Blurs app when user leaves tab */}
+      {/* PRIVACY SHIELD */}
       {!isTabFocused && (
         <div className="fixed inset-0 z-[9999] bg-slate-900/40 backdrop-blur-[40px] flex flex-col items-center justify-center animate-fade-in">
            <div className="bg-white/10 p-8 rounded-[3rem] border border-white/20 shadow-2xl flex flex-col items-center gap-6">
