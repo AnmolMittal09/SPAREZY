@@ -1,3 +1,4 @@
+
 import { createClient } from '@supabase/supabase-js';
 
 // Access environment variables safely
@@ -72,7 +73,27 @@ export const supabase = (supabaseUrl && supabaseKey)
  *   invoice_id uuid
  * );
  * 
- * -- 4. App Users
+ * -- 4. Price History (Audit Trail)
+ * create table if not exists price_history (
+ *   id uuid default uuid_generate_v4() primary key,
+ *   part_number text not null,
+ *   old_price numeric,
+ *   new_price numeric,
+ *   change_date timestamptz default now()
+ * );
+ * 
+ * -- 5. Upload History (Bulk Update Undo)
+ * create table if not exists upload_history (
+ *   id uuid default uuid_generate_v4() primary key,
+ *   file_name text,
+ *   upload_mode text,
+ *   item_count int,
+ *   status text default 'SUCCESS',
+ *   snapshot_data jsonb,
+ *   created_at timestamptz default now()
+ * );
+ * 
+ * -- 6. App Users
  * create table if not exists app_users (
  *   id uuid default uuid_generate_v4() primary key,
  *   username text unique not null,
@@ -82,7 +103,7 @@ export const supabase = (supabaseUrl && supabaseKey)
  *   created_at timestamptz default now()
  * );
  * 
- * -- 5. Seed Admin
+ * -- 7. Seed Admin
  * insert into app_users (username, password, name, role) 
  * values ('admin', 'admin', 'Master Admin', 'OWNER')
  * on conflict do nothing;

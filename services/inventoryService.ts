@@ -1,3 +1,4 @@
+
 import { INITIAL_STOCK_DATA } from '../constants';
 import { Brand, PriceHistoryEntry, StockItem, StockStats, UploadHistoryEntry } from '../types';
 import { supabase } from './supabase';
@@ -21,7 +22,7 @@ interface DBItem {
 // --- Mappers ---
 const toAppItem = (dbItem: DBItem): StockItem => ({
   id: dbItem.id || '',
-  partNumber: dbItem.part_number,
+  partNumber: dbItem.part_number.toUpperCase().trim(),
   name: dbItem.name,
   brand: dbItem.brand as Brand,
   hsnCode: dbItem.hsn_code,
@@ -34,7 +35,7 @@ const toAppItem = (dbItem: DBItem): StockItem => ({
 
 const toDBItem = (item: Partial<StockItem>): Partial<DBItem> => {
   const dbItem: Partial<DBItem> = {};
-  if (item.partNumber) dbItem.part_number = item.partNumber;
+  if (item.partNumber) dbItem.part_number = item.partNumber.toUpperCase().trim();
   if (item.name) dbItem.name = item.name;
   if (item.brand) dbItem.brand = item.brand;
   if (item.hsnCode) dbItem.hsn_code = item.hsnCode;
@@ -65,7 +66,6 @@ export const fetchInventory = async (): Promise<StockItem[]> => {
     const PAGE_SIZE = 1000;
     let hasMore = true;
 
-    // Loop to fetch all pages
     while (hasMore) {
       const { data, error } = await supabase
         .from('inventory')
@@ -75,12 +75,11 @@ export const fetchInventory = async (): Promise<StockItem[]> => {
       
       if (error) {
         console.error('Supabase fetch error:', error);
-        break; // Stop fetching on error
+        break;
       }
 
       if (data && data.length > 0) {
         allData = allData.concat(data as DBItem[]);
-        // If we got fewer items than requested, we've reached the end
         if (data.length < PAGE_SIZE) {
           hasMore = false;
         }
@@ -92,73 +91,65 @@ export const fetchInventory = async (): Promise<StockItem[]> => {
     return allData.map(toAppItem);
   }
 
-  // Fallback to LocalStorage
   await delay(300); 
   return getFromLS();
 };
 
 export const fetchItemDetails = async (partNumber: string): Promise<StockItem | null> => {
+  const cleanPN = partNumber.toUpperCase().trim();
   if (supabase) {
     const { data, error } = await supabase
       .from('inventory')
       .select('*')
-      .ilike('part_number', partNumber)
+      .eq('part_number', cleanPN)
       .single();
     
     if (error || !data) return null;
     return toAppItem(data);
   }
   const items = getFromLS();
-  return items.find(i => i.partNumber.toLowerCase() === partNumber.toLowerCase()) || null;
+  return items.find(i => i.partNumber.toUpperCase() === cleanPN) || null;
 };
 
 export const toggleArchiveStatus = async (partNumber: string, isArchived: boolean): Promise<void> => {
+  const cleanPN = partNumber.toUpperCase().trim();
   if (!supabase) return;
   
   const { error } = await supabase
     .from('inventory')
     .update({ is_archived: isArchived })
-    .ilike('part_number', partNumber); // Case insensitive match
+    .eq('part_number', cleanPN);
 
   if (error) throw new Error(error.message);
 };
 
 export const saveInventory = async (items: StockItem[]): Promise<void> => {
-  if (supabase) {
-     return;
-  }
+  if (supabase) return;
   await delay(300);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
 };
 
 export const bulkArchiveItems = async (partNumbers: string[], isArchived: boolean): Promise<void> => {
-  // SUPABASE IMPLEMENTATION
+  const cleanPNs = partNumbers.map(p => p.toUpperCase().trim());
   if (supabase) {
-    // Process in batches to avoid URL/Payload limits with huge selections
     const BATCH_SIZE = 200;
-    
-    for (let i = 0; i < partNumbers.length; i += BATCH_SIZE) {
-      const batch = partNumbers.slice(i, i + BATCH_SIZE);
-      
+    for (let i = 0; i < cleanPNs.length; i += BATCH_SIZE) {
+      const batch = cleanPNs.slice(i, i + BATCH_SIZE);
       const { error } = await supabase
         .from('inventory')
         .update({ is_archived: isArchived })
         .in('part_number', batch);
 
-      if (error) {
-        console.error(`Error archiving batch ${i}:`, error);
-        throw new Error(error.message);
-      }
+      if (error) throw new Error(error.message);
     }
     return;
   }
 
-  // LOCAL STORAGE FALLBACK
   await delay(500);
   const items = getFromLS();
-  const idsToUpdate = new Set(partNumbers);
+  const idsToUpdate = new Set(cleanPNs);
   const updatedItems = items.map(item => {
-    if (idsToUpdate.has(item.partNumber)) {
+    if (idsToUpdate.has(item.partNumber.toUpperCase())) {
       return { ...item, isArchived };
     }
     return item;
@@ -167,7 +158,6 @@ export const bulkArchiveItems = async (partNumbers: string[], isArchived: boolea
 };
 
 export const getStats = (items: StockItem[]): StockStats => {
-  // Only count non-archived items for stats
   const activeItems = items.filter(i => !i.isArchived);
   return {
     totalItems: activeItems.reduce((acc, item) => acc + item.quantity, 0),
@@ -189,19 +179,11 @@ export const updateOrAddItems = async (
   newItems: Partial<StockItem>[], 
   metadata?: { fileName: string, mode: string }
 ): Promise<UpdateResult> => {
-  const result: UpdateResult = {
-    added: 0,
-    updated: 0,
-    priceUpdates: 0,
-    stockUpdates: 0,
-    errors: []
-  };
+  const result: UpdateResult = { added: 0, updated: 0, priceUpdates: 0, stockUpdates: 0, errors: [] };
 
-  // --- SUPABASE LOGIC ---
   if (supabase) {
-    // 1. Extract Part Numbers from upload to fetch relevant existing data
     const partNumbers = newItems
-      .map(i => i.partNumber)
+      .map(i => i.partNumber?.toUpperCase().trim())
       .filter((pn): pn is string => !!pn);
 
     if (partNumbers.length === 0) {
@@ -209,7 +191,6 @@ export const updateOrAddItems = async (
       return result;
     }
 
-    // 2. Fetch existing items in batches
     let existingItemsMap = new Map<string, StockItem>();
     const FETCH_BATCH_SIZE = 200;
     
@@ -223,19 +204,18 @@ export const updateOrAddItems = async (
       if (!error && data) {
         data.forEach((d: any) => {
           const item = toAppItem(d);
-          existingItemsMap.set(item.partNumber.toLowerCase(), item);
+          existingItemsMap.set(item.partNumber.toUpperCase(), item);
         });
       }
     }
 
-    // --- SNAPSHOT LOGIC FOR UNDO ---
     if (metadata) {
       const snapshot = newItems.map(newItem => {
         if (!newItem.partNumber) return null;
-        const key = newItem.partNumber.toLowerCase();
+        const key = newItem.partNumber.toUpperCase().trim();
         const existing = existingItemsMap.get(key);
         return {
-          part_number: newItem.partNumber,
+          part_number: key,
           previous_state: existing ? toDBItem(existing) : null
         };
       }).filter(Boolean);
@@ -248,11 +228,9 @@ export const updateOrAddItems = async (
         snapshot_data: snapshot,
         created_at: new Date().toISOString()
       });
-
-      if (histError) console.error("Failed to save upload history:", histError);
+      if (histError) console.error("Failed to save history:", histError);
     }
 
-    // 3. Prepare Upsert Payload & Calculate Stats & Track Price History
     const upsertPayload: Partial<DBItem>[] = [];
     const priceHistoryPayload: any[] = [];
 
@@ -262,21 +240,12 @@ export const updateOrAddItems = async (
         return;
       }
       
-      // Integer Overflow Check
-      if (newItem.quantity !== undefined && (newItem.quantity > 1000000 || newItem.quantity < -1000000)) {
-        result.errors.push(`Row ${index + 1}: Skipped due to invalid quantity value (${newItem.quantity}). Check parsing.`);
-        return;
-      }
-
-      const existingItem = existingItemsMap.get(newItem.partNumber.toLowerCase());
+      const cleanPN = newItem.partNumber.toUpperCase().trim();
+      const existingItem = existingItemsMap.get(cleanPN);
       
-      // Merge logic for stats
       if (existingItem) {
         let itemChanged = false;
         
-        // Stock increment or absolute set? 
-        // For scan confirmed, it's usually incremental but newItems should contain absolute final or we handle increment here.
-        // Assuming updateOrAddItems takes absolute targets.
         if (newItem.quantity !== undefined && newItem.quantity !== existingItem.quantity) {
           result.stockUpdates++;
           itemChanged = true;
@@ -284,15 +253,13 @@ export const updateOrAddItems = async (
         if (newItem.price !== undefined && newItem.price !== existingItem.price) {
           result.priceUpdates++;
           itemChanged = true;
-          // Log Price History
           priceHistoryPayload.push({
-            part_number: existingItem.partNumber, // Use original case
+            part_number: cleanPN,
             old_price: existingItem.price,
             new_price: newItem.price,
             change_date: new Date().toISOString()
           });
         }
-        // Check other fields
         if ((newItem.name && newItem.name !== existingItem.name) || 
             (newItem.hsnCode && newItem.hsnCode !== existingItem.hsnCode)) {
            itemChanged = true;
@@ -300,15 +267,14 @@ export const updateOrAddItems = async (
 
         if (itemChanged) result.updated++;
 
-        // Logic: If new stock is added (quantity > 0), ensure item is not archived
         const finalQuantity = newItem.quantity !== undefined ? newItem.quantity : existingItem.quantity;
         const shouldUnarchive = existingItem.isArchived && finalQuantity > 0;
 
         upsertPayload.push({
-          part_number: newItem.partNumber, 
-          name: newItem.name !== undefined ? newItem.name : existingItem.name,
-          brand: newItem.brand !== undefined ? newItem.brand : existingItem.brand,
-          hsn_code: newItem.hsnCode !== undefined ? newItem.hsnCode : existingItem.hsnCode,
+          part_number: cleanPN, 
+          name: newItem.name || existingItem.name,
+          brand: newItem.brand || existingItem.brand,
+          hsn_code: newItem.hsnCode || existingItem.hsnCode,
           quantity: finalQuantity,
           min_stock_threshold: newItem.minStockThreshold !== undefined ? newItem.minStockThreshold : existingItem.minStockThreshold,
           price: newItem.price !== undefined ? newItem.price : existingItem.price,
@@ -317,17 +283,13 @@ export const updateOrAddItems = async (
         });
 
       } else {
-        // New Item
         result.added++;
-        
-        // Brand Detection from Part Number
         let detectedBrand = Brand.UNKNOWN;
-        const upperPN = newItem.partNumber.toUpperCase();
-        if (upperPN.startsWith('HY')) detectedBrand = Brand.HYUNDAI;
-        else if (upperPN.startsWith('MH')) detectedBrand = Brand.MAHINDRA;
+        if (cleanPN.startsWith('HY')) detectedBrand = Brand.HYUNDAI;
+        else if (cleanPN.startsWith('MH')) detectedBrand = Brand.MAHINDRA;
 
         upsertPayload.push({
-          part_number: newItem.partNumber,
+          part_number: cleanPN,
           name: newItem.name || 'AI Added Part',
           brand: (newItem.brand || detectedBrand) as string,
           hsn_code: newItem.hsnCode || 'N/A',
@@ -335,93 +297,52 @@ export const updateOrAddItems = async (
           min_stock_threshold: newItem.minStockThreshold !== undefined ? newItem.minStockThreshold : 3,
           price: newItem.price !== undefined ? newItem.price : 0,
           last_updated: new Date().toISOString(),
-          is_archived: false // New items default to active
+          is_archived: false
         });
       }
     });
 
-    // 4. Batch Push Inventory Updates
     const UPLOAD_BATCH_SIZE = 500;
     for (let i = 0; i < upsertPayload.length; i += UPLOAD_BATCH_SIZE) {
       const batch = upsertPayload.slice(i, i + UPLOAD_BATCH_SIZE);
-      const { error } = await supabase
-        .from('inventory')
-        .upsert(batch, { onConflict: 'part_number' });
-      
-      if (error) {
-        console.error("Batch upsert error:", error);
-        result.errors.push(`Database Error: ${error.message}`);
-      }
+      const { error } = await supabase.from('inventory').upsert(batch, { onConflict: 'part_number' });
+      if (error) result.errors.push(`Database Error: ${error.message}`);
     }
 
-    // 5. Batch Push Price History
     if (priceHistoryPayload.length > 0) {
-      const { error: phError } = await supabase.from('price_history').insert(priceHistoryPayload);
-      if (phError) console.error("Failed to log price history", phError);
+      await supabase.from('price_history').insert(priceHistoryPayload);
     }
-
     return result;
   }
 
-  // --- LOCAL STORAGE FALLBACK ---
   const currentInventory = getFromLS();
-
   newItems.forEach((newItem, index) => {
-    if (!newItem.partNumber) {
-      result.errors.push(`Row ${index + 1}: Missing Part Number`);
-      return;
-    }
-
-    const existingIndex = currentInventory.findIndex(
-      (i) => i.partNumber.toLowerCase() === newItem.partNumber?.toLowerCase()
-    );
-
-    const parseNumber = (val: any) => (val !== undefined && val !== null && val !== '' && !isNaN(Number(val))) ? Number(val) : undefined;
-    const quantityInput = parseNumber(newItem.quantity);
-    const priceInput = parseNumber(newItem.price);
-    const thresholdInput = parseNumber(newItem.minStockThreshold);
+    if (!newItem.partNumber) return;
+    const cleanPN = newItem.partNumber.toUpperCase().trim();
+    const existingIndex = currentInventory.findIndex(i => i.partNumber.toUpperCase() === cleanPN);
 
     if (existingIndex > -1) {
-      const existingItem = currentInventory[existingIndex];
-      let itemChanged = false;
-      
-      if (quantityInput !== undefined && quantityInput !== existingItem.quantity) {
-        result.stockUpdates++;
-        itemChanged = true;
-      }
-      if (priceInput !== undefined && priceInput !== existingItem.price) {
-        result.priceUpdates++;
-        itemChanged = true;
-      }
-      if (newItem.name && newItem.name !== existingItem.name) itemChanged = true;
-      if (newItem.hsnCode && newItem.hsnCode !== existingItem.hsnCode) itemChanged = true;
-
-      // Unarchive if adding stock
-      const finalQuantity = quantityInput !== undefined ? quantityInput : existingItem.quantity;
-      const shouldUnarchive = existingItem.isArchived && finalQuantity > 0;
-
+      const existing = currentInventory[existingIndex];
+      const finalQuantity = newItem.quantity !== undefined ? Number(newItem.quantity) : existing.quantity;
       currentInventory[existingIndex] = {
-        ...existingItem,
+        ...existing,
         ...newItem,
+        partNumber: cleanPN,
         quantity: finalQuantity,
-        price: priceInput !== undefined ? priceInput : existingItem.price,
-        minStockThreshold: thresholdInput !== undefined ? thresholdInput : existingItem.minStockThreshold,
-        brand: newItem.brand ? newItem.brand : existingItem.brand,
         lastUpdated: new Date().toISOString(),
-        isArchived: shouldUnarchive ? false : existingItem.isArchived
+        isArchived: existing.isArchived && finalQuantity > 0 ? false : existing.isArchived
       };
-      
-      if (itemChanged) result.updated++;
+      result.updated++;
     } else {
       currentInventory.push({
         id: crypto.randomUUID(),
-        partNumber: newItem.partNumber,
+        partNumber: cleanPN,
         name: newItem.name || 'Unknown Part',
-        brand: newItem.brand as Brand,
+        brand: (newItem.brand || Brand.UNKNOWN) as Brand,
         hsnCode: newItem.hsnCode || 'N/A',
-        quantity: quantityInput !== undefined ? quantityInput : 0,
-        minStockThreshold: thresholdInput !== undefined ? thresholdInput : 3,
-        price: priceInput !== undefined ? priceInput : 0,
+        quantity: newItem.quantity !== undefined ? Number(newItem.quantity) : 0,
+        minStockThreshold: newItem.minStockThreshold !== undefined ? Number(newItem.minStockThreshold) : 3,
+        price: newItem.price !== undefined ? Number(newItem.price) : 0,
         lastUpdated: new Date().toISOString(),
         isArchived: false
       });
@@ -433,18 +354,6 @@ export const updateOrAddItems = async (
   return result;
 };
 
-// --- HISTORY FUNCTIONS ---
-
-const mapDBHistoryToApp = (row: any): UploadHistoryEntry => ({
-  id: row.id,
-  fileName: row.file_name,
-  uploadMode: row.upload_mode,
-  itemCount: row.item_count,
-  status: row.status,
-  snapshotData: row.snapshot_data,
-  createdAt: row.created_at
-});
-
 export const fetchUploadHistory = async (): Promise<UploadHistoryEntry[]> => {
   if (!supabase) return [];
   const { data, error } = await supabase
@@ -453,57 +362,44 @@ export const fetchUploadHistory = async (): Promise<UploadHistoryEntry[]> => {
     .order('created_at', { ascending: false })
     .limit(20);
   
-  if (error) {
-    console.error("Error fetching history:", error);
-    return [];
-  }
-  return data.map(mapDBHistoryToApp);
+  if (error) return [];
+  return data.map(row => ({
+    id: row.id,
+    fileName: row.file_name,
+    uploadMode: row.upload_mode,
+    itemCount: row.item_count,
+    status: row.status,
+    snapshotData: row.snapshot_data,
+    createdAt: row.created_at
+  }));
 };
 
 export const revertUploadBatch = async (historyId: string): Promise<{ success: boolean, message: string }> => {
   if (!supabase) return { success: false, message: "Backend not connected" };
 
-  // 1. Fetch snapshot
-  const { data: history, error } = await supabase
-    .from('upload_history')
-    .select('*')
-    .eq('id', historyId)
-    .single();
-
+  const { data: history, error } = await supabase.from('upload_history').select('*').eq('id', historyId).single();
   if (error || !history) return { success: false, message: "History record not found" };
   if (history.status === 'REVERTED') return { success: false, message: "Already reverted" };
 
   const snapshot = history.snapshot_data as Array<{ part_number: string, previous_state: DBItem | null }>;
-  if (!snapshot || snapshot.length === 0) return { success: false, message: "No snapshot data available" };
+  if (!snapshot) return { success: false, message: "No snapshot data available" };
 
-  // 2. Separate deletes (items that were new) and updates (items that existed)
   const toDelete = snapshot.filter(s => s.previous_state === null).map(s => s.part_number);
   const toRestore = snapshot.filter(s => s.previous_state !== null).map(s => s.previous_state as DBItem);
 
   try {
-    // 3. Perform Revert
-    // Delete newly added items
     if (toDelete.length > 0) {
       await supabase.from('inventory').delete().in('part_number', toDelete);
     }
-    
-    // Restore previous state of modified items
     if (toRestore.length > 0) {
-      // Upsert in batches
       const BATCH_SIZE = 500;
       for (let i = 0; i < toRestore.length; i += BATCH_SIZE) {
-        const batch = toRestore.slice(i, i + BATCH_SIZE);
-        await supabase.from('inventory').upsert(batch, { onConflict: 'part_number' });
+        await supabase.from('inventory').upsert(toRestore.slice(i, i + BATCH_SIZE), { onConflict: 'part_number' });
       }
     }
-
-    // 4. Mark history as reverted
     await supabase.from('upload_history').update({ status: 'REVERTED' }).eq('id', historyId);
-
     return { success: true, message: "Batch reverted successfully." };
-
   } catch (err: any) {
-    console.error("Revert failed:", err);
     return { success: false, message: `Revert failed: ${err.message}` };
   }
 };
@@ -513,7 +409,7 @@ export const fetchPriceHistory = async (partNumber: string): Promise<PriceHistor
   const { data, error } = await supabase
     .from('price_history')
     .select('*')
-    .ilike('part_number', partNumber)
+    .eq('part_number', partNumber.toUpperCase().trim())
     .order('change_date', { ascending: false });
 
   if (error) return [];
