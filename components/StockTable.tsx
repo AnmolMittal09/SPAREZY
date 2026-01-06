@@ -471,9 +471,9 @@ const StockTable: React.FC<StockTableProps> = ({
   const [mobileLimit, setMobileLimit] = useState(20);
   const mobileItems = filteredItems.slice(0, mobileLimit);
 
-  const isAllPageSelected = currentItems.length > 0 && currentItems.every(i => selectedParts.has(i.partNumber));
-  const isAllMobileSelected = mobileItems.length > 0 && mobileItems.every(i => selectedParts.has(i.partNumber));
-  const isPartiallySelected = selectedParts.size > 0 && !isAllPageSelected;
+  // LOGIC UPDATE: Checking if ALL filtered items are selected, not just the page
+  const isAllFilteredSelected = filteredItems.length > 0 && filteredItems.every(i => selectedParts.has(i.partNumber));
+  const isPartiallySelected = selectedParts.size > 0 && !isAllFilteredSelected;
 
   const handleExport = () => {
     const dataToExport = filteredItems.map(item => ({
@@ -532,13 +532,14 @@ const StockTable: React.FC<StockTableProps> = ({
       }
   };
 
-  const toggleSelectPage = () => {
+  // UPDATED TOGGLE: Now selects all filtered items across all pages
+  const toggleSelectAll = () => {
     const newSet = new Set(selectedParts);
-    const itemsToToggle = window.innerWidth < 768 ? mobileItems : currentItems;
-    const isCurrentlySelected = window.innerWidth < 768 ? isAllMobileSelected : isAllPageSelected;
-
-    if (isCurrentlySelected) itemsToToggle.forEach(i => newSet.delete(i.partNumber));
-    else itemsToToggle.forEach(i => newSet.add(i.partNumber));
+    if (isAllFilteredSelected) {
+      filteredItems.forEach(i => newSet.delete(i.partNumber));
+    } else {
+      filteredItems.forEach(i => newSet.add(i.partNumber));
+    }
     setSelectedParts(newSet);
   };
 
@@ -662,11 +663,11 @@ const StockTable: React.FC<StockTableProps> = ({
            
            <div className="flex items-center justify-between gap-3">
               <button 
-                onClick={toggleSelectPage}
+                onClick={toggleSelectAll}
                 className="flex-1 flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 bg-white px-5 py-3.5 rounded-2xl border border-slate-200 shadow-sm active:scale-95"
               >
-                 {isAllMobileSelected ? <CheckSquare size={18} className="text-blue-600" /> : <Square size={18} className="text-slate-200" />}
-                 Select
+                 {isAllFilteredSelected ? <CheckSquare size={18} className="text-blue-600" /> : isPartiallySelected ? <MinusSquare size={18} className="text-blue-600" /> : <Square size={18} className="text-slate-200" />}
+                 Select All
               </button>
               <button 
                 onClick={() => setIsEditMode(!isEditMode)}
@@ -687,8 +688,8 @@ const StockTable: React.FC<StockTableProps> = ({
                 <tr className="border-b border-slate-100">
                     {enableActions && isOwner && (
                         <th className="px-8 py-5 w-12 text-center">
-                            <button onClick={toggleSelectPage} className="text-slate-200 hover:text-blue-600 transition-all">
-                              {isAllPageSelected ? <CheckSquare className="text-blue-600" size={20} /> : isPartiallySelected ? <MinusSquare className="text-blue-600" size={20} /> : <Square size={20} />}
+                            <button onClick={toggleSelectAll} className="text-slate-200 hover:text-blue-600 transition-all" title="Select All Filtered">
+                              {isAllFilteredSelected ? <CheckSquare className="text-blue-600" size={20} /> : isPartiallySelected ? <MinusSquare className="text-blue-600" size={20} /> : <Square size={20} />}
                             </button>
                         </th>
                     )}
