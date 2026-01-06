@@ -337,7 +337,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
               paidAmount: assignedPaid,
               customerName: normalizedCustomer,
               createdByRole: user.role,
-              createdByName: user.name // Passed the user's name here
+              createdByName: user.name
           };
       });
       
@@ -724,7 +724,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
 
        {/* MOBILE UI */}
        <div className="lg:hidden flex flex-col h-full bg-slate-50">
-          <div className="flex-1 overflow-y-auto px-4 pt-4 pb-72 no-scrollbar">
+          <div className="flex-1 overflow-y-auto px-4 pt-4 pb-80 no-scrollbar">
               <div className="space-y-4">
                   <div className="flex items-center justify-between px-2 mb-4">
                     <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Active Registry ({fd(cart.length)})</h4>
@@ -740,7 +740,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                   </div>
 
                   {cart.length === 0 ? (
-                      <div className="bg-white/40 border-4 border-dashed border-slate-200 rounded-[2.5rem] py-32 text-center animate-fade-in">
+                      <div className="bg-white/40 border-4 border-dashed border-slate-200 rounded-[2.5rem] py-32 text-center animate-fade-in mx-2">
                          <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner-soft">
                             <ShoppingCart size={32} className="text-slate-300" />
                          </div>
@@ -748,7 +748,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                       </div>
                   ) : (
                      cart.map(item => (
-                        <div key={item.tempId} className={`bg-white p-6 rounded-[2rem] shadow-soft border border-slate-200/60 flex flex-col gap-5 animate-fade-in ${item.isNewSku ? 'ring-2 ring-indigo-500/20' : ''}`}>
+                        <div key={item.tempId} className={`bg-white p-5 rounded-[2rem] shadow-soft border border-slate-200/60 flex flex-col gap-5 animate-fade-in ${item.isNewSku ? 'ring-2 ring-indigo-500/20' : ''}`}>
                            <div className="flex justify-between items-start">
                                <div className="flex-1 min-w-0 pr-4">
                                   <div className="flex items-center gap-2 mb-1">
@@ -766,25 +766,25 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                                {/* Row 1: Qty and Delete */}
                                <div className="flex items-center justify-between">
                                   <div className="flex items-center bg-slate-100 p-1.5 rounded-2xl shadow-inner-soft">
-                                      <button onClick={() => updateQty(item.tempId, -1)} className="w-9 h-9 bg-white shadow-soft rounded-xl flex items-center justify-center text-slate-600 active:scale-90 transition-all"><Minus size={16} strokeWidth={4}/></button>
+                                      <button onClick={() => updateQty(item.tempId, -1)} className="w-10 h-10 bg-white shadow-soft rounded-xl flex items-center justify-center text-slate-600 active:scale-90 transition-all"><Minus size={18} strokeWidth={4}/></button>
                                       <input 
                                          type="number"
-                                         className="w-10 bg-transparent text-slate-900 font-black text-center outline-none text-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                         className="w-12 bg-transparent text-slate-900 font-black text-center outline-none text-xl [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                          value={fd(item.quantity)}
                                          onChange={(e) => setQtyDirect(item.tempId, parseInt(e.target.value) || 1)}
                                          onFocus={(e) => e.target.select()}
                                        />
-                                      <button onClick={() => updateQty(item.tempId, 1)} className={`w-9 h-9 ${accentColor} text-white shadow-xl rounded-xl flex items-center justify-center active:scale-90 transition-all`}><Plus size={16} strokeWidth={4}/></button>
+                                      <button onClick={() => updateQty(item.tempId, 1)} className={`w-10 h-10 ${accentColor} text-white shadow-xl rounded-xl flex items-center justify-center active:scale-90 transition-all`}><Plus size={18} strokeWidth={4}/></button>
                                   </div>
-                                  <button onClick={() => removeItem(item.tempId)} className="p-3 text-rose-500 bg-rose-50 rounded-xl active:scale-90 transition-all">
-                                    <Trash2 size={20} />
+                                  <button onClick={() => removeItem(item.tempId)} className="p-3.5 text-rose-500 bg-rose-50 rounded-2xl active:scale-90 transition-all border border-rose-100">
+                                    <Trash2 size={22} />
                                   </button>
                                </div>
 
                                {/* Row 2: Price and Discount */}
                                <div className="flex items-center gap-3">
-                                   <div className="flex-1 flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-xl border border-slate-100 shadow-inner-soft">
-                                       <span className="text-[9px] font-black text-slate-400 uppercase">Unit ₹</span>
+                                   <div className="flex-1 flex items-center gap-2 bg-slate-50 px-4 py-3 rounded-2xl border border-slate-100 shadow-inner-soft">
+                                       <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">UNIT ₹</span>
                                        <input 
                                          type="number"
                                          className="w-full bg-transparent text-slate-900 font-black outline-none text-sm text-right"
@@ -793,8 +793,8 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                                          onFocus={(e) => e.target.select()}
                                        />
                                    </div>
-                                   <div className="flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-xl border border-slate-100 shadow-inner-soft">
-                                       <span className="text-[9px] font-black text-slate-400 uppercase">Disc %</span>
+                                   <div className="flex items-center gap-2 bg-slate-50 px-4 py-3 rounded-2xl border border-slate-100 shadow-inner-soft">
+                                       <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">DISC %</span>
                                        <input 
                                          type="number"
                                          className="w-10 bg-transparent text-slate-900 font-black text-center outline-none text-sm"
@@ -811,35 +811,35 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
               </div>
           </div>
 
-          <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-3xl border-t border-slate-200/60 p-6 shadow-[0_-20px_50px_rgba(0,0,0,0.08)] z-[80] pb-safe rounded-t-[2.5rem]">
+          <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-3xl border-t border-slate-200/60 p-6 shadow-[0_-20px_50px_rgba(0,0,0,0.1)] z-[80] pb-safe rounded-t-[3rem] space-y-5 animate-slide-up">
               <button 
                  onClick={() => setShowMobileSearch(true)}
-                 className="w-full bg-slate-900 text-white font-black py-5 rounded-[1.75rem] flex items-center justify-center gap-3 mb-6 transition-all active:scale-[0.98] text-[15px] uppercase tracking-widest shadow-xl border border-white/5"
+                 className="w-full bg-slate-900 text-white font-black py-5 rounded-[2rem] flex items-center justify-center gap-3 transition-all active:scale-[0.98] text-[15px] uppercase tracking-widest shadow-xl border border-white/5"
               >
                   <PackagePlus size={22} strokeWidth={2.5} /> Catalog Scanner
               </button>
               
               {mode === 'SALES' && cart.length > 0 && (
-                  <div className="mb-6 space-y-4">
+                  <div className="flex flex-col gap-4 animate-fade-in">
                      <div className="flex items-center justify-between bg-slate-100/60 p-4 rounded-2xl border border-slate-200/40">
                         <div className="flex items-center gap-3">
-                           <CreditCard size={16} className="text-slate-400" />
+                           <CreditCard size={18} className="text-slate-400" />
                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">Register Payment?</span>
                         </div>
                         <button 
                           onClick={() => setIsPaymentReceived(!isPaymentReceived)}
-                          className={`w-11 h-6 rounded-full p-1 transition-all ${isPaymentReceived ? 'bg-teal-500' : 'bg-slate-300'}`}
+                          className={`w-12 h-7 rounded-full p-1 transition-all ${isPaymentReceived ? 'bg-teal-500' : 'bg-slate-300'}`}
                         >
-                           <div className={`w-4 h-4 bg-white rounded-full transition-transform ${isPaymentReceived ? 'translate-x-5' : 'translate-x-0'} shadow-md`} />
+                           <div className={`w-5 h-5 bg-white rounded-full transition-transform ${isPaymentReceived ? 'translate-x-5' : 'translate-x-0'} shadow-md`} />
                         </button>
                      </div>
 
                      {isPaymentReceived && (
                         <div className="relative animate-slide-up">
-                            <Wallet className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+                            <Wallet className="absolute left-4 top-1/2 -translate-y-1/2 text-teal-400" size={20} />
                             <input 
                                 type="number"
-                                className="w-full pl-11 pr-5 py-4 bg-teal-50 text-teal-700 border-2 border-teal-100/50 rounded-2xl outline-none font-black text-sm focus:ring-4 focus:ring-teal-500/5 transition-all"
+                                className="w-full pl-12 pr-5 py-4.5 bg-teal-50 text-teal-700 border-2 border-teal-200/50 rounded-[1.5rem] outline-none font-black text-base focus:ring-8 focus:ring-teal-500/5 transition-all"
                                 placeholder={`Net: ₹${totalAmount.toLocaleString()}`}
                                 value={paidAmount}
                                 onChange={e => setPaidAmount(e.target.value)}
@@ -849,18 +849,18 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                   </div>
               )}
 
-              <div className="flex items-center gap-5">
+              <div className="flex items-center gap-5 pt-2">
                   <div className="flex-1 min-w-0">
-                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Grand Total</p>
-                     <p className="text-2xl font-black text-slate-900 tracking-tighter truncate">₹{totalAmount.toLocaleString()}</p>
+                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5 ml-1">Grand Total</p>
+                     <p className="text-3xl font-black text-slate-900 tracking-tighter truncate leading-tight tabular-nums">₹{totalAmount.toLocaleString()}</p>
                   </div>
                   <button 
                      onClick={executeSubmit}
                      disabled={loading || cart.length === 0}
-                     className={`flex-[1.8] text-white font-black py-5 rounded-[1.75rem] shadow-2xl flex items-center justify-center gap-2 active:scale-[0.98] transition-all disabled:opacity-20 text-[16px] ${accentColor}`}
+                     className={`flex-[1.8] text-white font-black py-5.5 rounded-[2rem] shadow-2xl flex items-center justify-center gap-3 active:scale-[0.98] transition-all disabled:opacity-20 text-[16px] uppercase tracking-widest border border-white/10 ${accentColor}`}
                   >
                      {loading ? <Loader2 className="animate-spin" size={24} /> : (
-                        <>COMMIT <ArrowRight size={20} strokeWidth={3} /></>
+                        <>COMMIT <ArrowRight size={22} strokeWidth={3} /></>
                      )}
                   </button>
               </div>

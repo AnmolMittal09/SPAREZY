@@ -24,7 +24,8 @@ import {
   Users,
   FileDown,
   FileSpreadsheet,
-  Check
+  Check,
+  RefreshCw
 } from 'lucide-react';
 import { createBulkTransactions, fetchTransactions, updateTransactionPayment } from '../services/transactionService';
 import { fetchInventory } from '../services/inventoryService';
@@ -385,7 +386,7 @@ const Billing: React.FC<Props> = ({ user }) => {
          paidAmount: originalSale.price * selectedReturns[id], 
          customerName: originalSale.customerName || 'Customer Return',
          createdByRole: user.role,
-         createdByName: user.name, // Log who processed the return
+         createdByName: user.name, 
          relatedTransactionId: originalSale.id
        };
     }).filter(Boolean) as any[];
@@ -427,7 +428,7 @@ const Billing: React.FC<Props> = ({ user }) => {
     <div className="h-full flex flex-col bg-slate-50 md:bg-transparent">
        
        {!isSearchingOnMobile && (
-         <div className="md:hidden bg-white p-4 border-b border-slate-100 z-20 sticky top-0 shadow-sm animate-fade-in">
+         <div className="md:hidden bg-white p-3 border-b border-slate-100 z-20 sticky top-0 shadow-sm animate-fade-in">
             <div className="flex bg-slate-100 p-1 rounded-2xl">
                <button 
                  onClick={() => setActiveTab('NEW')}
@@ -479,40 +480,40 @@ const Billing: React.FC<Props> = ({ user }) => {
           )}
 
           {activeTab === 'RETURN' && (
-             <div className="bg-[#F8FAFC] md:bg-white md:rounded-3xl shadow-soft border border-slate-100 flex flex-col h-full overflow-hidden">
-                <div className="p-4 md:p-6 border-b border-slate-100 bg-white flex flex-col md:flex-row justify-between items-center gap-4">
+             <div className="bg-[#F8FAFC] md:bg-white md:rounded-3xl shadow-soft border border-slate-100 flex flex-col h-full overflow-hidden no-scrollbar pb-32">
+                <div className="p-4 md:p-6 border-b border-slate-100 bg-white flex flex-col md:flex-row justify-between items-center gap-4 sticky top-0 z-10">
                    <div className="flex items-center gap-4 w-full md:w-auto">
-                      <div className="p-2 bg-rose-50 text-rose-600 rounded-xl"><Undo2 size={20} /></div>
+                      <div className="p-2.5 bg-rose-50 text-rose-600 rounded-xl shadow-inner"><Undo2 size={22} /></div>
                       <div className="flex flex-col">
-                        <span className="font-black text-slate-900 text-base uppercase tracking-tight">Return Inventory</span>
-                        <div className="flex bg-slate-100 p-0.5 rounded-lg mt-1">
-                            <button onClick={() => setReturnViewMode('RECENT')} className={`px-3 py-1 rounded-md text-[9px] font-black uppercase transition-all ${returnViewMode === 'RECENT' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}>Recent Sales</button>
-                            <button onClick={() => setReturnViewMode('BY_CUSTOMER')} className={`px-3 py-1 rounded-md text-[9px] font-black uppercase transition-all ${returnViewMode === 'BY_CUSTOMER' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}>By Customer</button>
+                        <span className="font-black text-slate-900 text-[13px] uppercase tracking-wider">Stock Return</span>
+                        <div className="flex bg-slate-100 p-0.5 rounded-lg mt-1 w-fit">
+                            <button onClick={() => setReturnViewMode('RECENT')} className={`px-4 py-1 rounded-md text-[8px] font-black uppercase transition-all ${returnViewMode === 'RECENT' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}>Recent</button>
+                            <button onClick={() => setReturnViewMode('BY_CUSTOMER')} className={`px-4 py-1 rounded-md text-[8px] font-black uppercase transition-all ${returnViewMode === 'BY_CUSTOMER' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}>Customers</button>
                         </div>
                       </div>
                    </div>
-                   <div className="w-full md:w-auto flex-1 md:max-w-xs relative">
-                       <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+                   <div className="w-full md:w-auto flex-1 md:max-w-xs relative px-1">
+                       <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
                        <input 
                           type="text" 
-                          placeholder="Search Part No. or Customer..."
-                          className="w-full pl-11 pr-4 py-3 bg-slate-50 border-none rounded-2xl text-sm font-bold shadow-inner focus:ring-2 focus:ring-rose-500/20"
+                          placeholder="Search Item or Client..."
+                          className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-[13px] font-bold shadow-inner-soft focus:ring-8 focus:ring-rose-500/5 outline-none transition-all uppercase tracking-tight"
                           value={returnSearch}
                           onChange={e => setReturnSearch(e.target.value)}
                        />
                    </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar pb-32">
+                <div className="flex-1 overflow-y-auto p-3 space-y-4 no-scrollbar">
                    {loading ? (
                       <div className="flex justify-center p-12"><TharLoader /></div>
                    ) : (returnViewMode === 'RECENT' ? filteredSalesLog : groupedReturnsByCustomer).length === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-24 text-slate-300">
+                      <div className="flex flex-col items-center justify-center py-32 text-slate-300">
                          <AlertCircle size={64} className="mb-4 opacity-10" />
-                         <p className="font-black text-xs uppercase tracking-widest">No returnable entries found</p>
+                         <p className="font-black text-[10px] uppercase tracking-[0.4em]">No returnable entries</p>
                       </div>
                    ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-20">
                         {returnViewMode === 'RECENT' ? (
                           filteredSalesLog.map(tx => {
                               const isSelected = !!selectedReturns[tx.id];
@@ -525,40 +526,41 @@ const Billing: React.FC<Props> = ({ user }) => {
                                   <div 
                                       key={tx.id} 
                                       onClick={() => handleReturnToggle(tx)}
-                                      className={`p-5 rounded-[2rem] border transition-all cursor-pointer bg-white ${isSelected ? 'border-rose-500 ring-2 ring-rose-500/10 shadow-lg' : 'border-slate-100 hover:border-slate-200 shadow-sm'}`}
+                                      className={`p-6 rounded-[2rem] border-2 transition-all cursor-pointer bg-white relative overflow-hidden group ${isSelected ? 'border-rose-500 ring-8 ring-rose-500/5 shadow-xl' : 'border-slate-100 hover:border-slate-200 shadow-soft'}`}
                                   >
-                                      <div className="flex justify-between items-start mb-4">
-                                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${isSelected ? 'bg-rose-50 border-rose-50 text-white' : 'bg-slate-50 border-slate-200 text-transparent'}`}>
-                                              <CheckCircle2 size={14} />
+                                      <div className="flex justify-between items-start mb-5 relative z-10">
+                                          <div className={`w-8 h-8 rounded-xl border-2 flex items-center justify-center transition-all ${isSelected ? 'bg-rose-500 border-rose-500 text-white shadow-lg' : 'bg-slate-50 border-slate-200 text-transparent'}`}>
+                                              <CheckCircle2 size={18} strokeWidth={3} />
                                           </div>
                                           <div className="text-right">
-                                              <div className="text-[9px] font-black text-slate-400 uppercase mb-0.5">Sold On</div>
-                                              <div className="text-[11px] font-bold text-slate-900">{new Date(tx.createdAt).toLocaleDateString()}</div>
+                                              <div className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-1">TX DATE</div>
+                                              <div className="text-[12px] font-black text-slate-900 uppercase tracking-tight">{new Date(tx.createdAt).toLocaleDateString()}</div>
                                           </div>
                                       </div>
 
-                                      <div className="mb-4">
-                                          <div className="font-black text-lg text-slate-900 leading-tight uppercase">{tx.partNumber}</div>
-                                          {part && <div className="text-[10px] text-slate-400 font-bold uppercase truncate mt-0.5">{part.name}</div>}
-                                          <div className="text-[13px] text-slate-400 font-medium flex items-center gap-1.5 mt-2">
-                                              <UserIcon size={14} className="text-slate-300" /> {tx.customerName || 'Walk-in Customer'}
+                                      <div className="mb-6 relative z-10 px-1">
+                                          <div className="font-black text-lg text-slate-900 leading-none uppercase tracking-tight mb-2 group-hover:text-rose-600 transition-colors">{tx.partNumber}</div>
+                                          {part && <div className="text-[11px] text-slate-400 font-bold uppercase truncate tracking-tight">{part.name}</div>}
+                                          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-100 mt-4">
+                                              <UserIcon size={14} className="text-slate-300" /> 
+                                              <span className="text-[10px] font-black text-slate-500 uppercase tracking-tight truncate max-w-[150px]">{tx.customerName || 'Walk-in'}</span>
                                           </div>
                                       </div>
 
-                                      <div className="flex justify-between items-end border-t border-slate-50 pt-4">
-                                          <div className="space-y-1">
-                                              <div className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Original Sale</div>
-                                              <div className="font-black text-slate-900">{fd(tx.quantity)} <span className="text-[10px] text-slate-400">units</span></div>
-                                              <div className="text-[9px] font-black text-teal-600 bg-teal-50 px-1.5 py-0.5 rounded-md inline-block">Rem: {fd(remainingQty)}</div>
+                                      <div className="flex justify-between items-end border-t border-slate-50 pt-5 mt-auto relative z-10">
+                                          <div className="space-y-1.5">
+                                              <div className="text-[8px] font-black text-slate-300 uppercase tracking-[0.2em]">STOCK DATA</div>
+                                              <div className="font-black text-slate-900 text-base tabular-nums">{fd(tx.quantity)} <span className="text-[9px] text-slate-400 ml-1">SOLD</span></div>
+                                              <div className="text-[9px] font-black text-teal-600 bg-teal-50 px-2 py-0.5 rounded-md inline-block border border-teal-100/50 shadow-inner">REM: {fd(remainingQty)}</div>
                                           </div>
 
                                           {isSelected && (
-                                              <div onClick={e => e.stopPropagation()} className="bg-rose-50 p-2 rounded-2xl border border-rose-100 flex flex-col items-center">
-                                                  <span className="text-[9px] font-black text-rose-500 uppercase mb-1">Return Qty</span>
-                                                  <div className="flex items-center gap-2 bg-white px-2 py-1 rounded-xl shadow-sm">
-                                                      <button onClick={() => handleReturnQtyChange(tx.id, remainingQty, (returnQty - 1).toString())} className="w-8 h-8 rounded-lg flex items-center justify-center text-rose-500"><Minus size={14}/></button>
-                                                      <span className="font-black text-slate-900 min-w-[20px] text-center">{fd(returnQty)}</span>
-                                                      <button onClick={() => handleReturnQtyChange(tx.id, remainingQty, (returnQty + 1).toString())} className="w-8 h-8 bg-rose-500 text-white rounded-lg flex items-center justify-center"><Plus size={14}/></button>
+                                              <div onClick={e => e.stopPropagation()} className="bg-rose-50 p-3 rounded-2xl border border-rose-100 flex flex-col items-center shadow-lg animate-slide-up">
+                                                  <span className="text-[8px] font-black text-rose-500 uppercase tracking-widest mb-2">QTY RETURN</span>
+                                                  <div className="flex items-center gap-3 bg-white p-1 rounded-xl shadow-inner-soft">
+                                                      <button onClick={() => handleReturnQtyChange(tx.id, remainingQty, (returnQty - 1).toString())} className="w-9 h-9 rounded-lg flex items-center justify-center text-rose-500 active:scale-90 transition-all"><Minus size={16} strokeWidth={4}/></button>
+                                                      <span className="font-black text-slate-900 text-lg min-w-[24px] text-center tabular-nums">{fd(returnQty)}</span>
+                                                      <button onClick={() => handleReturnQtyChange(tx.id, remainingQty, (returnQty + 1).toString())} className="w-9 h-9 bg-rose-500 text-white rounded-lg flex items-center justify-center active:scale-90 shadow-lg transition-all"><Plus size={16} strokeWidth={4}/></button>
                                                   </div>
                                               </div>
                                           )}
@@ -572,28 +574,28 @@ const Billing: React.FC<Props> = ({ user }) => {
                             const selectedCount = customer.transactions.filter(t => !!selectedReturns[t.id]).length;
                             
                             return (
-                              <div key={customer.name} className="col-span-1 md:col-span-2 lg:col-span-3">
+                              <div key={customer.name} className="col-span-1 md:col-span-2 lg:col-span-3 px-1">
                                 <div 
                                   onClick={() => setExpandedCustomerReturn(isExpanded ? null : customer.name)}
-                                  className={`p-6 rounded-3xl border bg-white shadow-soft flex items-center justify-between cursor-pointer transition-all ${isExpanded ? 'border-rose-200 bg-rose-50/20' : 'border-slate-100 hover:border-slate-300'}`}
+                                  className={`p-6 rounded-[2rem] border-2 bg-white shadow-soft flex items-center justify-between cursor-pointer transition-all ${isExpanded ? 'border-rose-400 bg-rose-50/20' : 'border-slate-100'}`}
                                 >
                                   <div className="flex items-center gap-4">
                                     <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-lg">
                                       <UserIcon size={22} strokeWidth={2.5} />
                                     </div>
                                     <div>
-                                      <h3 className="font-black text-lg text-slate-900 uppercase tracking-tight leading-tight">{customer.name}</h3>
-                                      <div className="flex items-center gap-3 mt-1">
-                                        <span className="text-[9px] font-black text-slate-400 bg-slate-100 px-2 py-0.5 rounded uppercase tracking-widest">{fd(customer.transactions.length)} Returnable Parts</span>
-                                        {selectedCount > 0 && <span className="text-[9px] font-black text-white bg-rose-600 px-2 py-0.5 rounded uppercase tracking-widest">{fd(selectedCount)} Selected</span>}
+                                      <h3 className="font-black text-base text-slate-900 uppercase tracking-tight leading-tight">{customer.name}</h3>
+                                      <div className="flex items-center gap-3 mt-1.5">
+                                        <span className="text-[8px] font-black text-slate-400 bg-slate-100 px-2 py-0.5 rounded shadow-inner uppercase tracking-widest">{fd(customer.transactions.length)} ASSETS</span>
+                                        {selectedCount > 0 && <span className="text-[8px] font-black text-white bg-rose-600 px-2 py-0.5 rounded shadow-lg uppercase tracking-widest">{fd(selectedCount)} MARKED</span>}
                                       </div>
                                     </div>
                                   </div>
-                                  <ChevronDown size={20} className={`text-slate-300 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                                  <ChevronDown size={22} className={`text-slate-300 transition-transform duration-500 ${isExpanded ? 'rotate-180 text-rose-500' : ''}`} />
                                 </div>
 
                                 {isExpanded && (
-                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4 animate-fade-in p-2">
+                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6 animate-fade-in p-1">
                                     {customer.transactions.map(tx => {
                                       const isSelected = !!selectedReturns[tx.id];
                                       const prevReturned = alreadyReturnedMap.get(tx.id) || 0;
@@ -605,37 +607,37 @@ const Billing: React.FC<Props> = ({ user }) => {
                                         <div 
                                           key={tx.id} 
                                           onClick={() => handleReturnToggle(tx)}
-                                          className={`p-5 rounded-[2rem] border transition-all cursor-pointer bg-white ${isSelected ? 'border-rose-500 ring-2 ring-rose-500/10 shadow-lg' : 'border-slate-100 hover:border-slate-200 shadow-sm'}`}
+                                          className={`p-6 rounded-[2rem] border-2 transition-all cursor-pointer bg-white relative group ${isSelected ? 'border-rose-500 ring-8 ring-rose-500/5 shadow-xl' : 'border-slate-100 hover:border-slate-200'}`}
                                         >
-                                            <div className="flex justify-between items-start mb-4">
-                                                <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${isSelected ? 'bg-rose-50 border-rose-50 text-white' : 'bg-slate-50 border-slate-200 text-transparent'}`}>
-                                                    <CheckCircle2 size={14} />
+                                            <div className="flex justify-between items-start mb-5">
+                                                <div className={`w-8 h-8 rounded-xl border-2 flex items-center justify-center transition-all ${isSelected ? 'bg-rose-500 border-rose-500 text-white shadow-lg' : 'bg-slate-50 border-slate-200 text-transparent'}`}>
+                                                    <CheckCircle2 size={18} strokeWidth={3} />
                                                 </div>
                                                 <div className="text-right">
-                                                    <div className="text-[9px] font-black text-slate-400 uppercase mb-0.5">Sold On</div>
-                                                    <div className="text-[11px] font-bold text-slate-900">{new Date(tx.createdAt).toLocaleDateString()}</div>
+                                                    <div className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-1">TX DATE</div>
+                                                    <div className="text-[12px] font-black text-slate-900">{new Date(tx.createdAt).toLocaleDateString()}</div>
                                                 </div>
                                             </div>
 
-                                            <div className="mb-4">
-                                                <div className="font-black text-lg text-slate-900 leading-tight uppercase">{tx.partNumber}</div>
-                                                {part && <div className="text-[10px] text-slate-400 font-bold uppercase truncate mt-0.5">{part.name}</div>}
-                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2">Rate: ₹{tx.price.toLocaleString()}</p>
+                                            <div className="mb-6 px-1">
+                                                <div className="font-black text-lg text-slate-900 leading-none uppercase tracking-tight mb-2">{tx.partNumber}</div>
+                                                {part && <div className="text-[11px] text-slate-400 font-bold uppercase truncate tracking-tight">{part.name}</div>}
+                                                <p className="text-[10px] font-black text-slate-900 bg-slate-100 px-3 py-1 rounded-xl w-fit uppercase tracking-widest mt-4">Unit: ₹{tx.price.toLocaleString()}</p>
                                             </div>
 
-                                            <div className="flex justify-between items-end border-t border-slate-50 pt-4">
-                                                <div className="space-y-1">
-                                                    <div className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Available</div>
-                                                    <div className="font-black text-slate-900">{fd(remainingQty)} <span className="text-[10px] text-slate-400">units</span></div>
+                                            <div className="flex justify-between items-end border-t border-slate-50 pt-5 mt-auto relative z-10">
+                                                <div className="space-y-1.5">
+                                                    <div className="text-[8px] font-black text-slate-300 uppercase tracking-widest">STK AVL</div>
+                                                    <div className="font-black text-slate-900 text-base tabular-nums">{fd(remainingQty)} <span className="text-[9px] text-slate-400 uppercase ml-1">PCS</span></div>
                                                 </div>
 
                                                 {isSelected && (
-                                                    <div onClick={e => e.stopPropagation()} className="bg-rose-50 p-2 rounded-2xl border border-rose-100 flex flex-col items-center">
-                                                        <span className="text-[9px] font-black text-rose-500 uppercase mb-1">Return Qty</span>
-                                                        <div className="flex items-center gap-2 bg-white px-2 py-1 rounded-xl shadow-sm">
-                                                            <button onClick={() => handleReturnQtyChange(tx.id, remainingQty, (returnQty - 1).toString())} className="w-8 h-8 rounded-lg flex items-center justify-center text-rose-500"><Minus size={14}/></button>
-                                                            <span className="font-black text-slate-900 min-w-[20px] text-center">{fd(returnQty)}</span>
-                                                            <button onClick={() => handleReturnQtyChange(tx.id, remainingQty, (returnQty + 1).toString())} className="w-8 h-8 bg-rose-500 text-white rounded-lg flex items-center justify-center"><Plus size={14}/></button>
+                                                    <div onClick={e => e.stopPropagation()} className="bg-rose-50 p-3 rounded-2xl border border-rose-100 flex flex-col items-center shadow-lg animate-slide-up">
+                                                        <span className="text-[8px] font-black text-rose-500 uppercase tracking-widest mb-2">RETURN</span>
+                                                        <div className="flex items-center gap-3 bg-white p-1 rounded-xl shadow-inner-soft">
+                                                            <button onClick={() => handleReturnQtyChange(tx.id, remainingQty, (returnQty - 1).toString())} className="w-9 h-9 rounded-lg flex items-center justify-center text-rose-500 active:scale-90 transition-all"><Minus size={16} strokeWidth={4}/></button>
+                                                            <span className="font-black text-slate-900 min-w-[24px] text-center tabular-nums">{fd(returnQty)}</span>
+                                                            <button onClick={() => handleReturnQtyChange(tx.id, remainingQty, (returnQty + 1).toString())} className="w-9 h-9 bg-rose-500 text-white rounded-lg flex items-center justify-center active:scale-90 shadow-lg transition-all"><Plus size={16} strokeWidth={4}/></button>
                                                         </div>
                                                     </div>
                                                 )}
@@ -653,74 +655,74 @@ const Billing: React.FC<Props> = ({ user }) => {
                    )}
                 </div>
 
-                <div className="fixed bottom-0 md:bottom-6 left-0 md:left-auto right-0 md:right-8 bg-white md:rounded-3xl border-t md:border border-slate-100 p-5 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] md:shadow-2xl z-[90] pb-safe flex justify-between items-center md:min-w-[400px]">
-                   <div className="flex-1">
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Refund Total ({fd(Object.keys(selectedReturns).length)})</p>
-                      <p className="text-2xl font-black text-rose-600 tracking-tight">₹{totalRefundAmount.toLocaleString()}</p>
+                <div className="fixed bottom-0 md:bottom-6 left-0 md:left-auto right-0 md:right-8 bg-white/95 backdrop-blur-3xl md:rounded-[2.5rem] border-t md:border border-slate-200/60 p-6 shadow-[0_-20px_50px_rgba(0,0,0,0.1)] md:shadow-2xl z-[90] pb-safe flex justify-between items-center md:min-w-[450px] animate-slide-up rounded-t-[3rem]">
+                   <div className="flex-1 min-w-0 pr-4">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 ml-1">Refund Net ({fd(Object.keys(selectedReturns).length)})</p>
+                      <p className="text-3xl font-black text-rose-600 tracking-tighter leading-tight tabular-nums truncate">₹{totalRefundAmount.toLocaleString()}</p>
                    </div>
 
                    <button 
                       onClick={() => setShowReturnConfirm(true)}
                       disabled={Object.keys(selectedReturns).length === 0 || processingReturns}
-                      className="bg-rose-600 hover:bg-rose-700 text-white px-8 py-4 rounded-2xl font-black shadow-xl shadow-rose-200 transition-all flex items-center gap-3 active:scale-[0.95] disabled:shadow-none"
+                      className="bg-rose-600 hover:bg-rose-700 text-white px-10 py-5 rounded-[2rem] font-black shadow-2xl shadow-rose-200 transition-all flex items-center justify-center gap-3 active:scale-[0.98] disabled:opacity-30 disabled:shadow-none uppercase text-sm tracking-widest border border-white/10"
                    >
-                      {processingReturns ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle2 size={20} />}
-                      Process
+                      {processingReturns ? <Loader2 className="animate-spin" size={24} /> : <CheckCircle2 size={24} strokeWidth={2.5} />}
+                      COMMIT
                    </button>
                 </div>
              </div>
           )}
 
           {activeTab === 'HISTORY' && (
-             <div className="bg-[#F8FAFC] md:bg-white md:rounded-3xl shadow-soft border border-slate-100 flex flex-col h-full overflow-hidden">
-                <div className="p-4 md:p-6 border-b border-slate-100 bg-white flex flex-col lg:flex-row justify-between items-center gap-4">
-                   <div className="flex items-center gap-3 w-full md:w-auto">
-                      <div className="p-2 bg-slate-900 text-white rounded-xl"><History size={18} /></div>
-                      <span className="font-black text-slate-900 text-base uppercase tracking-tight">Financial Journal</span>
-                      
-                      <div className="ml-4 flex bg-slate-100 p-1 rounded-xl">
-                          <button onClick={() => setViewMode('STACKED')} className={`p-2 rounded-lg transition-all ${viewMode === 'STACKED' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`} title="Bill Stack View"><Layers size={16} /></button>
-                          <button onClick={() => setViewMode('LIST')} className={`p-2 rounded-lg transition-all ${viewMode === 'LIST' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`} title="Item List View"><List size={16} /></button>
-                          <button onClick={() => setViewMode('CUSTOMER')} className={`p-2 rounded-lg transition-all ${viewMode === 'CUSTOMER' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`} title="By Customer Registry"><Users size={16} /></button>
+             <div className="bg-[#F8FAFC] md:bg-white md:rounded-3xl shadow-soft border border-slate-100 flex flex-col h-full overflow-hidden no-scrollbar pb-32">
+                <div className="p-4 md:p-6 border-b border-slate-100 bg-white flex flex-col lg:flex-row justify-between items-center gap-4 sticky top-0 z-10">
+                   <div className="flex items-center gap-4 w-full md:w-auto">
+                      <div className="p-2.5 bg-slate-900 text-white rounded-xl shadow-lg"><History size={22} /></div>
+                      <div className="flex flex-col">
+                        <span className="font-black text-slate-900 text-[13px] uppercase tracking-wider">Audit History</span>
+                        <div className="flex bg-slate-100 p-0.5 rounded-lg mt-1 w-fit">
+                            <button onClick={() => setViewMode('STACKED')} className={`px-4 py-1 rounded-md text-[8px] font-black uppercase transition-all ${viewMode === 'STACKED' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}>Stacked</button>
+                            <button onClick={() => setViewMode('LIST')} className={`px-4 py-1 rounded-md text-[8px] font-black uppercase transition-all ${viewMode === 'LIST' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}>List</button>
+                            <button onClick={() => setViewMode('CUSTOMER')} className={`px-4 py-1 rounded-md text-[8px] font-black uppercase transition-all ${viewMode === 'CUSTOMER' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}>Accounts</button>
+                        </div>
                       </div>
                    </div>
                    
-                   <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto no-scrollbar pb-1 md:pb-0">
+                   <div className="flex items-center gap-2 w-full md:w-auto px-1 overflow-x-auto no-scrollbar">
                       <button 
                         onClick={handleExportPendingPayments}
-                        className="p-2 rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-amber-600 transition-all shadow-sm active:scale-95 flex items-center gap-2 px-4 whitespace-nowrap"
+                        className="p-3 rounded-2xl bg-white border border-slate-200 text-amber-600 hover:bg-amber-50 transition-all shadow-soft active:scale-95 flex items-center justify-center"
                         title="Export All Pending Collections"
                       >
-                        <FileDown size={16} />
-                        <span className="text-[10px] font-black uppercase tracking-widest">Global Dues</span>
+                        <FileDown size={22} />
                       </button>
 
                       <div className="relative flex-1 md:w-64">
-                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
+                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
                          <input 
                            type="text" 
-                           placeholder="Search History..." 
-                           className="w-full pl-10 pr-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-bold shadow-inner focus:ring-2 focus:ring-slate-200"
+                           placeholder="Filter History..." 
+                           className="w-full pl-11 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-[13px] font-bold shadow-inner-soft focus:ring-8 focus:ring-slate-500/5 outline-none transition-all uppercase tracking-tight"
                            value={historySearch}
                            onChange={e => setHistorySearch(e.target.value)}
                          />
                       </div>
                       <button 
                         onClick={loadHistory}
-                        className="p-2 bg-white text-slate-400 border border-slate-200 rounded-xl hover:text-slate-600 transition-all"
+                        className="p-3 bg-white text-slate-400 border border-slate-200 rounded-2xl hover:text-slate-900 transition-all shadow-soft active:rotate-90"
                       >
-                         <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+                         <RefreshCw size={22} className={loading ? 'animate-spin' : ''} />
                       </button>
                    </div>
                 </div>
                 
-                <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar pb-32">
+                <div className="flex-1 overflow-y-auto p-3 space-y-4 no-scrollbar pb-32">
                   {loading ? (
                     <div className="flex justify-center p-12"><TharLoader /></div>
                   ) : (viewMode === 'LIST' ? sortedListHistory : viewMode === 'STACKED' ? stackedHistory : customerHistory).length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-24 text-slate-300">
+                    <div className="flex flex-col items-center justify-center py-32 text-slate-300">
                         <AlertCircle size={64} className="mb-4 opacity-10" />
-                        <p className="font-black text-xs uppercase tracking-widest">No entries found</p>
+                        <p className="font-black text-[10px] uppercase tracking-[0.4em]">Registry Empty</p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -734,43 +736,43 @@ const Billing: React.FC<Props> = ({ user }) => {
                             const part = inventory.find(i => i.partNumber.toLowerCase() === tx.partNumber.toLowerCase());
 
                             return (
-                                <div key={tx.id} className="p-5 rounded-[2.25rem] bg-white border border-slate-100 shadow-sm flex flex-col animate-fade-in relative overflow-hidden group">
-                                    <div className="flex justify-between items-start mb-4">
+                                <div key={tx.id} className="p-6 rounded-[2rem] bg-white border-2 border-slate-100 shadow-soft flex flex-col animate-fade-in relative group overflow-hidden">
+                                    <div className="flex justify-between items-start mb-5 relative z-10">
                                         <div className="space-y-1">
-                                            <div className="font-black text-slate-900 text-base leading-tight group-hover:text-brand-600 transition-colors uppercase">{tx.partNumber}</div>
-                                            {part && <div className="text-[10px] text-slate-400 font-bold uppercase truncate mt-0.5">{part.name}</div>}
-                                            <div className="flex flex-col text-slate-400 text-[10px] font-bold mt-2">
-                                                <div className="flex items-center gap-1.5"><Calendar size={10} /> {new Date(tx.createdAt).toLocaleDateString()}</div>
-                                                <div className="flex items-center gap-1.5 mt-0.5"><Clock size={10} /> {new Date(tx.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
-                                                <div className="flex items-center gap-1.5 mt-0.5"><UserIcon size={10} /> {tx.createdByName}</div>
+                                            <div className="font-black text-slate-900 text-lg leading-tight uppercase tracking-tight group-hover:text-brand-600 transition-colors">{tx.partNumber}</div>
+                                            {part && <div className="text-[11px] text-slate-400 font-bold uppercase truncate tracking-tight">{part.name}</div>}
+                                            <div className="flex flex-col text-slate-400 text-[9px] font-black mt-3 gap-1 uppercase tracking-widest">
+                                                <div className="flex items-center gap-2"><Calendar size={12} className="opacity-40" /> {new Date(tx.createdAt).toLocaleDateString()}</div>
+                                                <div className="flex items-center gap-2"><Clock size={12} className="opacity-40" /> {new Date(tx.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                                                <div className="flex items-center gap-2 text-blue-600"><UserIcon size={12} className="opacity-40" /> Terminal: {tx.createdByName}</div>
                                             </div>
                                         </div>
-                                        <div className={`px-2.5 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest ${isReturn ? 'bg-rose-50 text-rose-600' : 'bg-teal-50 text-teal-600'}`}>
+                                        <div className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-[0.15em] shadow-sm border ${isReturn ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-teal-50 text-teal-600 border-teal-100'}`}>
                                             {tx.type}
                                         </div>
                                     </div>
                                     
-                                    <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 flex items-center justify-between mb-5">
-                                        <div className="flex items-center gap-2.5 min-w-0">
-                                            <div className="p-1.5 bg-white rounded-lg text-slate-400 border border-slate-100">
-                                                <UserIcon size={12} />
+                                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-center justify-between mb-6 relative z-10">
+                                        <div className="flex items-center gap-3 min-w-0 pr-4">
+                                            <div className="p-2 bg-white rounded-xl text-slate-400 shadow-inner border border-slate-200">
+                                                <UserIcon size={16} />
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <p className="text-[10px] font-black text-slate-800 truncate uppercase">{tx.customerName || 'Standard Client'}</p>
+                                                <p className="text-[11px] font-black text-slate-800 truncate uppercase tracking-tight">{tx.customerName || 'Standard Client'}</p>
                                             </div>
                                         </div>
                                         {!isReturn && (
-                                            <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-md shadow-inner border ${isFullyPaid ? 'bg-teal-50 text-teal-600 border-teal-100' : isPartial ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
-                                                {isFullyPaid ? 'Paid' : isPartial ? 'Partial' : 'Credit'}
+                                            <span className={`text-[8px] font-black uppercase px-2 py-1 rounded-lg shadow-sm border whitespace-nowrap ${isFullyPaid ? 'bg-teal-600 text-white border-teal-700' : isPartial ? 'bg-amber-500 text-white border-amber-600' : 'bg-rose-600 text-white border-rose-700'}`}>
+                                                {isFullyPaid ? 'Settled' : isPartial ? 'Partial' : 'Credit'}
                                             </span>
                                         )}
                                     </div>
 
-                                    <div className="mt-auto flex justify-between items-center">
-                                        <span className="bg-slate-100 px-3 py-1 rounded-xl text-[10px] font-black text-slate-500 uppercase tracking-widest">{fd(tx.quantity)} units</span>
+                                    <div className="mt-auto flex justify-between items-end relative z-10 border-t border-slate-50 pt-5">
+                                        <span className="bg-slate-100 px-4 py-1.5 rounded-xl text-[10px] font-black text-slate-500 uppercase tracking-widest border border-slate-200 shadow-inner">{fd(tx.quantity)} PCS</span>
                                         <div className="text-right">
-                                            <p className={`text-lg font-black tracking-tight ${isReturn ? 'text-rose-600' : 'text-slate-900'}`}>₹{amount.toLocaleString()}</p>
-                                            {!isReturn && !isFullyPaid && <p className="text-[8px] font-bold text-rose-500 uppercase tracking-tighter">Bal: ₹{(amount - paid).toLocaleString()}</p>}
+                                            <p className={`text-2xl font-black tracking-tighter leading-none tabular-nums ${isReturn ? 'text-rose-600' : 'text-slate-900'}`}>₹{amount.toLocaleString()}</p>
+                                            {!isReturn && !isFullyPaid && <p className="text-[9px] font-bold text-rose-500 uppercase tracking-widest mt-1">Due: ₹{(amount - paid).toLocaleString()}</p>}
                                         </div>
                                     </div>
                                 </div>
@@ -786,37 +788,39 @@ const Billing: React.FC<Props> = ({ user }) => {
                                 <div 
                                     key={bill.id} 
                                     onClick={() => setSelectedBill(bill)}
-                                    className="p-6 rounded-[2.25rem] bg-white border border-slate-200 shadow-soft active:scale-[0.98] transition-all cursor-pointer group relative animate-fade-in"
+                                    className="p-6 rounded-[2.5rem] bg-white border-2 border-slate-100 shadow-soft active:scale-[0.98] transition-all cursor-pointer group relative animate-fade-in overflow-hidden"
                                 >
-                                    <div className="flex justify-between items-start mb-6">
-                                        <div className="space-y-1.5">
-                                            <div className="flex items-center gap-2">
-                                                <div className={`p-1.5 rounded-lg ${isReturn ? 'bg-rose-50 text-rose-600' : 'bg-teal-50 text-teal-600'}`}>
-                                                    {isReturn ? <Undo2 size={14}/> : <PlusCircle size={14}/>}
+                                    <div className="flex justify-between items-start mb-6 relative z-10">
+                                        <div className="space-y-2">
+                                            <div className="flex items-center gap-3">
+                                                <div className={`p-2 rounded-xl shadow-lg ${isReturn ? 'bg-rose-600 text-white' : 'bg-brand-600 text-white'}`}>
+                                                    {isReturn ? <Undo2 size={16} strokeWidth={3}/> : <PlusCircle size={16} strokeWidth={3}/>}
                                                 </div>
-                                                <span className={`text-[9px] font-black uppercase tracking-widest ${isReturn ? 'text-rose-500' : 'text-teal-600'}`}>
-                                                    {bill.type} Bill
+                                                <span className={`text-[10px] font-black uppercase tracking-widest ${isReturn ? 'text-rose-600' : 'text-brand-600'}`}>
+                                                    {bill.type} MATRIX
                                                 </span>
                                             </div>
-                                            <div className="text-[10px] font-bold text-slate-400 flex flex-col gap-1 uppercase tracking-widest">
-                                                <div className="flex items-center gap-2"><Calendar size={10}/> {new Date(bill.createdAt).toLocaleDateString()}</div>
+                                            <div className="text-[10px] font-black text-slate-400 flex items-center gap-3 uppercase tracking-widest ml-1">
+                                                <div className="flex items-center gap-2"><Calendar size={12}/> {new Date(bill.createdAt).toLocaleDateString()}</div>
                                             </div>
                                         </div>
-                                        <ChevronRight size={18} className="text-slate-200" />
-                                    </div>
-                                    <div className="mb-6">
-                                        <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-1.5">Entity Target</p>
-                                        <div className="font-black text-base text-slate-900 leading-tight truncate uppercase tracking-tight">
-                                            {bill.customerName || 'Standard Checkout'}
+                                        <div className="p-2.5 bg-slate-50 rounded-2xl text-slate-300 border border-slate-100 group-hover:bg-slate-900 group-hover:text-white transition-all shadow-inner-soft">
+                                            <ChevronRight size={22} strokeWidth={3} />
                                         </div>
                                     </div>
-                                    <div className="flex justify-between items-end border-t border-slate-50 pt-5 mt-auto">
-                                        <div className="bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100 flex items-center gap-2">
-                                            <Package size={12} className="text-slate-400"/>
-                                            <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{fd(bill.items.length)} Parts</span>
+                                    <div className="mb-8 relative z-10 px-1">
+                                        <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-2 opacity-60">TARGET ACCOUNT</p>
+                                        <div className="font-black text-xl text-slate-900 leading-tight truncate uppercase tracking-tight">
+                                            {bill.customerName || 'Standard Terminal'}
+                                        </div>
+                                    </div>
+                                    <div className="flex justify-between items-end border-t border-slate-50 pt-5 mt-auto relative z-10">
+                                        <div className="bg-slate-50 px-4 py-2 rounded-xl border border-slate-100 flex items-center gap-3 shadow-inner-soft">
+                                            <Package size={16} className="text-slate-400"/>
+                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{fd(bill.items.length)} ASSETS</span>
                                         </div>
                                         <div className="text-right">
-                                            <p className={`text-[18px] font-black tracking-tighter tabular-nums ${isReturn ? 'text-rose-600' : 'text-slate-900'}`}>
+                                            <p className={`text-2xl font-black tracking-tighter tabular-nums leading-none ${isReturn ? 'text-rose-600' : 'text-slate-900'}`}>
                                                 ₹{bill.totalAmount.toLocaleString()}
                                             </p>
                                         </div>
@@ -834,31 +838,31 @@ const Billing: React.FC<Props> = ({ user }) => {
                             <div 
                                 key={cust.name} 
                                 onClick={() => setSelectedCustomer(cust)}
-                                className="p-6 rounded-[2.25rem] bg-white border border-slate-200 shadow-soft active:scale-[0.98] transition-all cursor-pointer group animate-fade-in relative overflow-hidden"
+                                className="p-7 rounded-[2.5rem] bg-white border-2 border-slate-100 shadow-soft active:scale-[0.98] transition-all cursor-pointer group animate-fade-in relative overflow-hidden"
                             >
-                                <div className="absolute top-0 right-0 w-24 h-full bg-brand-500/[0.01] -skew-x-12 translate-x-12"></div>
-                                <div className="flex justify-between items-start mb-8">
-                                    <div className="w-11 h-11 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-lg">
-                                        <UserIcon size={20} strokeWidth={2.5} />
+                                <div className="absolute top-0 right-0 w-32 h-full bg-brand-500/[0.02] -skew-x-12 translate-x-16 group-hover:translate-x-12 transition-transform"></div>
+                                <div className="flex justify-between items-start mb-10 relative z-10">
+                                    <div className="w-14 h-14 bg-slate-900 rounded-[1.5rem] flex items-center justify-center text-white shadow-xl shadow-slate-200 ring-4 ring-white">
+                                        <UserIcon size={24} strokeWidth={2.5} />
                                     </div>
                                     <div className="text-right">
-                                        <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-1">{isAdvance ? 'Advance Credit' : 'Balance'}</p>
-                                        <p className={`text-xl font-black tracking-tighter ${isAdvance ? 'text-teal-600' : balance > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
+                                        <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-2 opacity-70">{isAdvance ? 'CREDIT ASSET' : 'LEDGER BAL'}</p>
+                                        <p className={`text-2xl font-black tracking-tighter tabular-nums leading-none ${isAdvance ? 'text-teal-600' : balance > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
                                             ₹{Math.abs(balance).toLocaleString()}{isAdvance ? ' +' : ''}
                                         </p>
                                     </div>
                                 </div>
-                                <div className="mb-6">
-                                    <h3 className="font-black text-base text-slate-900 uppercase tracking-tight leading-tight truncate pr-4">{cust.name}</h3>
-                                    <div className="flex items-center gap-3 mt-2">
-                                        <span className="text-[8px] font-black text-brand-600 bg-brand-50 px-2 py-0.5 rounded shadow-sm border border-brand-100 uppercase tracking-widest">{fd(cust.transactions.length)} Trans</span>
+                                <div className="mb-8 relative z-10 px-1">
+                                    <h3 className="font-black text-[18px] text-slate-900 uppercase tracking-tight leading-tight truncate pr-6">{cust.name}</h3>
+                                    <div className="flex items-center gap-3 mt-3">
+                                        <span className="text-[9px] font-black text-brand-600 bg-brand-50 px-3 py-1 rounded-xl shadow-inner border border-brand-100 uppercase tracking-widest">{fd(cust.transactions.length)} LOGS</span>
                                     </div>
                                 </div>
-                                <div className="pt-5 border-t border-slate-50 flex items-center justify-between relative z-10">
-                                    <div className={`text-[9px] font-black uppercase tracking-widest ${isAdvance ? 'text-teal-600 font-black' : isFullySettled ? 'text-slate-400' : 'text-rose-500'}`}>
-                                        {isAdvance ? 'CREDIT BALANCE' : isFullySettled ? 'Settled' : 'Unpaid Dues'}
+                                <div className="pt-6 border-t border-slate-100 flex items-center justify-between relative z-10">
+                                    <div className={`text-[10px] font-black uppercase tracking-widest ${isAdvance ? 'text-teal-600' : isFullySettled ? 'text-slate-400' : 'text-rose-500'}`}>
+                                        {isAdvance ? 'REVENUE POSITIVE' : isFullySettled ? 'Account Settled' : 'Unpaid Liability'}
                                     </div>
-                                    <ChevronRight size={16} className="text-slate-200" />
+                                    <ChevronRight size={20} className="text-slate-200 group-hover:text-slate-900 group-hover:translate-x-1 transition-all" />
                                 </div>
                             </div>
                           )
@@ -873,69 +877,69 @@ const Billing: React.FC<Props> = ({ user }) => {
 
        {/* BILL DETAIL MODAL */}
        {selectedBill && (
-          <div className="fixed inset-0 z-[200] bg-slate-900/60 backdrop-blur-md flex items-end justify-center animate-fade-in">
-              <div className="bg-white w-full rounded-t-[2.5rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-slide-up">
-                  <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/40">
+          <div className="fixed inset-0 z-[200] bg-slate-900/70 backdrop-blur-md flex items-end justify-center animate-fade-in no-scrollbar">
+              <div className="bg-white w-full rounded-t-[3rem] shadow-2xl flex flex-col max-h-[92vh] overflow-hidden animate-slide-up pb-safe">
+                  <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                       <div className="flex items-center gap-4">
-                          <button onClick={() => setSelectedBill(null)} className="p-2.5 bg-white text-slate-400 rounded-xl shadow-soft border border-slate-100 active:scale-90 transition-all"><ArrowLeft size={20}/></button>
-                          <div>
-                              <h3 className="font-black text-slate-900 text-base tracking-tight leading-none mb-1.5 uppercase truncate max-w-[180px]">{selectedBill.customerName || 'Cash Bill'}</h3>
-                              <div className="flex items-center gap-2 text-slate-400 text-[9px] font-black uppercase tracking-widest">
-                                  <Calendar size={10}/> {new Date(selectedBill.createdAt).toLocaleDateString()}
+                          <button onClick={() => setSelectedBill(null)} className="p-3 bg-white text-slate-400 rounded-2xl shadow-soft border border-slate-100 active:scale-90 transition-all"><ArrowLeft size={22} strokeWidth={3}/></button>
+                          <div className="min-w-0">
+                              <h3 className="font-black text-slate-900 text-lg tracking-tight leading-none mb-2 uppercase truncate max-w-[200px]">{selectedBill.customerName || 'Standard Client'}</h3>
+                              <div className="flex items-center gap-3 text-slate-400 text-[9px] font-black uppercase tracking-widest">
+                                  <Calendar size={12} className="opacity-50"/> {new Date(selectedBill.createdAt).toLocaleDateString()}
                                   <span className="opacity-30">•</span>
-                                  <UserIcon size={10}/> {selectedBill.items[0]?.createdByName}
+                                  <UserIcon size={12} className="opacity-50"/> {selectedBill.items[0]?.createdByName}
                               </div>
                           </div>
                       </div>
                   </div>
-                  <div className="flex-1 overflow-y-auto p-4 no-scrollbar space-y-4">
+                  <div className="flex-1 overflow-y-auto p-4 no-scrollbar space-y-4 bg-slate-50/30">
                       {selectedBill.items.map((item, idx) => {
                           const isItemFullyPaid = item.paidAmount >= (item.price * item.quantity);
                           const isOpeningPayment = isAddingPayment === item.id;
                           const part = inventory.find(i => i.partNumber.toLowerCase() === item.partNumber.toLowerCase());
 
                           return (
-                            <div key={item.id} className="p-5 bg-slate-50/50 rounded-[1.75rem] border border-slate-100 flex flex-col gap-4">
-                                <div className="flex justify-between items-start">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-9 h-9 bg-white rounded-xl border border-slate-100 flex items-center justify-center font-black text-slate-300 text-xs">{fd(idx + 1)}</div>
-                                        <div>
-                                            <div className="font-black text-slate-900 text-base leading-tight tracking-tight uppercase">{item.partNumber}</div>
-                                            {part && <div className="text-[10px] text-slate-400 font-bold uppercase truncate mt-0.5">{part.name}</div>}
-                                            <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest mt-1">Rate: ₹{item.price.toLocaleString()}</p>
+                            <div key={item.id} className="p-6 bg-white rounded-[2.5rem] border border-slate-200/60 shadow-soft flex flex-col gap-5 animate-fade-in">
+                                <div className="flex justify-between items-start relative">
+                                    <div className="flex items-center gap-4 flex-1 min-w-0">
+                                        <div className="w-10 h-10 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-center font-black text-slate-300 text-xs shadow-inner-soft">{fd(idx + 1)}</div>
+                                        <div className="min-w-0 flex-1">
+                                            <div className="font-black text-slate-900 text-lg leading-tight tracking-tight uppercase mb-1 truncate">{item.partNumber}</div>
+                                            {part && <div className="text-[11px] text-slate-400 font-bold uppercase truncate tracking-tight">{part.name}</div>}
+                                            <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-3">Net: ₹{item.price.toLocaleString()}</p>
                                         </div>
                                     </div>
-                                    <div className="text-right">
-                                        <p className="text-[8px] font-black text-slate-300 uppercase mb-0.5">Qty</p>
-                                        <p className="text-lg font-black text-slate-900">{fd(item.quantity)}</p>
+                                    <div className="text-right flex-none ml-4">
+                                        <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-1">QTY</p>
+                                        <p className="text-2xl font-black text-slate-900 leading-none tabular-nums">{fd(item.quantity)}</p>
                                     </div>
                                 </div>
 
                                 {selectedBill.type !== 'RETURN' && (
-                                    <div className="pt-4 border-t border-white flex flex-col gap-3">
-                                        <div className="flex items-center justify-between">
-                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Collected</p>
-                                            <p className={`font-black text-sm ${isItemFullyPaid ? 'text-teal-600' : 'text-amber-600'}`}>₹{(item.paidAmount || 0).toLocaleString()}</p>
+                                    <div className="pt-6 border-t border-slate-50 flex flex-col gap-5">
+                                        <div className="flex items-center justify-between px-1">
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">REVENUE REALIZED</p>
+                                            <p className={`font-black text-lg tabular-nums leading-none ${isItemFullyPaid ? 'text-teal-600' : 'text-amber-600'}`}>₹{(item.paidAmount || 0).toLocaleString()}</p>
                                         </div>
                                         
                                         {isOpeningPayment ? (
-                                            <div className="flex items-center gap-2 animate-slide-up">
+                                            <div className="flex items-center gap-3 animate-slide-up bg-slate-100 p-2 rounded-2xl border border-slate-200">
                                                 <input 
                                                     autoFocus
                                                     type="number" 
-                                                    className="flex-1 pl-4 pr-3 py-3 bg-white border border-brand-200 rounded-xl text-sm font-black outline-none shadow-inner-soft"
-                                                    placeholder="Amt"
+                                                    className="flex-1 pl-5 pr-3 py-4 bg-white border-2 border-brand-200 rounded-xl text-base font-black outline-none shadow-inner-soft tracking-tight focus:ring-8 focus:ring-brand-500/5 transition-all"
+                                                    placeholder="Input Amt..."
                                                     value={newPaidVal}
                                                     onChange={e => setNewPaidVal(e.target.value)}
                                                 />
                                                 <button 
                                                     onClick={() => handleRegisterPayment(item.id)}
                                                     disabled={submittingPayment}
-                                                    className="px-5 py-3 bg-brand-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95"
+                                                    className="w-14 h-14 bg-brand-600 text-white rounded-xl shadow-xl flex items-center justify-center transition-all active:scale-90 disabled:opacity-50"
                                                 >
-                                                    {submittingPayment ? <Loader2 size={14} className="animate-spin"/> : 'Confirm'}
+                                                    {submittingPayment ? <Loader2 size={22} className="animate-spin"/> : <Check size={26} strokeWidth={4}/>}
                                                 </button>
-                                                <button onClick={() => setIsAddingPayment(null)} className="p-2 text-slate-300"><X size={18}/></button>
+                                                <button onClick={() => setIsAddingPayment(null)} className="p-3 text-slate-400 active:scale-90"><X size={24}/></button>
                                             </div>
                                         ) : (
                                             <button 
@@ -943,9 +947,9 @@ const Billing: React.FC<Props> = ({ user }) => {
                                                     setIsAddingPayment(item.id);
                                                     setNewPaidVal(item.paidAmount.toString());
                                                 }}
-                                                className={`w-full py-3 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-2 border ${isItemFullyPaid ? 'bg-slate-50 text-slate-400 border-slate-100' : 'bg-brand-50 text-brand-600 border-brand-100'}`}
+                                                className={`w-full py-5 rounded-[1.75rem] text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all active:scale-[0.98] border-2 ${isItemFullyPaid ? 'bg-slate-50 text-slate-400 border-slate-100' : 'bg-brand-50 text-brand-600 border-brand-200 shadow-xl shadow-brand-100'}`}
                                             >
-                                                <PlusCircle size={12}/> {isItemFullyPaid ? 'Adjust Payment' : 'Collect Balance'}
+                                                <PlusCircle size={18} strokeWidth={2.5}/> {isItemFullyPaid ? 'ADJUST REVENUE' : 'COLLECT ASSET'}
                                             </button>
                                         )}
                                     </div>
@@ -954,89 +958,85 @@ const Billing: React.FC<Props> = ({ user }) => {
                           )
                       })}
                   </div>
-                  <div className="p-6 border-t border-slate-100 bg-white pb-safe">
-                      <div className="flex justify-between items-center mb-6">
+                  <div className="p-8 border-t border-slate-100 bg-white">
+                      <div className="flex justify-between items-center mb-8">
                           <div className="flex flex-col">
-                              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Final Total</p>
-                              <p className={`text-3xl font-black tracking-tighter tabular-nums ${selectedBill.type === 'RETURN' ? 'text-rose-600' : 'text-slate-900'}`}>
+                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">NET TRANSACTION</p>
+                              <p className={`text-4xl font-black tracking-tighter leading-none tabular-nums ${selectedBill.type === 'RETURN' ? 'text-rose-600' : 'text-slate-900'}`}>
                                   ₹{selectedBill.totalAmount.toLocaleString()}
                               </p>
                           </div>
-                          <button onClick={() => setSelectedBill(null)} className="px-10 py-4 bg-slate-100 text-slate-600 font-black rounded-2xl active:scale-95 text-[11px] uppercase tracking-widest">Close</button>
+                          <button onClick={() => setSelectedBill(null)} className="px-12 py-5 bg-slate-900 text-white font-black rounded-2xl active:scale-[0.98] transition-all text-[13px] uppercase tracking-widest shadow-xl border border-white/10">Close Log</button>
                       </div>
                   </div>
               </div>
           </div>
        )}
 
-       {/* CUSTOMER LEDGER MODAL */}
        {selectedCustomer && (
-          <div className="fixed inset-0 z-[200] bg-slate-900/60 backdrop-blur-md flex items-end md:items-center justify-center animate-fade-in md:p-10">
-              <div className="bg-white w-full max-w-5xl rounded-t-[2.5rem] md:rounded-[3rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-slide-up">
-                  <div className="p-8 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center bg-slate-50/40 gap-6">
+          <div className="fixed inset-0 z-[200] bg-slate-900/70 backdrop-blur-md flex items-end md:items-center justify-center animate-fade-in md:p-10 no-scrollbar">
+              <div className="bg-white w-full max-w-5xl rounded-t-[3rem] md:rounded-[3rem] shadow-2xl flex flex-col h-[95vh] md:max-h-[90vh] overflow-hidden animate-slide-up pb-safe">
+                  <div className="p-6 md:p-10 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center bg-slate-50/40 gap-6">
                       <div className="flex items-center gap-5">
-                          <button onClick={() => setSelectedCustomer(null)} className="p-3 bg-white text-slate-400 rounded-2xl shadow-soft border border-slate-100 active:scale-90 transition-all"><ArrowLeft size={22}/></button>
-                          <div>
-                              <h3 className="font-black text-slate-900 text-2xl tracking-tight leading-none mb-1.5 uppercase truncate max-w-[280px]">{selectedCustomer.name}</h3>
-                              <div className="flex items-center gap-3 text-slate-400 text-[10px] font-black uppercase tracking-widest">
-                                  <Clock size={12}/> Last Purchase: {new Date(selectedCustomer.lastPurchase).toLocaleDateString()}
+                          <button onClick={() => setSelectedCustomer(null)} className="p-3.5 bg-white text-slate-400 rounded-2xl shadow-soft border border-slate-100 active:scale-90 transition-all"><ArrowLeft size={24} strokeWidth={3}/></button>
+                          <div className="min-w-0">
+                              <h3 className="font-black text-slate-900 text-2xl md:text-3xl tracking-tighter leading-none mb-2 uppercase truncate max-w-[250px]">{selectedCustomer.name}</h3>
+                              <div className="flex items-center gap-3 text-slate-400 text-[10px] md:text-xs font-black uppercase tracking-widest">
+                                  <Clock size={14} className="opacity-50"/> Last TX: {new Date(selectedCustomer.lastPurchase).toLocaleDateString()}
                               </div>
                           </div>
                       </div>
-                      <div className="flex gap-2 w-full md:w-auto">
+                      <div className="flex gap-3 w-full md:w-auto">
                         <button 
                             onClick={() => handleExportCustomerLedger(selectedCustomer)}
-                            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all active:scale-95 shadow-sm"
+                            className="flex-1 md:flex-none flex items-center justify-center gap-3 px-6 py-4 bg-white border border-slate-200 text-slate-600 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all active:scale-95 shadow-soft"
                         >
-                            <FileSpreadsheet size={16} className="text-teal-600" /> Export Ledger
+                            <FileSpreadsheet size={20} className="text-teal-600" /> Export Ledger
                         </button>
                         <button 
                             onClick={() => handleExportCustomerPendingDues(selectedCustomer)}
-                            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-3 bg-rose-50 border border-rose-100 text-rose-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all active:scale-95 shadow-sm"
+                            className="flex-1 md:flex-none flex items-center justify-center gap-3 px-6 py-4 bg-rose-50 border border-rose-100 text-rose-600 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all active:scale-95 shadow-soft"
                         >
-                            <AlertCircle size={16} /> Export Dues
+                            <AlertCircle size={20} /> Dues Report
                         </button>
                       </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 bg-slate-50/20 border-b border-slate-100">
-                    <div className="p-6 border-r border-slate-100">
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Lifetime Spent</p>
-                        <p className="text-2xl font-black text-slate-900">₹{selectedCustomer.totalSpent.toLocaleString()}</p>
+                    <div className="p-6 md:p-8 border-r border-slate-100">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 opacity-70">LIFETIME REVENUE</p>
+                        <p className="text-2xl md:text-3xl font-black text-slate-900 tracking-tighter tabular-nums">₹{selectedCustomer.totalSpent.toLocaleString()}</p>
                     </div>
-                    <div className="p-6 border-r border-slate-100">
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Lifetime Paid</p>
-                        <p className="text-2xl font-black text-teal-600">₹{selectedCustomer.totalPaid.toLocaleString()}</p>
+                    <div className="p-6 md:p-8 border-r border-slate-100">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 opacity-70">REVENUE COLLECTED</p>
+                        <p className="text-2xl md:text-3xl font-black text-teal-600 tracking-tighter tabular-nums">₹{selectedCustomer.totalPaid.toLocaleString()}</p>
                     </div>
-                    <div className="p-6 bg-rose-50/30">
-                        <p className="text-[9px] font-black text-rose-400 uppercase tracking-widest mb-1">Outstanding Balance</p>
-                        <p className="text-2xl font-black text-rose-600">₹{(selectedCustomer.totalSpent - selectedCustomer.totalPaid).toLocaleString()}</p>
+                    <div className="p-6 md:p-8 bg-rose-50/30">
+                        <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest mb-2 opacity-70">OUTSTANDING DUEX</p>
+                        <p className="text-2xl md:text-3xl font-black text-rose-600 tracking-tighter tabular-nums">₹{(selectedCustomer.totalSpent - selectedCustomer.totalPaid).toLocaleString()}</p>
                     </div>
                   </div>
 
-                  <div className="flex-1 overflow-y-auto p-4 md:p-8 no-scrollbar space-y-4">
-                      <div className="hidden md:grid grid-cols-7 gap-4 px-4 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest mb-4 sticky top-0 z-10">
-                         <div className="col-span-1">Date</div>
-                         <div className="col-span-2">Part & Description</div>
-                         <div className="col-span-1 text-center">Type</div>
+                  <div className="flex-1 overflow-y-auto p-4 md:p-10 no-scrollbar space-y-6">
+                      <div className="hidden md:grid grid-cols-7 gap-6 px-6 py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest mb-6 sticky top-0 z-10 shadow-xl">
+                         <div className="col-span-1">Timestamp</div>
+                         <div className="col-span-2">Spare Description</div>
+                         <div className="col-span-1 text-center">Protocol</div>
                          <div className="col-span-1 text-right">Value</div>
-                         <div className="col-span-1 text-right">Running Bal</div>
-                         <div className="col-span-1 text-right">Action</div>
+                         <div className="col-span-1 text-right">Running Net</div>
+                         <div className="col-span-1 text-right">Commit</div>
                       </div>
                       
                       {(() => {
-                        // Logic to calculate running balance chronologically
                         let currentRunningBal = 0;
                         const sortedChronological = [...selectedCustomer.transactions].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
                         const txWithBal = sortedChronological.map(tx => {
                             const val = tx.price * tx.quantity;
                             const paid = tx.paidAmount || 0;
-                            // Debit for Sales, Credit for Returns
                             const netImpact = tx.type === TransactionType.SALE ? (val - paid) : -(val - paid);
                             currentRunningBal += netImpact;
                             return { ...tx, runningBalance: currentRunningBal };
                         });
-                        // Reverse back for display (newest first)
                         return txWithBal.reverse();
                       })().map((item) => {
                           const isReturn = item.type === TransactionType.RETURN;
@@ -1048,75 +1048,74 @@ const Billing: React.FC<Props> = ({ user }) => {
                           const part = inventory.find(i => i.partNumber.toLowerCase() === item.partNumber.toLowerCase());
 
                           return (
-                            <div key={item.id} className={`p-5 border rounded-[1.75rem] shadow-soft hover:shadow-premium transition-all relative overflow-hidden ${isOverdue ? 'bg-rose-50/20 border-rose-100 ring-1 ring-rose-100/50' : 'bg-white border-slate-100'}`}>
-                                {isOverdue && <div className="absolute top-0 right-0 bg-rose-600 text-white px-3 py-1 rounded-bl-xl text-[7px] font-black uppercase tracking-widest animate-pulse">Payment Overdue</div>}
-                                <div className="grid grid-cols-1 md:grid-cols-7 gap-4 md:items-center">
-                                    <div className="col-span-1 flex items-center gap-3">
-                                        <div className="p-2 bg-slate-50 rounded-lg md:hidden"><Calendar size={14} className="text-slate-400" /></div>
-                                        <span className="text-[11px] font-bold text-slate-500">{new Date(item.createdAt).toLocaleDateString()}</span>
+                            <div key={item.id} className={`p-6 border-2 rounded-[2.5rem] shadow-soft hover:shadow-premium transition-all relative overflow-hidden group/item ${isOverdue ? 'bg-rose-50/20 border-rose-100 ring-4 ring-rose-500/5' : 'bg-white border-slate-100'}`}>
+                                {isOverdue && <div className="absolute top-0 right-0 bg-rose-600 text-white px-4 py-1.5 rounded-bl-2xl text-[8px] font-black uppercase tracking-widest animate-pulse shadow-lg z-10">UNPAID OVERDUE</div>}
+                                <div className="grid grid-cols-1 md:grid-cols-7 gap-6 md:items-center relative z-10">
+                                    <div className="col-span-1 flex items-center gap-4">
+                                        <div className="p-3 bg-slate-50 rounded-2xl md:hidden border border-slate-100 shadow-inner-soft"><Calendar size={18} className="text-slate-400" /></div>
+                                        <span className="text-[12px] font-black text-slate-500 tabular-nums">{new Date(item.createdAt).toLocaleDateString()}</span>
                                     </div>
-                                    <div className="col-span-2">
-                                        <p className="font-black text-slate-900 text-sm md:text-base uppercase tracking-tight">{item.partNumber}</p>
-                                        {part && <p className="text-[10px] text-slate-500 font-bold uppercase truncate pr-4">{part.name}</p>}
-                                        <div className="flex items-center gap-2 mt-1">
-                                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Qty: {fd(item.quantity)} @ ₹{item.price.toLocaleString()}</span>
-                                          <span className="opacity-20 text-[9px]">•</span>
-                                          <span className="text-[9px] font-bold text-slate-400 uppercase">By: {item.createdByName}</span>
+                                    <div className="col-span-2 min-w-0">
+                                        <p className="font-black text-slate-900 text-base md:text-lg uppercase tracking-tight truncate leading-tight group-hover/item:text-brand-600 transition-colors">{item.partNumber}</p>
+                                        {part && <p className="text-[11px] text-slate-400 font-bold uppercase truncate pr-6 mt-1.5 tracking-tight">{part.name}</p>}
+                                        <div className="flex items-center gap-3 mt-3">
+                                          <span className="text-[9px] font-black text-slate-900 bg-slate-100 px-3 py-1 rounded-xl shadow-inner border border-slate-200 uppercase tracking-widest">{fd(item.quantity)} PCS @ ₹{item.price.toLocaleString()}</span>
+                                          <span className="text-[10px] font-bold text-blue-500 uppercase tracking-tighter ml-1">Terminal: {item.createdByName}</span>
                                         </div>
                                     </div>
                                     <div className="col-span-1 flex md:justify-center">
-                                        <span className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest border ${isReturn ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-teal-50 text-teal-600 border-teal-100'}`}>
+                                        <span className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] border shadow-sm ${isReturn ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-teal-50 text-teal-600 border-teal-100'}`}>
                                             {item.type}
                                         </span>
                                     </div>
                                     <div className="col-span-1 text-right">
-                                        <p className={`font-black text-sm md:text-base ${isReturn ? 'text-rose-600' : 'text-slate-900'}`}>₹{total.toLocaleString()}</p>
-                                        <span className="text-[8px] font-bold text-slate-400 uppercase">Paid: ₹{(item.paidAmount || 0).toLocaleString()}</span>
+                                        <p className={`font-black text-lg md:text-xl tabular-nums leading-none ${isReturn ? 'text-rose-600' : 'text-slate-900'}`}>₹{total.toLocaleString()}</p>
+                                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1.5 inline-block opacity-60">Paid: ₹{(item.paidAmount || 0).toLocaleString()}</span>
                                     </div>
-                                    <div className="col-span-1 text-right bg-slate-50/50 p-2 rounded-xl md:bg-transparent md:p-0">
-                                        <span className="md:hidden text-[8px] font-black text-slate-400 uppercase block mb-1">Running Balance</span>
-                                        <p className={`font-black text-base md:text-lg tabular-nums tracking-tighter ${item.runningBalance > 0 ? 'text-rose-600' : 'text-teal-600'}`}>
+                                    <div className="col-span-1 text-right bg-slate-50/50 p-4 rounded-3xl md:bg-transparent md:p-0 border border-slate-100 md:border-none">
+                                        <span className="md:hidden text-[9px] font-black text-slate-400 uppercase block mb-2 tracking-[0.2em]">RUNNING ACCOUNT</span>
+                                        <p className={`font-black text-xl md:text-2xl tabular-nums tracking-tighter leading-none ${item.runningBalance > 0 ? 'text-rose-600' : 'text-teal-600'}`}>
                                             ₹{Math.abs(item.runningBalance).toLocaleString()}
-                                            <span className="text-[8px] ml-1">{item.runningBalance > 0 ? 'DR' : 'CR'}</span>
+                                            <span className="text-[10px] ml-2 opacity-50">{item.runningBalance > 0 ? 'DR' : 'CR'}</span>
                                         </p>
                                     </div>
-                                    <div className="col-span-1 flex flex-col items-end">
+                                    <div className="col-span-1 flex flex-col items-end gap-3 pt-2 md:pt-0">
                                         {!isReturn ? (
                                            <>
-                                              <span className={`text-[10px] font-black uppercase tracking-tighter ${isFullyPaid ? 'text-teal-600' : 'text-rose-600'}`}>
-                                                 {isFullyPaid ? 'Settled' : `Owed: ₹${balance.toLocaleString()}`}
+                                              <span className={`text-[11px] font-black uppercase tracking-widest px-3 py-1 rounded-xl shadow-inner border ${isFullyPaid ? 'bg-teal-600 text-white border-teal-700' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
+                                                 {isFullyPaid ? 'AC SETTLED' : `OWED: ₹${balance.toLocaleString()}`}
                                               </span>
                                               {!isFullyPaid && !isAddingToThis && (
                                                 <button 
                                                     onClick={() => { setIsAddingPayment(item.id); setNewPaidVal(item.paidAmount.toString()); }}
-                                                    className="mt-2 text-[8px] font-black text-blue-600 uppercase border border-blue-200 px-2 py-0.5 rounded hover:bg-blue-50 transition-all"
+                                                    className="px-6 py-3 bg-brand-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-xl shadow-brand-100 active:scale-95 transition-all border border-white/10"
                                                 >
-                                                    Register Payment
+                                                    Register Pmt
                                                 </button>
                                               )}
                                               {isAddingToThis && (
-                                                <div className="mt-2 flex items-center gap-2 animate-slide-up">
+                                                <div className="flex items-center gap-2 animate-slide-up bg-slate-100 p-1.5 rounded-2xl border border-slate-200 shadow-inner-soft">
                                                     <input 
                                                         autoFocus
                                                         type="number"
-                                                        className="w-20 px-2 py-1 bg-slate-100 border border-brand-200 rounded text-xs font-black outline-none"
+                                                        className="w-24 px-3 py-2 bg-white border border-brand-200 rounded-xl text-sm font-black outline-none shadow-sm focus:ring-8 focus:ring-brand-500/5 transition-all"
                                                         value={newPaidVal}
                                                         onChange={e => setNewPaidVal(e.target.value)}
                                                     />
-                                                    <button onClick={() => handleRegisterPayment(item.id)} className="p-1 bg-brand-600 text-white rounded"><Check size={12} strokeWidth={4}/></button>
-                                                    <button onClick={() => setIsAddingPayment(null)} className="p-1 text-slate-300"><X size={12}/></button>
+                                                    <button onClick={() => handleRegisterPayment(item.id)} className="w-9 h-9 bg-brand-600 text-white rounded-xl shadow-lg flex items-center justify-center active:scale-90 transition-all"><Check size={18} strokeWidth={4}/></button>
+                                                    <button onClick={() => setIsAddingPayment(null)} className="p-2 text-slate-400 active:scale-90"><X size={20}/></button>
                                                 </div>
                                               )}
                                            </>
-                                        ) : <span className="text-[10px] font-black text-slate-300 uppercase">N/A</span>}
+                                        ) : <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">N/A</span>}
                                     </div>
                                 </div>
                             </div>
                           )
                       })}
                   </div>
-                  <div className="p-8 border-t border-slate-100 bg-white pb-safe flex justify-end">
-                      <button onClick={() => setSelectedCustomer(null)} className="px-12 py-4 bg-slate-900 text-white font-black rounded-[1.5rem] active:scale-95 text-xs uppercase tracking-widest shadow-xl">Close Terminal</button>
+                  <div className="p-8 md:p-10 border-t border-slate-100 bg-white flex justify-end shadow-2xl">
+                      <button onClick={() => setSelectedCustomer(null)} className="w-full md:w-auto px-16 py-6 bg-slate-900 text-white font-black rounded-[2rem] active:scale-[0.98] transition-all text-sm uppercase tracking-[0.25em] shadow-xl border border-white/10">Terminate Session</button>
                   </div>
               </div>
           </div>
@@ -1128,32 +1127,12 @@ const Billing: React.FC<Props> = ({ user }) => {
          onConfirm={submitReturns}
          loading={processingReturns}
          variant="danger"
-         title="Process Stock Return?"
-         message={`You are about to process returns for ${fd(Object.keys(selectedReturns).length)} items. Total refund amount is ₹${totalRefundAmount.toLocaleString()}. This will add units back to inventory.`}
+         title="Authorize Bulk Return?"
+         message={`Safety Checkpoint: Confirming return logic for ${fd(Object.keys(selectedReturns).length)} items. Total refund credit: ₹${totalRefundAmount.toLocaleString()}.`}
          confirmLabel="Confirm Return"
        />
     </div>
   );
 };
-
-const RefreshCw: React.FC<{ size?: number; className?: string }> = ({ size = 24, className }) => (
-  <svg 
-    xmlns="http://www.w3.org/2000/svg" 
-    width={size} 
-    height={size} 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    stroke="currentColor" 
-    strokeWidth="2" 
-    strokeLinecap="round" 
-    strokeLinejoin="round" 
-    className={className}
-  >
-    <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-    <path d="M3 3v5h5" />
-    <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
-    <path d="M16 16h5v5" />
-  </svg>
-);
 
 export default Billing;
