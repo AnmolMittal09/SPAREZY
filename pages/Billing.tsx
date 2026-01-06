@@ -52,6 +52,7 @@ interface Props {
 type SortField = 'date' | 'amount';
 type SortOrder = 'asc' | 'desc';
 type ViewMode = 'LIST' | 'STACKED' | 'CUSTOMER';
+type ReturnViewMode = 'RECENT' | 'BY_CUSTOMER';
 
 interface GroupedBill {
   id: string; 
@@ -75,6 +76,7 @@ interface CustomerGroup {
 const Billing: React.FC<Props> = ({ user }) => {
   const [activeTab, setActiveTab] = useState<'NEW' | 'RETURN' | 'HISTORY'>('NEW');
   const [viewMode, setViewMode] = useState<ViewMode>('STACKED');
+  const [returnViewMode, setReturnViewMode] = useState<ReturnViewMode>('RECENT');
   const [history, setHistory] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [isSearchingOnMobile, setIsSearchingOnMobile] = useState(false);
@@ -84,6 +86,7 @@ const Billing: React.FC<Props> = ({ user }) => {
   const [selectedBill, setSelectedBill] = useState<GroupedBill | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerGroup | null>(null);
   const [showReturnConfirm, setShowReturnConfirm] = useState(false);
+  const [expandedCustomerReturn, setExpandedCustomerReturn] = useState<string | null>(null);
   
   // Payment tracking for modal
   const [isAddingPayment, setIsAddingPayment] = useState<string | null>(null);
@@ -395,6 +398,16 @@ const Billing: React.FC<Props> = ({ user }) => {
      (tx.customerName && tx.customerName.toLowerCase().includes(returnSearch.toLowerCase()))
   );
 
+  const groupedReturnsByCustomer = useMemo(() => {
+    const groups: Record<string, { name: string; transactions: Transaction[] }> = {};
+    filteredSalesLog.forEach(tx => {
+      const name = (tx.customerName || 'WALK-IN').toUpperCase().trim();
+      if (!groups[name]) groups[name] = { name, transactions: [] };
+      groups[name].transactions.push(tx);
+    });
+    return Object.values(groups).sort((a, b) => a.name.localeCompare(b.name));
+  }, [filteredSalesLog]);
+
   const totalRefundAmount = Object.keys(selectedReturns).reduce((acc, id) => {
      const tx = salesLog.find(s => s.id === id);
      return acc + (tx ? (tx.price * selectedReturns[id]) : 0);
@@ -468,9 +481,15 @@ const Billing: React.FC<Props> = ({ user }) => {
           {activeTab === 'RETURN' && (
              <div className="bg-[#F8FAFC] md:bg-white md:rounded-3xl shadow-soft border border-slate-100 flex flex-col h-full overflow-hidden">
                 <div className="p-4 md:p-6 border-b border-slate-100 bg-white flex flex-col md:flex-row justify-between items-center gap-4">
-                   <div className="flex items-center gap-3 text-rose-600 font-black text-base w-full md:w-auto">
-                      <div className="p-2 bg-rose-50 rounded-xl"><Undo2 size={20} /></div>
-                      SELECT ITEMS TO RETURN
+                   <div className="flex items-center gap-4 w-full md:w-auto">
+                      <div className="p-2 bg-rose-50 text-rose-600 rounded-xl"><Undo2 size={20} /></div>
+                      <div className="flex flex-col">
+                        <span className="font-black text-slate-900 text-base uppercase tracking-tight">Return Inventory</span>
+                        <div className="flex bg-slate-100 p-0.5 rounded-lg mt-1">
+                            <button onClick={() => setReturnViewMode('RECENT')} className={`px-3 py-1 rounded-md text-[9px] font-black uppercase transition-all ${returnViewMode === 'RECENT' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}>Recent Sales</button>
+                            <button onClick={() => setReturnViewMode('BY_CUSTOMER')} className={`px-3 py-1 rounded-md text-[9px] font-black uppercase transition-all ${returnViewMode === 'BY_CUSTOMER' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}>By Customer</button>
+                        </div>
+                      </div>
                    </div>
                    <div className="w-full md:w-auto flex-1 md:max-w-xs relative">
                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
@@ -487,63 +506,145 @@ const Billing: React.FC<Props> = ({ user }) => {
                 <div className="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar pb-32">
                    {loading ? (
                       <div className="flex justify-center p-12"><TharLoader /></div>
-                   ) : filteredSalesLog.length === 0 ? (
+                   ) : (returnViewMode === 'RECENT' ? filteredSalesLog : groupedReturnsByCustomer).length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-24 text-slate-300">
                          <AlertCircle size={64} className="mb-4 opacity-10" />
-                         <p className="font-black text-xs uppercase tracking-widest">No compatible sales found</p>
+                         <p className="font-black text-xs uppercase tracking-widest">No returnable entries found</p>
                       </div>
                    ) : (
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {filteredSalesLog.map(tx => {
-                            const isSelected = !!selectedReturns[tx.id];
-                            const prevReturned = alreadyReturnedMap.get(tx.id) || 0;
-                            const remainingQty = tx.quantity - prevReturned;
-                            const returnQty = selectedReturns[tx.id] || remainingQty;
+                        {returnViewMode === 'RECENT' ? (
+                          filteredSalesLog.map(tx => {
+                              const isSelected = !!selectedReturns[tx.id];
+                              const prevReturned = alreadyReturnedMap.get(tx.id) || 0;
+                              const remainingQty = tx.quantity - prevReturned;
+                              const returnQty = selectedReturns[tx.id] || remainingQty;
+                              
+                              return (
+                                  <div 
+                                      key={tx.id} 
+                                      onClick={() => handleReturnToggle(tx)}
+                                      className={`p-5 rounded-[2rem] border transition-all cursor-pointer bg-white ${isSelected ? 'border-rose-500 ring-2 ring-rose-500/10 shadow-lg' : 'border-slate-100 hover:border-slate-200 shadow-sm'}`}
+                                  >
+                                      <div className="flex justify-between items-start mb-4">
+                                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${isSelected ? 'bg-rose-50 border-rose-50 text-white' : 'bg-slate-50 border-slate-200 text-transparent'}`}>
+                                              <CheckCircle2 size={14} />
+                                          </div>
+                                          <div className="text-right">
+                                              <div className="text-[9px] font-black text-slate-400 uppercase mb-0.5">Sold On</div>
+                                              <div className="text-[11px] font-bold text-slate-900">{new Date(tx.createdAt).toLocaleDateString()}</div>
+                                          </div>
+                                      </div>
+
+                                      <div className="mb-4">
+                                          <div className="font-black text-lg text-slate-900 leading-tight">{tx.partNumber}</div>
+                                          <div className="text-[13px] text-slate-400 font-medium flex items-center gap-1.5 mt-1">
+                                              <UserIcon size={14} className="text-slate-300" /> {tx.customerName || 'Walk-in Customer'}
+                                          </div>
+                                      </div>
+
+                                      <div className="flex justify-between items-end border-t border-slate-50 pt-4">
+                                          <div className="space-y-1">
+                                              <div className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Original Sale</div>
+                                              <div className="font-black text-slate-900">{fd(tx.quantity)} <span className="text-[10px] text-slate-400">units</span></div>
+                                              <div className="text-[9px] font-black text-teal-600 bg-teal-50 px-1.5 py-0.5 rounded-md inline-block">Rem: {fd(remainingQty)}</div>
+                                          </div>
+
+                                          {isSelected && (
+                                              <div onClick={e => e.stopPropagation()} className="bg-rose-50 p-2 rounded-2xl border border-rose-100 flex flex-col items-center">
+                                                  <span className="text-[9px] font-black text-rose-500 uppercase mb-1">Return Qty</span>
+                                                  <div className="flex items-center gap-2 bg-white px-2 py-1 rounded-xl shadow-sm">
+                                                      <button onClick={() => handleReturnQtyChange(tx.id, remainingQty, (returnQty - 1).toString())} className="w-8 h-8 rounded-lg flex items-center justify-center text-rose-500"><Minus size={14}/></button>
+                                                      <span className="font-black text-slate-900 min-w-[20px] text-center">{fd(returnQty)}</span>
+                                                      <button onClick={() => handleReturnQtyChange(tx.id, remainingQty, (returnQty + 1).toString())} className="w-8 h-8 bg-rose-500 text-white rounded-lg flex items-center justify-center"><Plus size={14}/></button>
+                                                  </div>
+                                              </div>
+                                          )}
+                                      </div>
+                                  </div>
+                              )
+                          })
+                        ) : (
+                          groupedReturnsByCustomer.map(customer => {
+                            const isExpanded = expandedCustomerReturn === customer.name;
+                            const selectedCount = customer.transactions.filter(t => !!selectedReturns[t.id]).length;
                             
                             return (
+                              <div key={customer.name} className="col-span-1 md:col-span-2 lg:col-span-3">
                                 <div 
-                                    key={tx.id} 
-                                    onClick={() => handleReturnToggle(tx)}
-                                    className={`p-5 rounded-[2rem] border transition-all cursor-pointer bg-white ${isSelected ? 'border-rose-500 ring-2 ring-rose-500/10 shadow-lg' : 'border-slate-100 hover:border-slate-200 shadow-sm'}`}
+                                  onClick={() => setExpandedCustomerReturn(isExpanded ? null : customer.name)}
+                                  className={`p-6 rounded-3xl border bg-white shadow-soft flex items-center justify-between cursor-pointer transition-all ${isExpanded ? 'border-rose-200 bg-rose-50/20' : 'border-slate-100 hover:border-slate-300'}`}
                                 >
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${isSelected ? 'bg-rose-50 border-rose-50 text-white' : 'bg-slate-50 border-slate-200 text-transparent'}`}>
-                                            <CheckCircle2 size={14} />
-                                        </div>
-                                        <div className="text-right">
-                                            <div className="text-[9px] font-black text-slate-400 uppercase mb-0.5">Sold On</div>
-                                            <div className="text-[11px] font-bold text-slate-900">{new Date(tx.createdAt).toLocaleDateString()}</div>
-                                        </div>
+                                  <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-lg">
+                                      <UserIcon size={22} strokeWidth={2.5} />
                                     </div>
-
-                                    <div className="mb-4">
-                                        <div className="font-black text-lg text-slate-900 leading-tight">{tx.partNumber}</div>
-                                        <div className="text-[13px] text-slate-400 font-medium flex items-center gap-1.5 mt-1">
-                                            <UserIcon size={14} className="text-slate-300" /> {tx.customerName || 'Walk-in Customer'}
-                                        </div>
+                                    <div>
+                                      <h3 className="font-black text-lg text-slate-900 uppercase tracking-tight leading-tight">{customer.name}</h3>
+                                      <div className="flex items-center gap-3 mt-1">
+                                        <span className="text-[9px] font-black text-slate-400 bg-slate-100 px-2 py-0.5 rounded uppercase tracking-widest">{fd(customer.transactions.length)} Returnable Parts</span>
+                                        {selectedCount > 0 && <span className="text-[9px] font-black text-white bg-rose-600 px-2 py-0.5 rounded uppercase tracking-widest">{fd(selectedCount)} Selected</span>}
+                                      </div>
                                     </div>
+                                  </div>
+                                  <ChevronDown size={20} className={`text-slate-300 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                                </div>
 
-                                    <div className="flex justify-between items-end border-t border-slate-50 pt-4">
-                                        <div className="space-y-1">
-                                            <div className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Original Sale</div>
-                                            <div className="font-black text-slate-900">{fd(tx.quantity)} <span className="text-[10px] text-slate-400">units</span></div>
-                                            <div className="text-[9px] font-black text-teal-600 bg-teal-50 px-1.5 py-0.5 rounded-md inline-block">Rem: {fd(remainingQty)}</div>
-                                        </div>
+                                {isExpanded && (
+                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4 animate-fade-in p-2">
+                                    {customer.transactions.map(tx => {
+                                      const isSelected = !!selectedReturns[tx.id];
+                                      const prevReturned = alreadyReturnedMap.get(tx.id) || 0;
+                                      const remainingQty = tx.quantity - prevReturned;
+                                      const returnQty = selectedReturns[tx.id] || remainingQty;
 
-                                        {isSelected && (
-                                            <div onClick={e => e.stopPropagation()} className="bg-rose-50 p-2 rounded-2xl border border-rose-100 flex flex-col items-center">
-                                                <span className="text-[9px] font-black text-rose-500 uppercase mb-1">Return Qty</span>
-                                                <div className="flex items-center gap-2 bg-white px-2 py-1 rounded-xl shadow-sm">
-                                                    <button onClick={() => handleReturnQtyChange(tx.id, remainingQty, (returnQty - 1).toString())} className="w-8 h-8 rounded-lg flex items-center justify-center text-rose-500"><Minus size={14}/></button>
-                                                    <span className="font-black text-slate-900 min-w-[20px] text-center">{fd(returnQty)}</span>
-                                                    <button onClick={() => handleReturnQtyChange(tx.id, remainingQty, (returnQty + 1).toString())} className="w-8 h-8 bg-rose-500 text-white rounded-lg flex items-center justify-center"><Plus size={14}/></button>
+                                      return (
+                                        <div 
+                                          key={tx.id} 
+                                          onClick={() => handleReturnToggle(tx)}
+                                          className={`p-5 rounded-[2rem] border transition-all cursor-pointer bg-white ${isSelected ? 'border-rose-500 ring-2 ring-rose-500/10 shadow-lg' : 'border-slate-100 hover:border-slate-200 shadow-sm'}`}
+                                        >
+                                            <div className="flex justify-between items-start mb-4">
+                                                <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${isSelected ? 'bg-rose-50 border-rose-50 text-white' : 'bg-slate-50 border-slate-200 text-transparent'}`}>
+                                                    <CheckCircle2 size={14} />
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="text-[9px] font-black text-slate-400 uppercase mb-0.5">Sold On</div>
+                                                    <div className="text-[11px] font-bold text-slate-900">{new Date(tx.createdAt).toLocaleDateString()}</div>
                                                 </div>
                                             </div>
-                                        )}
-                                    </div>
-                                </div>
-                            )
-                        })}
+
+                                            <div className="mb-4">
+                                                <div className="font-black text-lg text-slate-900 leading-tight">{tx.partNumber}</div>
+                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Rate: ₹{tx.price.toLocaleString()}</p>
+                                            </div>
+
+                                            <div className="flex justify-between items-end border-t border-slate-50 pt-4">
+                                                <div className="space-y-1">
+                                                    <div className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Available</div>
+                                                    <div className="font-black text-slate-900">{fd(remainingQty)} <span className="text-[10px] text-slate-400">units</span></div>
+                                                </div>
+
+                                                {isSelected && (
+                                                    <div onClick={e => e.stopPropagation()} className="bg-rose-50 p-2 rounded-2xl border border-rose-100 flex flex-col items-center">
+                                                        <span className="text-[9px] font-black text-rose-500 uppercase mb-1">Return Qty</span>
+                                                        <div className="flex items-center gap-2 bg-white px-2 py-1 rounded-xl shadow-sm">
+                                                            <button onClick={() => handleReturnQtyChange(tx.id, remainingQty, (returnQty - 1).toString())} className="w-8 h-8 rounded-lg flex items-center justify-center text-rose-500"><Minus size={14}/></button>
+                                                            <span className="font-black text-slate-900 min-w-[20px] text-center">{fd(returnQty)}</span>
+                                                            <button onClick={() => handleReturnQtyChange(tx.id, remainingQty, (returnQty + 1).toString())} className="w-8 h-8 bg-rose-500 text-white rounded-lg flex items-center justify-center"><Plus size={14}/></button>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })
+                        )}
                       </div>
                    )}
                 </div>
