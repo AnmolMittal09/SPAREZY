@@ -567,6 +567,7 @@ const Billing: React.FC<Props> = ({ user }) => {
                               const prevReturned = alreadyReturnedMap.get(tx.id) || 0;
                               const remainingQty = tx.quantity - prevReturned;
                               const returnQty = selectedReturns[tx.id] || remainingQty;
+                              const part = inventory.find(i => i.partNumber.toLowerCase() === tx.partNumber.toLowerCase());
                               
                               return (
                                   <div 
@@ -585,8 +586,9 @@ const Billing: React.FC<Props> = ({ user }) => {
                                       </div>
 
                                       <div className="mb-4">
-                                          <div className="font-black text-lg text-slate-900 leading-tight">{tx.partNumber}</div>
-                                          <div className="text-[13px] text-slate-400 font-medium flex items-center gap-1.5 mt-1">
+                                          <div className="font-black text-lg text-slate-900 leading-tight uppercase">{tx.partNumber}</div>
+                                          {part && <div className="text-[10px] text-slate-400 font-bold uppercase truncate mt-0.5">{part.name}</div>}
+                                          <div className="text-[13px] text-slate-400 font-medium flex items-center gap-1.5 mt-2">
                                               <UserIcon size={14} className="text-slate-300" /> {tx.customerName || 'Walk-in Customer'}
                                           </div>
                                       </div>
@@ -645,6 +647,7 @@ const Billing: React.FC<Props> = ({ user }) => {
                                       const prevReturned = alreadyReturnedMap.get(tx.id) || 0;
                                       const remainingQty = tx.quantity - prevReturned;
                                       const returnQty = selectedReturns[tx.id] || remainingQty;
+                                      const part = inventory.find(i => i.partNumber.toLowerCase() === tx.partNumber.toLowerCase());
 
                                       return (
                                         <div 
@@ -663,8 +666,9 @@ const Billing: React.FC<Props> = ({ user }) => {
                                             </div>
 
                                             <div className="mb-4">
-                                                <div className="font-black text-lg text-slate-900 leading-tight">{tx.partNumber}</div>
-                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Rate: ₹{tx.price.toLocaleString()}</p>
+                                                <div className="font-black text-lg text-slate-900 leading-tight uppercase">{tx.partNumber}</div>
+                                                {part && <div className="text-[10px] text-slate-400 font-bold uppercase truncate mt-0.5">{part.name}</div>}
+                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2">Rate: ₹{tx.price.toLocaleString()}</p>
                                             </div>
 
                                             <div className="flex justify-between items-end border-t border-slate-50 pt-4">
@@ -789,7 +793,7 @@ const Billing: React.FC<Props> = ({ user }) => {
                                         <div className="space-y-1">
                                             <div className="font-black text-slate-900 text-base leading-tight group-hover:text-brand-600 transition-colors uppercase">{tx.partNumber}</div>
                                             {part && <div className="text-[10px] text-slate-400 font-bold uppercase truncate mt-0.5">{part.name}</div>}
-                                            <div className="flex flex-col text-slate-400 text-[10px] font-bold">
+                                            <div className="flex flex-col text-slate-400 text-[10px] font-bold mt-2">
                                                 <div className="flex items-center gap-1.5"><Calendar size={10} /> {new Date(tx.createdAt).toLocaleDateString()}</div>
                                                 <div className="flex items-center gap-1.5 mt-0.5"><Clock size={10} /> {new Date(tx.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
                                             </div>
