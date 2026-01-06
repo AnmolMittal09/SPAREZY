@@ -34,7 +34,10 @@ import {
   User as UserIcon,
   Users,
   Search,
-  RotateCcw
+  RotateCcw,
+  FileSpreadsheet,
+  /* AlertSquare removed as it does not exist in lucide-react and is not used in this file */
+  Sparkles
 } from 'lucide-react';
 import { fetchTransactions, createBulkTransactions } from '../services/transactionService';
 import { fetchInventory, updateOrAddItems } from '../services/inventoryService';
@@ -80,7 +83,6 @@ interface QueuedFile {
 
 const Purchases: React.FC<Props> = ({ user }) => {
   const [activeTab, setActiveTab] = useState<'NEW' | 'IMPORT' | 'HISTORY'>('NEW');
-  // Removed viewMode state as per user request to simplify and show "direct supplier name tab"
   const [history, setHistory] = useState<Transaction[]>([]);
   const [inventory, setInventory] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -114,14 +116,13 @@ const Purchases: React.FC<Props> = ({ user }) => {
     const q = historySearch.toLowerCase();
     return history.filter(tx => 
       tx.partNumber.toLowerCase().includes(q) || 
-      tx.customerName.toLowerCase().includes(q)
+      (tx.customerName && tx.customerName.toLowerCase().includes(q))
     );
   }, [history, historySearch]);
 
   const stackedHistory = useMemo(() => {
     const groups: Record<string, GroupedInbound> = {};
     filteredHistory.forEach(tx => {
-       // We group by createdAt and customerName to separate unique invoice/scan batches
        const key = `${tx.createdAt}_${tx.customerName}`;
        if (!groups[key]) {
          groups[key] = {
@@ -143,6 +144,22 @@ const Purchases: React.FC<Props> = ({ user }) => {
     });
     return result;
   }, [filteredHistory, sortOrder]);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    const newQueued: QueuedFile[] = Array.from(files).map((f: File) => ({
+        id: Math.random().toString(36).substring(7),
+        file: f,
+        preview: URL.createObjectURL(f)
+    }));
+    setQueuedFiles(prev => [...prev, ...newQueued]);
+    e.target.value = '';
+  };
+
+  const removeQueuedFile = (id: string) => {
+    setQueuedFiles(prev => prev.filter(f => f.id !== id));
+  };
 
   const startAiAudit = async () => {
     if (queuedFiles.length === 0) return;
@@ -278,6 +295,146 @@ const Purchases: React.FC<Props> = ({ user }) => {
        <div className="flex-1 overflow-hidden flex flex-col relative">
           {activeTab === 'NEW' && <DailyTransactions user={user} forcedMode="PURCHASE" onSearchToggle={setIsSearchingOnMobile} />}
 
+          {activeTab === 'IMPORT' && (
+             <div className="flex-1 overflow-y-auto p-4 md:p-10 space-y-8 no-scrollbar bg-white md:rounded-[2.5rem] shadow-soft border border-slate-100">
+                {!previewData.length && !importLog && (
+                  <div className="max-w-2xl mx-auto space-y-8">
+                     <div className="bg-blue-50/50 border-2 border-dashed border-blue-200 rounded-[2.5rem] p-12 text-center group hover:bg-blue-50 transition-all cursor-pointer relative overflow-hidden">
+                        <input type="file" multiple accept="image/*, application/pdf, .xlsx, .csv" onChange={handleFileSelect} className="absolute inset-0 opacity-0 cursor-pointer z-10" />
+                        <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center text-blue-600 shadow-xl shadow-blue-100 mx-auto mb-6 group-hover:scale-110 transition-transform">
+                           <Upload size={32} />
+                        </div>
+                        <h3 className="text-xl font-black text-slate-900 uppercase mb-2">Drop Original Invoices</h3>
+                        <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Images, PDFs or Vendor Excel Spreadsheets</p>
+                     </div>
+
+                     {queuedFiles.length > 0 && (
+                        <div className="space-y-4 animate-fade-in">
+                           <div className="flex items-center justify-between px-2">
+                              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Queue ({queuedFiles.length})</span>
+                              <button onClick={() => setQueuedFiles([])} className="text-[10px] font-black text-rose-500 uppercase tracking-widest">Clear All</button>
+                           </div>
+                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                              {queuedFiles.map(q => (
+                                 <div key={q.id} className="relative aspect-square bg-slate-50 rounded-2xl border border-slate-200 overflow-hidden group">
+                                    {q.file.type.startsWith('image/') ? (
+                                       <img src={q.preview} className="w-full h-full object-cover" />
+                                    ) : (
+                                       <div className="w-full h-full flex flex-col items-center justify-center gap-2 p-4 text-center">
+                                          <FileText className="text-slate-300" size={32} />
+                                          <span className="text-[9px] font-black text-slate-500 uppercase truncate w-full">{q.file.name}</span>
+                                       </div>
+                                    )}
+                                    <button onClick={() => removeQueuedFile(q.id)} className="absolute top-2 right-2 p-1.5 bg-rose-600 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"><X size={12}/></button>
+                                 </div>
+                              ))}
+                           </div>
+                           <button 
+                             onClick={startAiAudit}
+                             disabled={importing}
+                             className="w-full bg-blue-600 text-white font-black py-5 rounded-2xl flex items-center justify-center gap-4 shadow-xl shadow-blue-200 active:scale-[0.98] transition-all uppercase text-sm tracking-widest disabled:opacity-50"
+                           >
+                              {importing ? <Loader2 className="animate-spin" size={24} /> : <ScanLine size={24} strokeWidth={2.5} />}
+                              {importing ? 'Scanning Assets...' : 'Run Vision Audit'}
+                           </button>
+                        </div>
+                     )}
+                  </div>
+                )}
+
+                {previewData.length > 0 && (
+                  <div className="animate-fade-in space-y-6">
+                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-900 p-8 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/10 rounded-full -mr-24 -mt-24 blur-3xl"></div>
+                        <div className="flex items-center gap-6 relative z-10">
+                           <div className="w-16 h-16 bg-blue-600 rounded-3xl flex items-center justify-center shadow-xl shadow-blue-500/20"><Sparkles size={28} strokeWidth={2.5} /></div>
+                           <div>
+                              <h3 className="text-2xl font-black tracking-tight uppercase leading-none mb-2">{extractedMetadata.dealerName || 'Extracted Dealer'}</h3>
+                              <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-blue-400">
+                                 <Calendar size={14} /> {extractedMetadata.invoiceDate || 'No Date'}
+                                 <span className="text-white/20">•</span>
+                                 <Layers size={14} /> {fd(previewData.length)} Assets Logged
+                              </div>
+                           </div>
+                        </div>
+                        <div className="flex gap-3 relative z-10 w-full md:w-auto">
+                           <button onClick={() => { setPreviewData([]); setQueuedFiles([]); }} className="flex-1 md:flex-none px-8 py-4 bg-white/10 hover:bg-white/20 rounded-2xl font-black text-xs uppercase tracking-widest transition-all">Cancel</button>
+                           <button onClick={confirmBulkImport} disabled={importing} className="flex-1 md:flex-none px-12 py-4 bg-blue-600 hover:bg-blue-50 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3">
+                              {importing ? <Loader2 className="animate-spin" size={18} /> : <CheckCircle2 size={18} />}
+                              {importing ? 'Synchronizing...' : 'Sync to Ledger'}
+                           </button>
+                        </div>
+                     </div>
+
+                     <div className="bg-white border border-slate-200 rounded-[2.5rem] overflow-hidden shadow-soft">
+                        <table className="w-full text-left text-sm border-collapse">
+                           <thead className="bg-slate-50 text-slate-400 font-black uppercase text-[9px] tracking-[0.2em] border-b border-slate-100">
+                              <tr>
+                                 <th className="px-8 py-6">Identity / Part</th>
+                                 <th className="px-8 py-6 text-center">Batch Qty</th>
+                                 <th className="px-8 py-6 text-right">Extracted B.DC</th>
+                                 <th className="px-8 py-6 text-right">Printed Net</th>
+                                 <th className="px-8 py-6 text-right">Protocol Audit</th>
+                              </tr>
+                           </thead>
+                           <tbody className="divide-y divide-slate-50">
+                              {previewData.map((item, idx) => (
+                                 <tr key={idx} className={`hover:bg-slate-50/50 transition-colors ${item.hasError ? 'bg-rose-50/20' : ''}`}>
+                                    <td className="px-8 py-6">
+                                       <div className="font-black text-slate-900 text-base uppercase tracking-tight mb-1">{item.partNumber}</div>
+                                       <div className="text-[11px] text-slate-400 font-bold uppercase truncate max-w-xs">{item.name}</div>
+                                    </td>
+                                    <td className="px-8 py-6 text-center font-black text-slate-900 text-lg tabular-nums">#{fd(item.quantity)}</td>
+                                    <td className="px-8 py-6 text-right">
+                                       <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border ${item.discountPercent < 12 ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-teal-50 text-teal-600 border-teal-100'}`}>
+                                          {item.discountPercent.toFixed(1)}% OFF
+                                       </span>
+                                    </td>
+                                    <td className="px-8 py-6 text-right font-black text-slate-900 text-lg tabular-nums">₹{item.printedUnitPrice.toLocaleString()}</td>
+                                    <td className="px-8 py-6 text-right">
+                                       {item.hasError ? (
+                                          <div className="flex flex-col items-end gap-1">
+                                             <div className="flex items-center gap-1.5 text-rose-600 text-[10px] font-black uppercase tracking-widest">
+                                                <AlertTriangle size={14} /> Protocol Break
+                                             </div>
+                                             <span className="text-[8px] font-bold text-slate-400 uppercase">Yield Loss: ₹{item.diff.toFixed(2)} / Unit</span>
+                                          </div>
+                                       ) : (
+                                          <div className="flex items-center justify-end gap-1.5 text-teal-600 text-[10px] font-black uppercase tracking-widest">
+                                             <ShieldCheck size={14} /> Verified
+                                          </div>
+                                       )}
+                                    </td>
+                                 </tr>
+                              ))}
+                           </tbody>
+                        </table>
+                     </div>
+                  </div>
+                )}
+
+                {importLog && (
+                  <div className="max-w-xl mx-auto bg-white p-10 rounded-[3rem] border border-slate-100 shadow-premium text-center animate-slide-up">
+                     <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-8 shadow-xl ${importLog.success ? 'bg-teal-50 text-teal-600 shadow-teal-100' : 'bg-rose-50 text-rose-600 shadow-rose-100'}`}>
+                        {importLog.success ? <Check size={40} strokeWidth={4} /> : <AlertCircle size={40} strokeWidth={4} />}
+                     </div>
+                     <h3 className="text-3xl font-black text-slate-900 tracking-tight uppercase mb-4">{importLog.message}</h3>
+                     <div className="grid grid-cols-2 gap-4 mb-10">
+                        <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
+                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Asset Volume</p>
+                           <p className="text-2xl font-black text-slate-900">{fd(importLog.count)} SKUs</p>
+                        </div>
+                        <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
+                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Grand Value</p>
+                           <p className="text-2xl font-black text-slate-900">₹{importLog.totalValue.toLocaleString()}</p>
+                        </div>
+                     </div>
+                     <button onClick={() => setImportLog(null)} className="w-full bg-slate-900 text-white font-black py-5 rounded-2xl active:scale-95 transition-all text-sm uppercase tracking-widest shadow-xl">Complete Workflow</button>
+                  </div>
+                )}
+             </div>
+          )}
+
           {activeTab === 'HISTORY' && (
              <div className="bg-slate-50 md:bg-white md:rounded-[2.5rem] shadow-soft border border-slate-100 flex flex-col h-full overflow-hidden">
                 <div className="p-4 md:p-8 border-b border-slate-100 bg-white flex flex-col md:flex-row justify-between items-center gap-4 sticky top-0 z-10">
@@ -289,7 +446,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
                       </div>
                    </div>
                    <div className="flex gap-2 w-full md:w-auto px-1">
-                      <div className="relative flex-1 md:w-72">
+                      <div className="relative flex-1 md:w-64">
                          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
                          <input 
                             type="text" 
