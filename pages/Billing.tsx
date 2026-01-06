@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
-import { User, Transaction, TransactionStatus, TransactionType, Role } from '../types';
+import { User, Transaction, TransactionStatus, TransactionType, Role, StockItem } from '../types';
 import DailyTransactions from './DailyTransactions'; 
 import { 
   History, 
@@ -33,9 +32,14 @@ import {
   Wallet,
   FileDown,
   RotateCcw,
-  Download
+  Download,
+  ExternalLink,
+  ClipboardList,
+  FileSpreadsheet,
+  Check
 } from 'lucide-react';
 import { createBulkTransactions, fetchTransactions, updateTransactionPayment } from '../services/transactionService';
+import { fetchInventory } from '../services/inventoryService';
 import TharLoader from '../components/TharLoader';
 import ConfirmModal from '../components/ConfirmModal';
 import * as XLSX from 'xlsx';
@@ -78,6 +82,7 @@ const Billing: React.FC<Props> = ({ user }) => {
   const [viewMode, setViewMode] = useState<ViewMode>('STACKED');
   const [returnViewMode, setReturnViewMode] = useState<ReturnViewMode>('RECENT');
   const [history, setHistory] = useState<Transaction[]>([]);
+  const [inventory, setInventory] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [isSearchingOnMobile, setIsSearchingOnMobile] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
@@ -108,6 +113,11 @@ const Billing: React.FC<Props> = ({ user }) => {
   const [selectedReturns, setSelectedReturns] = useState<Record<string, number>>({}); 
   const [processingReturns, setProcessingReturns] = useState(false);
   const [alreadyReturnedMap, setAlreadyReturnedMap] = useState<Map<string, number>>(new Map());
+
+  useEffect(() => {
+    // Load inventory for name resolution on mount
+    fetchInventory().then(setInventory);
+  }, []);
 
   useEffect(() => {
     if (activeTab === 'HISTORY') {
@@ -145,6 +155,17 @@ const Billing: React.FC<Props> = ({ user }) => {
                   items: updatedItems,
                   totalPaid: updatedItems.reduce((s, i) => s + i.paidAmount, 0)
               });
+          }
+          if (selectedCustomer) {
+            const updatedTx = selectedCustomer.transactions.map(t => t.id === txId ? {...t, paidAmount: val} : t);
+            const totalSpent = updatedTx.reduce((acc, t) => acc + (t.type === TransactionType.SALE ? (t.price * t.quantity) : -(t.price * t.quantity)), 0);
+            const totalPaid = updatedTx.reduce((acc, t) => acc + (t.type === TransactionType.SALE ? (t.paidAmount || 0) : -(t.paidAmount || 0)), 0);
+            setSelectedCustomer({
+                ...selectedCustomer,
+                transactions: updatedTx,
+                totalSpent,
+                totalPaid
+            });
           }
       } else alert("Error updating payment: " + res.message);
       setSubmittingPayment(false);
@@ -318,11 +339,12 @@ const Billing: React.FC<Props> = ({ user }) => {
     const dataToExport = pending.map(tx => {
       const total = tx.price * tx.quantity;
       const paid = tx.paidAmount || 0;
+      const part = inventory.find(i => i.partNumber.toLowerCase() === tx.partNumber.toLowerCase());
       return {
         'Date': new Date(tx.createdAt).toLocaleDateString(),
         'Time': new Date(tx.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         'Customer Name': tx.customerName || 'Walk-in',
-        'Part Number': tx.partNumber,
+        'Part Name': part?.name || 'GENUINE SPARE PART',
         'Quantity': tx.quantity,
         'Billed Amount': total,
         'Amount Received': paid,
@@ -342,10 +364,11 @@ const Billing: React.FC<Props> = ({ user }) => {
     const dataToExport = customer.transactions.map(tx => {
       const amount = tx.price * tx.quantity;
       const paid = tx.paidAmount || 0;
+      const part = inventory.find(i => i.partNumber.toLowerCase() === tx.partNumber.toLowerCase());
       return {
         'Date': new Date(tx.createdAt).toLocaleDateString(),
         'Time': new Date(tx.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        'Part Number': tx.partNumber,
+        'Part Name': part?.name || 'GENUINE SPARE PART',
         'Type': tx.type,
         'Quantity': tx.type === TransactionType.RETURN ? -tx.quantity : tx.quantity,
         'Total Billed': tx.type === TransactionType.RETURN ? -amount : amount,
@@ -358,6 +381,31 @@ const Billing: React.FC<Props> = ({ user }) => {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Customer_Ledger");
     XLSX.writeFile(wb, `Sparezy_Ledger_${customer.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  const handleExportCustomerPendingDues = (customer: CustomerGroup) => {
+    const pendingTxs = customer.transactions.filter(tx => tx.type === TransactionType.SALE && (tx.paidAmount || 0) < (tx.price * tx.quantity));
+    
+    if (pendingTxs.length === 0) return alert("This customer has no pending dues.");
+
+    const dataToExport = pendingTxs.map(tx => {
+      const total = tx.price * tx.quantity;
+      const paid = tx.paidAmount || 0;
+      const part = inventory.find(i => i.partNumber.toLowerCase() === tx.partNumber.toLowerCase());
+      return {
+        'Date': new Date(tx.createdAt).toLocaleDateString(),
+        'Part Name': part?.name || 'GENUINE SPARE PART',
+        'Quantity': tx.quantity,
+        'Billed Amount': total,
+        'Amount Received': paid,
+        'Pending Balance': total - paid
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Outstanding_Dues");
+    XLSX.writeFile(wb, `Dues_${customer.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   const submitReturns = async () => {
@@ -685,10 +733,10 @@ const Billing: React.FC<Props> = ({ user }) => {
                       <button 
                         onClick={handleExportPendingPayments}
                         className="p-2 rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-amber-600 transition-all shadow-sm active:scale-95 flex items-center gap-2 px-4 whitespace-nowrap"
-                        title="Export Pending Payments"
+                        title="Export All Pending Collections"
                       >
                         <FileDown size={16} />
-                        <span className="text-[10px] font-black uppercase tracking-widest">Export Dues</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest">Global Dues</span>
                       </button>
 
                       <div className="relative flex-1 md:w-64">
@@ -959,6 +1007,128 @@ const Billing: React.FC<Props> = ({ user }) => {
                           </div>
                           <button onClick={() => setSelectedBill(null)} className="px-10 py-4 bg-slate-100 text-slate-600 font-black rounded-2xl active:scale-95 text-[11px] uppercase tracking-widest">Close</button>
                       </div>
+                  </div>
+              </div>
+          </div>
+       )}
+
+       {/* CUSTOMER LEDGER MODAL */}
+       {selectedCustomer && (
+          <div className="fixed inset-0 z-[200] bg-slate-900/60 backdrop-blur-md flex items-end md:items-center justify-center animate-fade-in md:p-10">
+              <div className="bg-white w-full max-w-4xl rounded-t-[2.5rem] md:rounded-[3rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-slide-up">
+                  <div className="p-8 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center bg-slate-50/40 gap-6">
+                      <div className="flex items-center gap-5">
+                          <button onClick={() => setSelectedCustomer(null)} className="p-3 bg-white text-slate-400 rounded-2xl shadow-soft border border-slate-100 active:scale-90 transition-all"><ArrowLeft size={22}/></button>
+                          <div>
+                              <h3 className="font-black text-slate-900 text-2xl tracking-tight leading-none mb-1.5 uppercase truncate max-w-[280px]">{selectedCustomer.name}</h3>
+                              <div className="flex items-center gap-3 text-slate-400 text-[10px] font-black uppercase tracking-widest">
+                                  <Clock size={12}/> Last Purchase: {new Date(selectedCustomer.lastPurchase).toLocaleDateString()}
+                              </div>
+                          </div>
+                      </div>
+                      <div className="flex gap-2 w-full md:w-auto">
+                        <button 
+                            onClick={() => handleExportCustomerLedger(selectedCustomer)}
+                            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all active:scale-95 shadow-sm"
+                        >
+                            <FileSpreadsheet size={16} className="text-teal-600" /> Export Ledger
+                        </button>
+                        <button 
+                            onClick={() => handleExportCustomerPendingDues(selectedCustomer)}
+                            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-3 bg-rose-50 border border-rose-100 text-rose-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all active:scale-95 shadow-sm"
+                        >
+                            <AlertCircle size={16} /> Export Dues
+                        </button>
+                      </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 bg-slate-50/20 border-b border-slate-100">
+                    <div className="p-6 border-r border-slate-100">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Lifetime Spent</p>
+                        <p className="text-2xl font-black text-slate-900">₹{selectedCustomer.totalSpent.toLocaleString()}</p>
+                    </div>
+                    <div className="p-6 border-r border-slate-100">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Lifetime Paid</p>
+                        <p className="text-2xl font-black text-teal-600">₹{selectedCustomer.totalPaid.toLocaleString()}</p>
+                    </div>
+                    <div className="p-6 bg-rose-50/30">
+                        <p className="text-[9px] font-black text-rose-400 uppercase tracking-widest mb-1">Outstanding Balance</p>
+                        <p className="text-2xl font-black text-rose-600">₹{(selectedCustomer.totalSpent - selectedCustomer.totalPaid).toLocaleString()}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto p-4 md:p-8 no-scrollbar space-y-4">
+                      <div className="hidden md:grid grid-cols-6 gap-4 px-4 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest mb-4">
+                         <div className="col-span-1">Date</div>
+                         <div className="col-span-2">Part & Description</div>
+                         <div className="col-span-1 text-center">Type</div>
+                         <div className="col-span-1 text-right">Value</div>
+                         <div className="col-span-1 text-right">Balance</div>
+                      </div>
+                      
+                      {selectedCustomer.transactions.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((item) => {
+                          const isReturn = item.type === TransactionType.RETURN;
+                          const total = item.price * item.quantity;
+                          const balance = total - (item.paidAmount || 0);
+                          const isFullyPaid = balance <= 0;
+                          const isAddingToThis = isAddingPayment === item.id;
+
+                          return (
+                            <div key={item.id} className="p-5 bg-white border border-slate-100 rounded-[1.75rem] shadow-soft hover:shadow-premium transition-all">
+                                <div className="grid grid-cols-1 md:grid-cols-6 gap-4 md:items-center">
+                                    <div className="col-span-1 flex items-center gap-3">
+                                        <div className="p-2 bg-slate-50 rounded-lg md:hidden"><Calendar size={14} className="text-slate-400" /></div>
+                                        <span className="text-[11px] font-bold text-slate-500">{new Date(item.createdAt).toLocaleDateString()}</span>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <p className="font-black text-slate-900 text-sm md:text-base uppercase tracking-tight">{item.partNumber}</p>
+                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Qty: {fd(item.quantity)} @ ₹{item.price.toLocaleString()}</span>
+                                    </div>
+                                    <div className="col-span-1 flex md:justify-center">
+                                        <span className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest border ${isReturn ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-teal-50 text-teal-600 border-teal-100'}`}>
+                                            {item.type}
+                                        </span>
+                                    </div>
+                                    <div className="col-span-1 text-right">
+                                        <p className={`font-black text-sm md:text-base ${isReturn ? 'text-rose-600' : 'text-slate-900'}`}>₹{total.toLocaleString()}</p>
+                                    </div>
+                                    <div className="col-span-1 flex flex-col items-end">
+                                        {!isReturn ? (
+                                           <>
+                                              <span className={`text-[10px] font-black uppercase tracking-tighter ${isFullyPaid ? 'text-teal-600' : 'text-rose-600'}`}>
+                                                 {isFullyPaid ? 'Settled' : `Owed: ₹${balance.toLocaleString()}`}
+                                              </span>
+                                              {!isFullyPaid && !isAddingToThis && (
+                                                <button 
+                                                    onClick={() => { setIsAddingPayment(item.id); setNewPaidVal(item.paidAmount.toString()); }}
+                                                    className="mt-2 text-[8px] font-black text-blue-600 uppercase border border-blue-200 px-2 py-0.5 rounded hover:bg-blue-50 transition-all"
+                                                >
+                                                    Register Payment
+                                                </button>
+                                              )}
+                                              {isAddingToThis && (
+                                                <div className="mt-2 flex items-center gap-2 animate-slide-up">
+                                                    <input 
+                                                        autoFocus
+                                                        type="number"
+                                                        className="w-20 px-2 py-1 bg-slate-100 border border-brand-200 rounded text-xs font-black outline-none"
+                                                        value={newPaidVal}
+                                                        onChange={e => setNewPaidVal(e.target.value)}
+                                                    />
+                                                    <button onClick={() => handleRegisterPayment(item.id)} className="p-1 bg-brand-600 text-white rounded"><Check size={12} strokeWidth={4}/></button>
+                                                    <button onClick={() => setIsAddingPayment(null)} className="p-1 text-slate-300"><X size={12}/></button>
+                                                </div>
+                                              )}
+                                           </>
+                                        ) : <span className="text-[10px] font-black text-slate-300 uppercase">N/A</span>}
+                                    </div>
+                                </div>
+                            </div>
+                          )
+                      })}
+                  </div>
+                  <div className="p-8 border-t border-slate-100 bg-white pb-safe flex justify-end">
+                      <button onClick={() => setSelectedCustomer(null)} className="px-12 py-4 bg-slate-900 text-white font-black rounded-[1.5rem] active:scale-95 text-xs uppercase tracking-widest shadow-xl">Close Terminal</button>
                   </div>
               </div>
           </div>
