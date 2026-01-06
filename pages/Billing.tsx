@@ -714,7 +714,7 @@ const Billing: React.FC<Props> = ({ user }) => {
                                             <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{fd(bill.items.length)} Parts</span>
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-[18px] font-black tracking-tighter tabular-nums ${isReturn ? 'text-rose-600' : 'text-slate-900'}">
+                                            <p className={`text-[18px] font-black tracking-tighter tabular-nums ${isReturn ? 'text-rose-600' : 'text-slate-900'}`}>
                                                 ₹{bill.totalAmount.toLocaleString()}
                                             </p>
                                         </div>
@@ -726,6 +726,7 @@ const Billing: React.FC<Props> = ({ user }) => {
                         customerHistory.map(cust => {
                           const isFullySettled = cust.totalPaid >= cust.totalSpent;
                           const balance = cust.totalSpent - cust.totalPaid;
+                          const isAdvance = balance < 0;
 
                           return (
                             <div 
@@ -739,9 +740,9 @@ const Billing: React.FC<Props> = ({ user }) => {
                                         <UserIcon size={20} strokeWidth={2.5} />
                                     </div>
                                     <div className="text-right">
-                                        <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-1">Balance</p>
-                                        <p className={`text-xl font-black tracking-tighter ${balance > 0 ? 'text-rose-600' : 'text-teal-600'}`}>
-                                            ₹{balance.toLocaleString()}
+                                        <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-1">{isAdvance ? 'Advance Credit' : 'Balance'}</p>
+                                        <p className={`text-xl font-black tracking-tighter ${isAdvance ? 'text-teal-600' : balance > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
+                                            ₹{Math.abs(balance).toLocaleString()}{isAdvance ? ' +' : ''}
                                         </p>
                                     </div>
                                 </div>
@@ -752,8 +753,8 @@ const Billing: React.FC<Props> = ({ user }) => {
                                     </div>
                                 </div>
                                 <div className="pt-5 border-t border-slate-50 flex items-center justify-between relative z-10">
-                                    <div className={`text-[9px] font-black uppercase tracking-widest ${isFullySettled ? 'text-teal-600' : 'text-rose-500'}`}>
-                                        {isFullySettled ? 'Settled' : 'Unpaid Dues'}
+                                    <div className={`text-[9px] font-black uppercase tracking-widest ${isAdvance ? 'text-teal-600 font-black' : isFullySettled ? 'text-slate-400' : 'text-rose-500'}`}>
+                                        {isAdvance ? 'CREDIT BALANCE' : isFullySettled ? 'Settled' : 'Unpaid Dues'}
                                     </div>
                                     <ChevronRight size={16} className="text-slate-200" />
                                 </div>

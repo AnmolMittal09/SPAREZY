@@ -32,7 +32,8 @@ import {
   CheckCircle2,
   CreditCard,
   CircleSlash,
-  ChevronRight
+  ChevronRight,
+  Edit2
 } from 'lucide-react';
 import ConfirmModal from '../components/ConfirmModal';
 
@@ -277,6 +278,22 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
           ...item, 
           discount: disc,
           price: item.mrp * (1 - disc / 100)
+        };
+      }
+      return item;
+    }));
+  };
+
+  const updateUnitPrice = (id: string, newPrice: number) => {
+    setCart(prev => prev.map(item => {
+      if (item.tempId === id) {
+        const price = Math.max(0, newPrice);
+        // Calculate the relative discount for transparency
+        const disc = item.mrp > 0 ? ((item.mrp - price) / item.mrp) * 100 : 0;
+        return { 
+          ...item, 
+          price: price,
+          discount: parseFloat(disc.toFixed(2))
         };
       }
       return item;
@@ -637,8 +654,9 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                                 </div>
                             </div>
                             
-                            <div className="flex flex-col gap-3 pt-4 border-t border-white/5">
-                                <div className="flex items-center justify-between">
+                            <div className="flex flex-col gap-4 pt-4 border-t border-white/5">
+                                <div className="flex flex-wrap items-center gap-4">
+                                    {/* QTY Control */}
                                     <div className="flex items-center gap-4 bg-white/5 p-2 rounded-2xl">
                                         <button onClick={() => updateQty(item.tempId, -1)} className="w-9 h-9 bg-white/10 rounded-xl flex items-center justify-center hover:bg-white/20 active:scale-90 transition-all"><Minus size={16} strokeWidth={3}/></button>
                                         <input 
@@ -650,6 +668,20 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                                         />
                                         <button onClick={() => updateQty(item.tempId, 1)} className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center hover:bg-blue-50 active:scale-90 transition-all"><Plus size={16} strokeWidth={3}/></button>
                                     </div>
+
+                                    {/* Custom Price Control */}
+                                    <div className="flex-1 flex items-center gap-3 bg-white/5 p-2 px-4 rounded-2xl border border-white/5 min-w-[120px]">
+                                        <span className="text-[9px] font-black text-white/40 uppercase tracking-widest whitespace-nowrap">Unit ₹</span>
+                                        <input 
+                                          type="number"
+                                          className="w-full bg-transparent text-white font-black outline-none text-right"
+                                          value={item.price}
+                                          onChange={(e) => updateUnitPrice(item.tempId, parseFloat(e.target.value) || 0)}
+                                          onFocus={(e) => e.target.select()}
+                                        />
+                                    </div>
+
+                                    {/* Discount Control */}
                                     <div className="flex items-center gap-3 bg-white/5 p-2 px-4 rounded-2xl border border-white/5">
                                         <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Disc %</span>
                                         <input 
@@ -660,6 +692,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                                           onFocus={(e) => e.target.select()}
                                         />
                                     </div>
+
                                     <button onClick={() => removeItem(item.tempId)} className="text-white/20 hover:text-rose-400 p-2.5 rounded-2xl transition-all ml-auto"><Trash2 size={20}/></button>
                                 </div>
                             </div>
@@ -730,33 +763,46 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                                </div>
                            </div>
                            
-                           <div className="flex items-center justify-between border-t border-slate-50 pt-5">
-                               <button onClick={() => removeItem(item.tempId)} className="p-3 text-rose-500 bg-rose-50 rounded-xl active:scale-90 transition-all">
-                                  <Trash2 size={20} />
-                               </button>
-                               
-                               <div className="flex items-center gap-4">
-                                   <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100 shadow-inner-soft">
+                           <div className="flex flex-col gap-4 border-t border-slate-50 pt-5">
+                               {/* Row 1: Qty and Delete */}
+                               <div className="flex items-center justify-between">
+                                  <div className="flex items-center bg-slate-100 p-1.5 rounded-2xl shadow-inner-soft">
+                                      <button onClick={() => updateQty(item.tempId, -1)} className="w-9 h-9 bg-white shadow-soft rounded-xl flex items-center justify-center text-slate-600 active:scale-90 transition-all"><Minus size={16} strokeWidth={4}/></button>
+                                      <input 
+                                         type="number"
+                                         className="w-10 bg-transparent text-slate-900 font-black text-center outline-none text-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                         value={fd(item.quantity)}
+                                         onChange={(e) => setQtyDirect(item.tempId, parseInt(e.target.value) || 1)}
+                                         onFocus={(e) => e.target.select()}
+                                       />
+                                      <button onClick={() => updateQty(item.tempId, 1)} className={`w-9 h-9 ${accentColor} text-white shadow-xl rounded-xl flex items-center justify-center active:scale-90 transition-all`}><Plus size={16} strokeWidth={4}/></button>
+                                  </div>
+                                  <button onClick={() => removeItem(item.tempId)} className="p-3 text-rose-500 bg-rose-50 rounded-xl active:scale-90 transition-all">
+                                    <Trash2 size={20} />
+                                  </button>
+                               </div>
+
+                               {/* Row 2: Price and Discount */}
+                               <div className="flex items-center gap-3">
+                                   <div className="flex-1 flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-xl border border-slate-100 shadow-inner-soft">
+                                       <span className="text-[9px] font-black text-slate-400 uppercase">Unit ₹</span>
+                                       <input 
+                                         type="number"
+                                         className="w-full bg-transparent text-slate-900 font-black outline-none text-sm text-right"
+                                         value={item.price}
+                                         onChange={(e) => updateUnitPrice(item.tempId, parseFloat(e.target.value) || 0)}
+                                         onFocus={(e) => e.target.select()}
+                                       />
+                                   </div>
+                                   <div className="flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-xl border border-slate-100 shadow-inner-soft">
                                        <span className="text-[9px] font-black text-slate-400 uppercase">Disc %</span>
                                        <input 
                                          type="number"
-                                         className="w-8 bg-transparent text-slate-900 font-black text-center outline-none text-xs"
+                                         className="w-10 bg-transparent text-slate-900 font-black text-center outline-none text-sm"
                                          value={item.discount}
                                          onChange={(e) => updateDiscount(item.tempId, parseFloat(e.target.value) || 0)}
                                          onFocus={(e) => e.target.select()}
                                        />
-                                   </div>
-                                   
-                                   <div className="flex items-center bg-slate-100 p-1.5 rounded-2xl shadow-inner-soft">
-                                       <button onClick={() => updateQty(item.tempId, -1)} className="w-9 h-9 bg-white shadow-soft rounded-xl flex items-center justify-center text-slate-600 active:scale-90 transition-all"><Minus size={16} strokeWidth={4}/></button>
-                                       <input 
-                                          type="number"
-                                          className="w-10 bg-transparent text-slate-900 font-black text-center outline-none text-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                          value={fd(item.quantity)}
-                                          onChange={(e) => setQtyDirect(item.tempId, parseInt(e.target.value) || 1)}
-                                          onFocus={(e) => e.target.select()}
-                                        />
-                                       <button onClick={() => updateQty(item.tempId, 1)} className={`w-9 h-9 ${accentColor} text-white shadow-xl rounded-xl flex items-center justify-center active:scale-90 transition-all`}><Plus size={16} strokeWidth={4}/></button>
                                    </div>
                                </div>
                            </div>
