@@ -31,7 +31,8 @@ import {
   Download,
   ChevronRight as ChevronRightIcon,
   X,
-  Filter
+  Filter,
+  Trash2
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -309,15 +310,13 @@ const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({
                 onTouchStart={onTouchStart}
                 onTouchMove={onTouchMove}
                 onTouchEnd={onTouchEnd}
+                onClick={() => { if(enableSelection && userRole === Role.OWNER) toggleSelect(item.partNumber); }}
                 style={{ transform: `translateX(${currentX}px)` }}
                 className={`relative bg-white border border-slate-200/80 p-5 rounded-2xl shadow-soft transition-all duration-300 ease-out z-10 flex flex-col gap-4 ${isZero ? 'bg-slate-50/50' : ''} ${isSelected ? 'ring-2 ring-brand-500 bg-brand-50 border-brand-200 shadow-premium' : ''}`}
             >
                 <div className="flex gap-4 items-start">
                     {enableSelection && userRole === Role.OWNER && (
-                        <div 
-                            onClick={(e) => { e.stopPropagation(); toggleSelect(item.partNumber); }}
-                            className="flex-none pt-1 active:scale-90 transition-transform"
-                        >
+                        <div className="flex-none pt-1">
                             {isSelected ? <CheckSquare className="text-brand-600" size={22} /> : <Square className="text-slate-200" size={22} />}
                         </div>
                     )}
@@ -337,7 +336,7 @@ const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({
                             </div>
                             <div className="text-right flex flex-col items-end flex-none ml-2">
                                 {isEditMode && userRole === Role.OWNER ? (
-                                    <div className="flex flex-col items-end gap-2">
+                                    <div className="flex flex-col items-end gap-2" onClick={e => e.stopPropagation()}>
                                         <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner-soft focus-within:border-indigo-400 transition-all">
                                             <input 
                                                 type="number"
@@ -371,7 +370,7 @@ const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({
                 </div>
 
                 <div className="pt-3.5 border-t border-slate-100 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
                         <PriceCell price={item.price} partNumber={item.partNumber} userRole={userRole} align="left" />
                         {userRole === Role.OWNER && !isEditMode && (
                             <button 
@@ -471,7 +470,6 @@ const StockTable: React.FC<StockTableProps> = ({
   const [mobileLimit, setMobileLimit] = useState(20);
   const mobileItems = filteredItems.slice(0, mobileLimit);
 
-  // LOGIC UPDATE: Checking if ALL filtered items are selected, not just the page
   const isAllFilteredSelected = filteredItems.length > 0 && filteredItems.every(i => selectedParts.has(i.partNumber));
   const isPartiallySelected = selectedParts.size > 0 && !isAllFilteredSelected;
 
@@ -532,7 +530,6 @@ const StockTable: React.FC<StockTableProps> = ({
       }
   };
 
-  // UPDATED TOGGLE: Now selects all filtered items across all pages
   const toggleSelectAll = () => {
     const newSet = new Set(selectedParts);
     if (isAllFilteredSelected) {
@@ -649,7 +646,6 @@ const StockTable: React.FC<StockTableProps> = ({
 
       {enableActions && isOwner && (
         <div className="md:hidden flex flex-col gap-3 p-4 bg-slate-50/30 border-b border-slate-100">
-           {/* Mobile Search Bar */}
            <div className="relative group">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={18} />
               <input 
@@ -851,6 +847,36 @@ const StockTable: React.FC<StockTableProps> = ({
             </button>
          )}
       </div>
+
+      {/* Floating Action Bar for Mobile Selection */}
+      {selectedParts.size > 0 && isOwner && (
+          <div className="md:hidden fixed bottom-24 left-4 right-4 z-[500] animate-slide-up">
+              <div className="bg-slate-900 text-white p-4 rounded-[2rem] shadow-elevated flex items-center justify-between border border-white/10 ring-4 ring-black/5">
+                  <div className="flex items-center gap-3 pl-2">
+                      <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-[13px] font-black">
+                          {fd(selectedParts.size)}
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-white/60">Selected</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <button 
+                        onClick={() => setSelectedParts(new Set())}
+                        className="p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-all"
+                    >
+                        <X size={18} />
+                    </button>
+                    <button 
+                        onClick={handleBulkArchive}
+                        disabled={isArchiving}
+                        className="flex items-center gap-2 px-6 py-3 bg-rose-600 text-white rounded-xl font-black text-[11px] uppercase tracking-widest transition-all active:scale-95 shadow-xl border border-white/5"
+                    >
+                        {isArchiving ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={16} />}
+                        Archive
+                    </button>
+                  </div>
+              </div>
+          </div>
+      )}
     </div>
   );
 };

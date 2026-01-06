@@ -128,7 +128,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                         ref={searchInputRef}
                         type="text" 
                         className="block w-full pl-16 pr-24 py-7 rounded-3xl bg-slate-50 border-2 border-transparent text-2xl font-black text-slate-900 placeholder:text-slate-200 focus:bg-white focus:border-blue-500/10 focus:ring-12 focus:ring-blue-500/5 transition-all outline-none shadow-inner-soft tracking-tight"
-                        placeholder="Search Part Number or SKU..."
+                        placeholder="Search Part Number..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
@@ -177,7 +177,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                 </div>
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
                <div className="bg-white border border-slate-200/60 border-l-4 border-l-blue-600 px-3 py-2 rounded-xl shadow-soft h-[56px] min-w-[140px] flex flex-col justify-center">
                   <p className="text-[10px] font-black text-slate-900 uppercase tracking-wider leading-none mb-1">HYUNDAI</p>
                   <p className="text-[11px] font-bold text-slate-500 whitespace-nowrap">
