@@ -33,8 +33,7 @@ import {
   CreditCard,
   CircleSlash,
   ChevronRight,
-  Edit2,
-  ShoppingBag
+  Edit2
 } from 'lucide-react';
 import ConfirmModal from '../components/ConfirmModal';
 
@@ -45,7 +44,7 @@ const fd = (n: number | string) => {
 
 interface Props {
   user: User;
-  forcedMode?: 'SALES' | 'PURCHASE' | 'RETURN' | 'PURCHASE_ORDER';
+  forcedMode?: 'SALES' | 'PURCHASE' | 'RETURN';
   onSearchToggle?: (isOpen: boolean) => void;
 }
 
@@ -65,7 +64,7 @@ interface CartItem {
 }
 
 const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }) => {
-  const [mode, setMode] = useState<'SALES' | 'PURCHASE' | 'RETURN' | 'PURCHASE_ORDER'>(forcedMode || 'SALES');
+  const [mode, setMode] = useState<'SALES' | 'PURCHASE' | 'RETURN'>(forcedMode || 'SALES');
   const [inventory, setInventory] = useState<StockItem[]>([]);
   const [pendingSalesMap, setPendingSalesMap] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(false);
@@ -172,17 +171,14 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
 
       if (mode === 'SALES' && available === 0) return alert("Item out of stock!");
 
-      const initialDiscount = (mode === 'PURCHASE' || mode === 'PURCHASE_ORDER') ? 12 : 0;
+      const initialDiscount = mode === 'PURCHASE' ? 12 : 0;
       const initialPrice = item.price * (1 - initialDiscount / 100);
 
       const newItem: CartItem = {
           tempId: Math.random().toString(36).substring(2),
           partNumber: item.partNumber,
           name: item.name, 
-          type: mode === 'SALES' ? TransactionType.SALE : 
-                mode === 'PURCHASE' ? TransactionType.PURCHASE : 
-                mode === 'PURCHASE_ORDER' ? TransactionType.PURCHASE_ORDER : 
-                TransactionType.RETURN,
+          type: mode === 'SALES' ? TransactionType.SALE : mode === 'PURCHASE' ? TransactionType.PURCHASE : TransactionType.RETURN,
           quantity: 1,
           mrp: item.price,
           discount: initialDiscount,
@@ -218,7 +214,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
           tempId: Math.random().toString(36).substring(2),
           partNumber: newSkuForm.partNumber.toUpperCase().trim(),
           name: newSkuForm.name.toUpperCase(),
-          type: mode === 'PURCHASE_ORDER' ? TransactionType.PURCHASE_ORDER : TransactionType.PURCHASE,
+          type: TransactionType.PURCHASE,
           quantity: 1,
           mrp: mrpValue,
           discount: initialDiscount,
@@ -330,7 +326,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
       }
 
       let remainingPayment = getPaidVal();
-      const normalizedCustomer = (customerName || (mode === 'PURCHASE' || mode === 'PURCHASE_ORDER' ? 'Standard Supplier' : 'Walk-in')).toUpperCase().trim();
+      const normalizedCustomer = (customerName || (mode === 'PURCHASE' ? 'Standard Supplier' : 'Walk-in')).toUpperCase().trim();
 
       const payload = cart.map(c => {
           const itemTotal = c.price * c.quantity;
@@ -350,11 +346,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
       setShowConfirm(false);
       
       if (res.success) {
-          if (mode === 'PURCHASE_ORDER') {
-              alert("Purchase order draft saved to registry.");
-          } else {
-              alert(user.role === Role.MANAGER ? "Sent to owner for verification." : "Stock updated and transactions finalized.");
-          }
+          alert(user.role === Role.MANAGER ? "Sent to owner for verification." : "Stock updated and transactions finalized.");
           setCart([]);
           setCustomerName('');
           setPaidAmount('');
@@ -363,7 +355,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
       } else alert("Error: " + res.message);
   };
 
-  const accentColor = mode === 'RETURN' ? 'bg-rose-600' : mode === 'PURCHASE' ? 'bg-slate-900' : mode === 'PURCHASE_ORDER' ? 'bg-indigo-600' : 'bg-brand-600';
+  const accentColor = mode === 'RETURN' ? 'bg-rose-600' : mode === 'PURCHASE' ? 'bg-slate-900' : 'bg-brand-600';
 
   return (
     <div className="flex-1 h-full flex flex-col animate-fade-in overflow-hidden">
@@ -502,7 +494,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                     );
                 })}
 
-                {suggestions.length === 0 && search.length > 2 && (mode === 'PURCHASE' || mode === 'PURCHASE_ORDER') && (
+                {suggestions.length === 0 && search.length > 2 && mode === 'PURCHASE' && (
                     <div className="p-8 bg-white border-2 border-dashed border-indigo-100 rounded-[2.5rem] text-center animate-fade-in">
                         <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-[1.5rem] flex items-center justify-center mx-auto mb-6 shadow-inner">
                             <PlusSquare size={32} strokeWidth={2.5} />
@@ -564,7 +556,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                             );
                          })}
                       </div>
-                  ) : search.length > 2 && (mode === 'PURCHASE' || mode === 'PURCHASE_ORDER') ? (
+                  ) : search.length > 2 && mode === 'PURCHASE' ? (
                       <div className="flex flex-col items-center justify-center h-full text-center max-w-xs mx-auto animate-fade-in">
                           <div className="w-24 h-24 bg-indigo-50 text-indigo-600 rounded-[2rem] flex items-center justify-center mb-8 shadow-inner">
                               <Tag size={40} strokeWidth={2} />
@@ -590,30 +582,17 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
            <div className="col-span-5 bg-[#1E293B] rounded-[3rem] shadow-premium border border-white/5 flex flex-col overflow-hidden relative text-white">
                 <div className="p-10 border-b border-white/5 flex justify-between items-center">
                     <h2 className="font-black text-2xl tracking-tight flex items-center gap-4">
-                        <div className={`p-3 text-white rounded-2xl shadow-xl ${mode === 'PURCHASE_ORDER' ? 'bg-indigo-600 shadow-indigo-500/20' : 'bg-blue-600 shadow-blue-500/20'}`}>
-                            {mode === 'PURCHASE_ORDER' ? <ShoppingBag size={24} strokeWidth={2.5} /> : <ShoppingCart size={24} strokeWidth={2.5} />}
-                        </div> 
-                        {mode === 'PURCHASE_ORDER' ? 'ORDER DRAFT' : 'REGISTRY'}
+                        <div className="p-3 bg-blue-600 text-white rounded-2xl shadow-xl shadow-blue-500/20"><ShoppingCart size={24} strokeWidth={2.5} /></div> REGISTRY
                     </h2>
-                    
-                    {/* Toggle between Purchase and Order */}
-                    {!forcedMode && (mode === 'PURCHASE' || mode === 'PURCHASE_ORDER') && (
-                        <div className="flex bg-white/5 p-1 rounded-xl border border-white/10">
-                            <button onClick={() => setMode('PURCHASE')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${mode === 'PURCHASE' ? 'bg-white text-slate-900' : 'text-white/40 hover:text-white'}`}>Direct</button>
-                            <button onClick={() => setMode('PURCHASE_ORDER')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${mode === 'PURCHASE_ORDER' ? 'bg-indigo-600 text-white' : 'text-white/40 hover:text-white'}`}>Order</button>
-                        </div>
-                    )}
                 </div>
 
                 <div className="p-10 pb-4 space-y-8">
                     <div>
-                        <span className="text-[10px] font-black text-white/40 uppercase tracking-[0.25em] mb-4 block ml-2">
-                           {mode === 'PURCHASE_ORDER' ? 'Supplier Destination' : 'Entity Profile'}
-                        </span>
+                        <span className="text-[10px] font-black text-white/40 uppercase tracking-[0.25em] mb-4 block ml-2">Entity Profile</span>
                         <input 
                             type="text" 
                             className="w-full px-8 py-5 bg-white/5 border border-white/10 rounded-3xl text-lg font-black text-white outline-none focus:bg-white/10 transition-all placeholder:text-white/20 uppercase tracking-tight"
-                            placeholder={mode === 'PURCHASE_ORDER' ? "Select Supplier..." : "Verified Provider"}
+                            placeholder="Verified Provider"
                             value={customerName}
                             onChange={e => handleCustomerType(e.target.value)}
                         />
@@ -723,9 +702,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                 <div className="p-10 border-t border-white/5 bg-black/20">
                     <div className="flex justify-between items-end mb-8 px-2">
                         <div className="flex flex-col gap-1">
-                            <span className="text-white/40 font-black uppercase tracking-[0.3em] text-[10px]">
-                                {mode === 'PURCHASE_ORDER' ? 'Projected Cost' : 'Net Settlement'}
-                            </span>
+                            <span className="text-white/40 font-black uppercase tracking-[0.3em] text-[10px]">Net Settlement</span>
                             {mode === 'SALES' && isPaymentReceived && (
                                 <span className="text-[11px] font-black text-teal-400 uppercase tracking-widest">Collected: ₹{getPaidVal().toLocaleString()}</span>
                             )}
@@ -738,10 +715,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                        className={`w-full py-6 rounded-[2rem] font-black text-white text-[18px] shadow-2xl transition-all transform active:scale-[0.98] disabled:opacity-20 flex items-center justify-center gap-4 uppercase tracking-[0.1em] ${accentColor} border border-white/10`}
                     >
                        {loading ? <Loader2 className="animate-spin" size={24} /> : (
-                         <>
-                            {mode === 'PURCHASE_ORDER' ? 'Create Order Draft' : 'Authorize Inbound'}
-                            <ArrowRight size={26} strokeWidth={2.5} />
-                         </>
+                         <>Authorize Inbound <ArrowRight size={26} strokeWidth={2.5} /></>
                        )}
                     </button>
                 </div>
@@ -768,7 +742,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                   {cart.length === 0 ? (
                       <div className="bg-white/40 border-4 border-dashed border-slate-200 rounded-[2.5rem] py-32 text-center animate-fade-in">
                          <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner-soft">
-                            {mode === 'PURCHASE_ORDER' ? <ShoppingBag size={32} className="text-slate-300" /> : <ShoppingCart size={32} className="text-slate-300" />}
+                            <ShoppingCart size={32} className="text-slate-300" />
                          </div>
                          <p className="font-black text-slate-300 uppercase tracking-[0.4em] text-[10px]">Registry Empty</p>
                       </div>
@@ -838,22 +812,12 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
           </div>
 
           <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-3xl border-t border-slate-200/60 p-6 shadow-[0_-20px_50px_rgba(0,0,0,0.08)] z-[80] pb-safe rounded-t-[2.5rem]">
-              <div className="flex gap-2 mb-4">
-                <button 
-                    onClick={() => setShowMobileSearch(true)}
-                    className="flex-1 bg-slate-900 text-white font-black py-5 rounded-[1.75rem] flex items-center justify-center gap-3 transition-all active:scale-[0.98] text-[15px] uppercase tracking-widest shadow-xl border border-white/5"
-                >
-                    <PackagePlus size={22} strokeWidth={2.5} /> Scanner
-                </button>
-                {(mode === 'PURCHASE' || mode === 'PURCHASE_ORDER') && (
-                    <button 
-                        onClick={() => setMode(mode === 'PURCHASE' ? 'PURCHASE_ORDER' : 'PURCHASE')}
-                        className={`px-6 rounded-[1.75rem] font-black transition-all active:scale-95 text-[10px] uppercase tracking-widest border ${mode === 'PURCHASE_ORDER' ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-white text-slate-900 border-slate-200'}`}
-                    >
-                        {mode === 'PURCHASE_ORDER' ? 'Order' : 'Direct'}
-                    </button>
-                )}
-              </div>
+              <button 
+                 onClick={() => setShowMobileSearch(true)}
+                 className="w-full bg-slate-900 text-white font-black py-5 rounded-[1.75rem] flex items-center justify-center gap-3 mb-6 transition-all active:scale-[0.98] text-[15px] uppercase tracking-widest shadow-xl border border-white/5"
+              >
+                  <PackagePlus size={22} strokeWidth={2.5} /> Catalog Scanner
+              </button>
               
               {mode === 'SALES' && cart.length > 0 && (
                   <div className="mb-6 space-y-4">
@@ -887,9 +851,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
 
               <div className="flex items-center gap-5">
                   <div className="flex-1 min-w-0">
-                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">
-                        {mode === 'PURCHASE_ORDER' ? 'Est. Total' : 'Grand Total'}
-                     </p>
+                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Grand Total</p>
                      <p className="text-2xl font-black text-slate-900 tracking-tighter truncate">₹{totalAmount.toLocaleString()}</p>
                   </div>
                   <button 
