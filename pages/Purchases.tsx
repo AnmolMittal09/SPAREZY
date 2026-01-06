@@ -144,6 +144,18 @@ const Purchases: React.FC<Props> = ({ user }) => {
     return result;
   }, [filteredHistory, sortOrder]);
 
+  const parseSupplier = (name: string) => {
+    if (!name) return { supplier: 'Main Provider', invDate: null };
+    const parts = name.split(' (INV: ');
+    if (parts.length > 1) {
+      return { 
+        supplier: parts[0].trim(), 
+        invDate: parts[1].replace(')', '').trim() 
+      };
+    }
+    return { supplier: name, invDate: null };
+  };
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
@@ -468,37 +480,38 @@ const Purchases: React.FC<Props> = ({ user }) => {
                                 <p className="font-black uppercase tracking-[0.3em] text-slate-300">Journal Clear</p>
                              </div>
                            ) : (
-                             stackedHistory.map(stack => (
-                                <div 
-                                  key={stack.id} 
-                                  onClick={() => setSelectedInbound(stack)} 
-                                  className="bg-white p-5 md:p-6 rounded-[2rem] border border-slate-200 shadow-soft hover:shadow-premium hover:border-blue-200 active:scale-[0.99] transition-all cursor-pointer group animate-fade-in relative flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-8"
-                                >
-                                   <div className="absolute top-0 left-0 w-1.5 h-full bg-blue-600 rounded-l-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                   
-                                   <div className="flex items-center gap-5 min-w-0 flex-1">
+                             stackedHistory.map(stack => {
+                                const { supplier, invDate } = parseSupplier(stack.customerName);
+                                return (
+                                  <div 
+                                    key={stack.id} 
+                                    onClick={() => setSelectedInbound(stack)} 
+                                    className="bg-white p-5 md:p-6 rounded-[2rem] border border-slate-200 shadow-soft hover:shadow-premium hover:border-blue-200 active:scale-[0.99] transition-all cursor-pointer group animate-fade-in relative flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-8"
+                                  >
+                                    <div className="absolute top-0 left-0 w-1.5 h-full bg-blue-600 rounded-l-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                    
+                                    <div className="flex items-center gap-5 min-w-0 flex-1">
                                       <div className="p-3 bg-slate-50 text-slate-400 rounded-xl group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors border border-slate-100">
                                          <Truck size={20} strokeWidth={2.5}/>
                                       </div>
                                       <div className="min-w-0">
                                          <h3 className="font-black text-[16px] md:text-lg text-slate-900 uppercase tracking-tight truncate leading-none group-hover:text-blue-600 transition-colors">
-                                            {stack.customerName || 'Main Provider'}
+                                            {supplier}
                                          </h3>
-                                         <div className="flex items-center gap-3 mt-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                            <div className="flex items-center gap-1.5">
-                                               <Calendar size={12} className="text-blue-400" />
-                                               <span>Fetched: {new Date(stack.createdAt).toLocaleDateString()}</span>
+                                         <div className="flex flex-col gap-1 mt-2">
+                                            <div className="flex items-center gap-1.5 text-[10px] font-black text-slate-700 uppercase tracking-widest">
+                                               <Calendar size={12} className="text-blue-600" />
+                                               <span>Invoice Date: {invDate || new Date(stack.createdAt).toLocaleDateString()}</span>
                                             </div>
-                                            <span className="hidden sm:inline opacity-30">•</span>
-                                            <div className="hidden sm:flex items-center gap-1.5">
-                                               <Clock size={12} className="opacity-40" />
-                                               <span>{new Date(stack.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                            <div className="flex items-center gap-1.5 text-[9px] font-black text-slate-400 uppercase tracking-[0.15em] opacity-80 pl-0.5">
+                                               <Clock size={10} />
+                                               <span>Scanned: {new Date(stack.createdAt).toLocaleDateString()} at {new Date(stack.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                                             </div>
                                          </div>
                                       </div>
-                                   </div>
+                                    </div>
 
-                                   <div className="flex items-center justify-between md:justify-end gap-6 md:gap-12 border-t md:border-t-0 border-slate-50 pt-4 md:pt-0">
+                                    <div className="flex items-center justify-between md:justify-end gap-6 md:gap-12 border-t md:border-t-0 border-slate-50 pt-4 md:pt-0">
                                       <div className="flex flex-col items-start md:items-end">
                                          <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-1">INVENTORY UNITS</span>
                                          <div className="bg-slate-50 px-3 py-1 rounded-lg border border-slate-100 flex items-center gap-2 shadow-inner-soft">
@@ -513,9 +526,10 @@ const Purchases: React.FC<Props> = ({ user }) => {
                                       <div className="hidden md:block">
                                          <ChevronRight size={20} className="text-slate-200 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
                                       </div>
-                                   </div>
-                                </div>
-                             ))
+                                    </div>
+                                  </div>
+                                );
+                             })
                            )}
                         </div>
                    )}
@@ -531,7 +545,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
                       <div className="flex items-center gap-4">
                           <button onClick={() => setSelectedInbound(null)} className="p-3 bg-white text-slate-400 rounded-2xl shadow-soft border border-slate-100 active:scale-90 transition-all"><ArrowLeft size={22} strokeWidth={3}/></button>
                           <div className="min-w-0">
-                              <h3 className="font-black text-slate-900 text-lg uppercase leading-tight truncate max-w-[250px] tracking-tight">{selectedInbound.customerName}</h3>
+                              <h3 className="font-black text-slate-900 text-lg uppercase leading-tight truncate max-w-[250px] tracking-tight">{parseSupplier(selectedInbound.customerName).supplier}</h3>
                               <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">{new Date(selectedInbound.createdAt).toLocaleDateString()} • {new Date(selectedInbound.createdAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</p>
                           </div>
                       </div>
