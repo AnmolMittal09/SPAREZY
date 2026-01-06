@@ -25,7 +25,13 @@ import Tasks from './pages/Tasks';
 const INACTIVITY_LIMIT_MS = 30 * 60 * 1000; // 30 Minutes
 
 const App: React.FC = () => {
-  const [user, setUser] = useState<User | null>(null);
+  // LOGIN SYSTEM PAUSED FOR DEVELOPMENT: Initializing with a default Owner user
+  const [user, setUser] = useState<User | null>({
+    id: 'dev-mode',
+    username: 'admin',
+    name: 'Dev Admin (Owner)',
+    role: Role.OWNER
+  });
 
   const handleLogin = (newUser: User) => {
     setUser(newUser);
@@ -41,8 +47,11 @@ const App: React.FC = () => {
     const resetTimer = () => {
       clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
-        alert("Session expired due to inactivity.");
-        handleLogout();
+        // Only alert if not in dev bypass mode
+        if (user.id !== 'dev-mode') {
+           alert("Session expired due to inactivity.");
+           handleLogout();
+        }
       }, INACTIVITY_LIMIT_MS);
     };
     const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
