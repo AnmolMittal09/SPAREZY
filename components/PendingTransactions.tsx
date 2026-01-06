@@ -1,8 +1,9 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
-import { Transaction, TransactionStatus, TransactionType } from '../types';
+import { Transaction, TransactionStatus, TransactionType, StockItem } from '../types';
 import { fetchTransactions, approveTransaction, rejectTransaction } from '../services/transactionService';
-import { CheckCircle2, XCircle, Clock, User as UserIcon, Package, IndianRupee, ArrowRight, Check, X, Loader2 } from 'lucide-react';
+import { fetchInventory } from '../services/inventoryService';
+import { CheckCircle2, XCircle, Clock, User as UserIcon, Package, IndianRupee, ArrowRight, Check, X, Loader2, Calendar } from 'lucide-react';
 
 const fd = (n: number | string) => {
   const num = parseInt(n.toString()) || 0;
@@ -15,13 +16,18 @@ interface Props {
 
 const PendingTransactions: React.FC<Props> = ({ type }) => {
   const [items, setItems] = useState<Transaction[]>([]);
+  const [inventory, setInventory] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
 
   const loadData = async () => {
     setLoading(true);
-    const data = await fetchTransactions(TransactionStatus.PENDING, type);
-    setItems(data);
+    const [txData, invData] = await Promise.all([
+      fetchTransactions(TransactionStatus.PENDING, type),
+      fetchInventory()
+    ]);
+    setItems(txData);
+    setInventory(invData);
     setLoading(false);
   };
 
@@ -118,57 +124,70 @@ const PendingTransactions: React.FC<Props> = ({ type }) => {
             </div>
 
             <div className="divide-y divide-slate-50">
-               {group.items.map((tx) => (
-                 <div key={tx.id} className="p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 hover:bg-slate-50/30 transition-colors group/item">
-                    <div className="flex-1 flex gap-6 items-center">
-                       <div className="p-3 bg-white border border-slate-100 rounded-xl text-slate-300 shadow-inner-soft group-hover/item:text-blue-500 group-hover/item:border-blue-100 transition-all">
-                          <ArrowRight size={18} />
-                       </div>
-                       <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-3 mb-1">
-                             <h4 className="font-black text-slate-900 text-[17px] tracking-tight uppercase truncate">{tx.partNumber}</h4>
-                             <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest">{new Date(tx.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                          </div>
-                          <div className="flex items-center gap-4">
-                             <div className="flex items-center gap-1.5">
-                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Qty:</span>
-                                <span className="text-sm font-black text-slate-800">{fd(tx.quantity)}</span>
-                             </div>
-                             <div className="w-1 h-1 rounded-full bg-slate-200"></div>
-                             <div className="flex items-center gap-1.5">
-                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Rate:</span>
-                                <span className="text-sm font-black text-slate-800">₹{tx.price.toLocaleString()}</span>
-                             </div>
-                          </div>
-                       </div>
-                    </div>
+               {group.items.map((tx) => {
+                 const partInfo = inventory.find(i => i.partNumber.toLowerCase() === tx.partNumber.toLowerCase());
+                 return (
+                   <div key={tx.id} className="p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 hover:bg-slate-50/30 transition-colors group/item">
+                      <div className="flex-1 flex gap-6 items-center">
+                         <div className="p-3 bg-white border border-slate-100 rounded-xl text-slate-300 shadow-inner-soft group-hover/item:text-blue-500 group-hover/item:border-blue-100 transition-all">
+                            <ArrowRight size={18} />
+                         </div>
+                         <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-3 mb-2">
+                               <div className="min-w-0 flex-1">
+                                  <h4 className="font-black text-slate-900 text-[17px] tracking-tight uppercase truncate">{tx.partNumber}</h4>
+                                  <p className="text-[11px] text-slate-900 font-bold uppercase tracking-tight truncate mt-0.5">{partInfo?.name || 'GENUINE SPARE PART'}</p>
+                               </div>
+                               <div className="flex flex-col items-end flex-none text-right">
+                                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                                     <Calendar size={10} /> {new Date(tx.createdAt).toLocaleDateString()}
+                                  </span>
+                                  <span className="text-[7px] font-bold text-slate-300 uppercase tracking-widest flex items-center gap-1">
+                                     <Clock size={10} /> {new Date(tx.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                  </span>
+                               </div>
+                            </div>
+                            <div className="flex items-center gap-4">
+                               <div className="flex items-center gap-1.5">
+                                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Qty:</span>
+                                  <span className="text-sm font-black text-slate-800">{fd(tx.quantity)}</span>
+                               </div>
+                               <div className="w-1 h-1 rounded-full bg-slate-200"></div>
+                               <div className="flex items-center gap-1.5">
+                                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Rate:</span>
+                                  <span className="text-sm font-black text-slate-800">₹{tx.price.toLocaleString()}</span>
+                               </div>
+                            </div>
+                         </div>
+                      </div>
 
-                    <div className="flex items-center justify-between md:justify-end gap-3 pt-4 md:pt-0 border-t md:border-none border-slate-100">
-                       <div className="md:hidden">
-                          <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest block mb-0.5">Line Total</span>
-                          <span className="font-black text-slate-900">₹{(tx.price * tx.quantity).toLocaleString()}</span>
-                       </div>
-                       <div className="flex gap-2.5">
-                          <button 
-                             onClick={() => handleReject(tx.id)}
-                             disabled={processingId === tx.id}
-                             className="p-3.5 bg-rose-50 text-rose-500 hover:bg-rose-600 hover:text-white rounded-2xl transition-all active:scale-90 disabled:opacity-30 shadow-sm"
-                             title="Reject Entry"
-                          >
-                             <X size={20} strokeWidth={3} />
-                          </button>
-                          <button 
-                             onClick={() => handleApprove(tx)}
-                             disabled={processingId === tx.id}
-                             className="flex items-center gap-2 px-6 py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-blue-100 transition-all active:scale-95 disabled:opacity-30"
-                          >
-                             {processingId === tx.id ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} strokeWidth={4} />}
-                             Authorize
-                          </button>
-                       </div>
-                    </div>
-                 </div>
-               ))}
+                      <div className="flex items-center justify-between md:justify-end gap-3 pt-4 md:pt-0 border-t md:border-none border-slate-100">
+                         <div className="md:hidden text-left flex flex-col">
+                            <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-0.5">Line Total</span>
+                            <span className="font-black text-slate-900">₹{(tx.price * tx.quantity).toLocaleString()}</span>
+                         </div>
+                         <div className="flex gap-2.5">
+                            <button 
+                               onClick={() => handleReject(tx.id)}
+                               disabled={processingId === tx.id}
+                               className="p-3.5 bg-rose-50 text-rose-500 hover:bg-rose-600 hover:text-white rounded-2xl transition-all active:scale-90 disabled:opacity-30 shadow-sm"
+                               title="Reject Entry"
+                            >
+                               <X size={20} strokeWidth={3} />
+                            </button>
+                            <button 
+                               onClick={() => handleApprove(tx)}
+                               disabled={processingId === tx.id}
+                               className="flex items-center gap-2 px-6 py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-blue-100 transition-all active:scale-95 disabled:opacity-30"
+                            >
+                               {processingId === tx.id ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} strokeWidth={4} />}
+                               Authorize
+                            </button>
+                         </div>
+                      </div>
+                   </div>
+                 );
+               })}
             </div>
             
             <div className="p-4 bg-slate-50/50 border-t border-slate-50 text-center">

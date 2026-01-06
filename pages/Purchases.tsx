@@ -131,16 +131,6 @@ const Purchases: React.FC<Props> = ({ user }) => {
     return result;
   }, [history, sortOrder]);
 
-  const sortedListHistory = useMemo(() => {
-    const res = [...history];
-    res.sort((a, b) => {
-       const timeA = new Date(a.createdAt).getTime();
-       const timeB = new Date(b.createdAt).getTime();
-       return sortOrder === 'desc' ? timeB - timeA : timeA - timeB;
-    });
-    return res;
-  }, [history, sortOrder]);
-
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -358,7 +348,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
                                 <div className="flex justify-between items-start">
                                    <div className="flex-1 min-w-0 pr-4">
                                       <div className="font-black text-slate-900 text-[15px] uppercase truncate">{row.partNumber}</div>
-                                      <div className="text-[10px] text-slate-400 font-bold truncate uppercase">{row.name}</div>
+                                      <div className="text-[10px] text-slate-400 font-bold uppercase truncate uppercase">{row.name}</div>
                                    </div>
                                    <div className="text-right">
                                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Quantity</span>
@@ -431,7 +421,6 @@ const Purchases: React.FC<Props> = ({ user }) => {
           )}
        </div>
 
-       {/* INBOUND DETAIL MODAL - MOBILE REFINED */}
        {selectedInbound && (
           <div className="fixed inset-0 z-[200] bg-slate-900/60 backdrop-blur-md flex items-end justify-center animate-fade-in">
               <div className="bg-white w-full rounded-t-[2.5rem] shadow-2xl flex flex-col max-h-[85vh] overflow-hidden animate-slide-up">
@@ -445,24 +434,28 @@ const Purchases: React.FC<Props> = ({ user }) => {
                       </div>
                   </div>
                   <div className="flex-1 overflow-y-auto p-4 no-scrollbar space-y-3">
-                      {selectedInbound.items.map((item, idx) => (
-                          <div key={item.id} className="p-5 bg-slate-50/40 rounded-2xl border border-slate-100 flex flex-col gap-4">
-                              <div className="flex justify-between items-start">
-                                  <div className="min-w-0 pr-4">
-                                      <div className="font-black text-slate-900 text-base uppercase leading-none mb-1">{item.partNumber}</div>
-                                      <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Rate: ₹{item.price.toLocaleString()}</p>
-                                  </div>
-                                  <div className="text-right">
-                                      <p className="text-[8px] font-black text-slate-300 uppercase mb-0.5">Qty</p>
-                                      <p className="text-lg font-black text-slate-900 tabular-nums">{fd(item.quantity)}</p>
-                                  </div>
-                              </div>
-                              <div className="flex justify-between items-center border-t border-white pt-4">
-                                  <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Item Subtotal</span>
-                                  <span className="font-black text-slate-900 text-base">₹{(item.price * item.quantity).toLocaleString()}</span>
-                              </div>
-                          </div>
-                      ))}
+                      {selectedInbound.items.map((item, idx) => {
+                          const partInfo = inventory.find(i => i.partNumber.toLowerCase() === item.partNumber.toLowerCase());
+                          return (
+                            <div key={item.id} className="p-5 bg-slate-50/40 rounded-2xl border border-slate-100 flex flex-col gap-4">
+                                <div className="flex justify-between items-start">
+                                    <div className="min-w-0 pr-4">
+                                        <div className="font-black text-slate-900 text-base uppercase leading-none mb-1">{item.partNumber}</div>
+                                        <div className="text-[12px] text-slate-900 font-bold uppercase tracking-tight mb-2">{partInfo?.name || 'MASTER PART RECORD'}</div>
+                                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Rate: ₹{item.price.toLocaleString()}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-[8px] font-black text-slate-300 uppercase mb-0.5">Qty</p>
+                                        <p className="text-lg font-black text-slate-900 tabular-nums">{fd(item.quantity)}</p>
+                                    </div>
+                                </div>
+                                <div className="flex justify-between items-center border-t border-white pt-4">
+                                    <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Item Subtotal</span>
+                                    <span className="font-black text-slate-900 text-base">₹{(item.price * item.quantity).toLocaleString()}</span>
+                                </div>
+                            </div>
+                          );
+                      })}
                   </div>
                   <div className="p-6 border-t border-slate-100 bg-white pb-safe">
                       <div className="flex justify-between items-center mb-6">

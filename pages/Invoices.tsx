@@ -140,11 +140,8 @@ const Invoices: React.FC<Props> = ({ user }) => {
     }
   };
 
-  // --- BRANDED INVOICE PREVIEW ---
   const InvoicePreview = () => (
     <div id="invoice-preview" className="bg-white text-slate-800 p-10 max-w-[210mm] mx-auto min-h-[297mm] shadow-2xl print:shadow-none print:w-full print:max-w-none print:m-0 print:p-8 relative flex flex-col">
-      
-      {/* 1. Branded Header */}
       <div className="flex justify-between items-start border-b-2 border-slate-900 pb-6 mb-6">
          <div className="flex flex-col gap-4">
             <div className="scale-90 origin-top-left">
@@ -167,7 +164,6 @@ const Invoices: React.FC<Props> = ({ user }) => {
          </div>
       </div>
 
-      {/* 2. Customer & Meta */}
       <div className="flex justify-between mb-8 bg-slate-50 p-6 rounded-xl border border-slate-100">
          <div>
             <h3 className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-2">Billed To</h3>
@@ -180,7 +176,6 @@ const Invoices: React.FC<Props> = ({ user }) => {
          </div>
       </div>
 
-      {/* 3. Items Table */}
       <div className="flex-1">
         <table className="w-full text-sm border-collapse">
             <thead>
@@ -197,8 +192,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
                 <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
                     <td className="py-3 px-4 text-slate-500 font-mono">{fd(idx + 1)}</td>
                     <td className="py-3 px-4">
-                        <p className="font-bold text-slate-800 text-base">{item.partNumber}</p>
-                        <p className="text-xs text-slate-500">{item.name}</p>
+                        <p className="font-bold text-slate-900 text-[15px] uppercase leading-tight">{item.name}</p>
                     </td>
                     <td className="py-3 px-4 text-center font-medium">{fd(item.quantity)}</td>
                     <td className="py-3 px-4 text-right text-slate-600">₹{item.price.toFixed(2)}</td>
@@ -209,7 +203,6 @@ const Invoices: React.FC<Props> = ({ user }) => {
         </table>
       </div>
 
-      {/* 4. Totals & Signature */}
       <div className="mt-8 flex flex-col md:flex-row justify-between items-end gap-12">
          <div className="w-full md:w-1/2">
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Amount In Words</p>
@@ -243,7 +236,6 @@ const Invoices: React.FC<Props> = ({ user }) => {
          </div>
       </div>
 
-      {/* 5. Branding Footer */}
       <div className="mt-auto pt-8 text-center print:block">
          <div className="border-t border-slate-100 pt-4">
             <p className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold flex items-center justify-center gap-2">
@@ -256,7 +248,6 @@ const Invoices: React.FC<Props> = ({ user }) => {
 
   return (
     <div className="space-y-4 md:space-y-6 h-full flex flex-col relative">
-       {/* Inject Print Styles */}
        <style>{`
          @media print {
            body * { visibility: hidden; }
@@ -266,7 +257,6 @@ const Invoices: React.FC<Props> = ({ user }) => {
          }
        `}</style>
 
-       {/* --- HEADER --- */}
        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 no-print bg-white p-4 md:p-0 md:bg-transparent border-b md:border-none border-slate-100">
           <div>
              <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
@@ -291,7 +281,6 @@ const Invoices: React.FC<Props> = ({ user }) => {
           </div>
        </div>
 
-       {/* PENDING APPROVAL ALERT */}
        {pendingApprovalCount > 0 && activeTab === 'PENDING' && (
          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between shadow-sm animate-fade-in no-print gap-3">
             <div className="flex items-center gap-3">
@@ -315,7 +304,6 @@ const Invoices: React.FC<Props> = ({ user }) => {
        <div className="flex-1 overflow-hidden flex flex-col">
           {activeTab === 'PENDING' && (
              <>
-               {/* STEPPER */}
                <div className="bg-white border-b border-slate-200 px-4 md:px-8 py-4 flex items-center justify-center gap-2 md:gap-4 no-print shadow-sm z-10">
                   <div className={`flex items-center gap-2 text-xs md:text-sm font-bold ${step >= 1 ? 'text-blue-600' : 'text-slate-300'}`}>
                      <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs border ${step >= 1 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-slate-300 text-slate-400'}`}>01</span>
@@ -333,7 +321,6 @@ const Invoices: React.FC<Props> = ({ user }) => {
                   </div>
                </div>
 
-               {/* Step 1: SELECT SALES */}
                {step === 1 && (
                  <div className="flex-1 overflow-hidden flex flex-col bg-slate-50 p-4 md:p-6 animate-fade-in no-print">
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden max-w-5xl mx-auto w-full h-full">
@@ -364,6 +351,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
                              <div className="space-y-2">
                                 {sales.filter(s => s.partNumber.toLowerCase().includes(filter.toLowerCase()) || s.customerName?.toLowerCase().includes(filter.toLowerCase())).map(sale => {
                                    const isSelected = selectedIds.has(sale.id);
+                                   const partInfo = inventory.find(i => i.partNumber.toLowerCase() === sale.partNumber.toLowerCase());
                                    return (
                                       <div 
                                         key={sale.id} 
@@ -385,7 +373,8 @@ const Invoices: React.FC<Props> = ({ user }) => {
                                                      {new Date(sale.createdAt).toLocaleDateString()}
                                                   </span>
                                                </div>
-                                               <div className="text-xs text-slate-500 mt-0.5 flex items-center gap-2">
+                                               <div className="text-[11px] text-slate-800 font-bold uppercase tracking-tight truncate max-w-[250px]">{partInfo?.name || 'GENUINE SPARE PART'}</div>
+                                               <div className="text-xs text-slate-500 mt-1 flex items-center gap-2">
                                                   <UserIcon size={12} /> {sale.customerName || 'Walk-in Customer'}
                                                </div>
                                             </div>
@@ -418,12 +407,9 @@ const Invoices: React.FC<Props> = ({ user }) => {
                  </div>
                )}
 
-               {/* Step 2: CUSTOMER DETAILS */}
                {step === 2 && (
                   <div className="flex-1 overflow-auto bg-slate-50 p-4 md:p-8 animate-fade-in no-print flex justify-center">
                      <div className="w-full max-w-2xl space-y-6">
-                        
-                        {/* Summary Card */}
                         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center">
                            <div className="flex items-center gap-3">
                               <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
@@ -440,7 +426,6 @@ const Invoices: React.FC<Props> = ({ user }) => {
                            </div>
                         </div>
 
-                        {/* Form Card */}
                         <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
                            <div className="p-6 border-b border-slate-100 flex items-center gap-3">
                               <UserIcon className="text-blue-600" />
@@ -554,21 +539,16 @@ const Invoices: React.FC<Props> = ({ user }) => {
                   </div>
                )}
 
-               {/* Step 3: PREVIEW */}
                {step === 3 && (
                   <div className="flex-1 flex flex-col md:flex-row bg-slate-100 overflow-hidden">
-                     {/* Preview Container */}
                      <div className="flex-1 overflow-auto p-4 md:p-8 flex justify-center">
                         <InvoicePreview />
                      </div>
-
-                     {/* Sidebar Actions (No Print) */}
                      <div className="w-full md:w-80 bg-white border-l border-slate-200 p-6 flex flex-col gap-6 shadow-xl z-20 no-print">
                         <div>
                            <h3 className="font-bold text-slate-800 text-lg mb-1">Ready to Print</h3>
                            <p className="text-sm text-slate-500">Please review the invoice details before saving.</p>
                         </div>
-                        
                         <div className="space-y-4">
                            <button 
                               onClick={handleConfirmAndPrint}
@@ -583,7 +563,6 @@ const Invoices: React.FC<Props> = ({ user }) => {
                               Edit Details
                            </button>
                         </div>
-
                         <div className="mt-auto pt-6 border-t border-slate-100">
                            <div className="flex items-center gap-3 text-sm text-slate-500 bg-slate-50 p-3 rounded-lg">
                               <AlertCircle size={16} />

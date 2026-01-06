@@ -288,7 +288,6 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
     setCart(prev => prev.map(item => {
       if (item.tempId === id) {
         const price = Math.max(0, newPrice);
-        // Calculate the relative discount for transparency
         const disc = item.mrp > 0 ? ((item.mrp - price) / item.mrp) * 100 : 0;
         return { 
           ...item, 
@@ -647,7 +646,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                                         <div className="font-black text-white text-lg tracking-tight uppercase leading-none">{item.partNumber}</div>
                                         {item.isNewSku && <span className="text-[8px] font-black bg-blue-600 px-1.5 py-0.5 rounded text-white uppercase tracking-widest">NEW SKU</span>}
                                     </div>
-                                    <div className="text-[11px] text-white/40 font-bold truncate uppercase tracking-tight">{item.name}</div>
+                                    <div className="text-[12px] text-white font-bold truncate uppercase tracking-tight">{item.name}</div>
                                 </div>
                                 <div className="text-right">
                                     <div className="font-black text-white text-lg tracking-tighter">₹{(item.price * item.quantity).toLocaleString()}</div>
@@ -756,7 +755,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                                     <div className="font-black text-slate-900 text-lg tracking-tighter uppercase leading-none">{item.partNumber}</div>
                                     {item.isNewSku && <span className="text-[8px] font-black bg-indigo-600 px-1.5 py-0.5 rounded text-white uppercase tracking-widest">New</span>}
                                   </div>
-                                  <div className="text-[11px] text-slate-400 font-bold truncate uppercase tracking-tight">{item.name}</div>
+                                  <div className="text-[12px] text-slate-900 font-bold uppercase tracking-tight mb-1">{item.name}</div>
                                </div>
                                <div className="text-right">
                                   <div className="font-black text-slate-900 text-lg tracking-tighter tabular-nums">₹{(item.price * item.quantity).toLocaleString()}</div>
