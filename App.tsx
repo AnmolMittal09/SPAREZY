@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 // @ts-ignore
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
@@ -22,22 +21,22 @@ import ProfitAnalysis from './pages/ProfitAnalysis';
 import Tasks from './pages/Tasks';
 
 const INACTIVITY_LIMIT_MS = 30 * 60 * 1000; // 30 Minutes
+const SESSION_KEY = 'sparezy_session_v4';
 
 const App: React.FC = () => {
-  // LOGIN SYSTEM PAUSED FOR DEVELOPMENT: Initializing with a default Owner user
-  const [user, setUser] = useState<User | null>({
-    id: 'dev-mode',
-    username: 'admin',
-    name: 'Dev Admin (Owner)',
-    role: Role.OWNER
+  const [user, setUser] = useState<User | null>(() => {
+    const saved = localStorage.getItem(SESSION_KEY);
+    return saved ? JSON.parse(saved) : null;
   });
 
   const handleLogin = (newUser: User) => {
     setUser(newUser);
+    localStorage.setItem(SESSION_KEY, JSON.stringify(newUser));
   };
 
   const handleLogout = useCallback(() => {
     setUser(null);
+    localStorage.removeItem(SESSION_KEY);
   }, []);
 
   useEffect(() => {
