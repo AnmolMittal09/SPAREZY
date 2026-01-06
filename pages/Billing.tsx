@@ -781,12 +781,14 @@ const Billing: React.FC<Props> = ({ user }) => {
                             const paid = tx.paidAmount || 0;
                             const isFullyPaid = paid >= amount;
                             const isPartial = paid > 0 && paid < amount;
+                            const part = inventory.find(i => i.partNumber.toLowerCase() === tx.partNumber.toLowerCase());
 
                             return (
                                 <div key={tx.id} className="p-5 rounded-[2.25rem] bg-white border border-slate-100 shadow-sm flex flex-col animate-fade-in relative overflow-hidden group">
                                     <div className="flex justify-between items-start mb-4">
                                         <div className="space-y-1">
                                             <div className="font-black text-slate-900 text-base leading-tight group-hover:text-brand-600 transition-colors uppercase">{tx.partNumber}</div>
+                                            {part && <div className="text-[10px] text-slate-400 font-bold uppercase truncate mt-0.5">{part.name}</div>}
                                             <div className="flex flex-col text-slate-400 text-[10px] font-bold">
                                                 <div className="flex items-center gap-1.5"><Calendar size={10} /> {new Date(tx.createdAt).toLocaleDateString()}</div>
                                                 <div className="flex items-center gap-1.5 mt-0.5"><Clock size={10} /> {new Date(tx.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
@@ -937,6 +939,7 @@ const Billing: React.FC<Props> = ({ user }) => {
                       {selectedBill.items.map((item, idx) => {
                           const isItemFullyPaid = item.paidAmount >= (item.price * item.quantity);
                           const isOpeningPayment = isAddingPayment === item.id;
+                          const part = inventory.find(i => i.partNumber.toLowerCase() === item.partNumber.toLowerCase());
 
                           return (
                             <div key={item.id} className="p-5 bg-slate-50/50 rounded-[1.75rem] border border-slate-100 flex flex-col gap-4">
@@ -945,6 +948,7 @@ const Billing: React.FC<Props> = ({ user }) => {
                                         <div className="w-9 h-9 bg-white rounded-xl border border-slate-100 flex items-center justify-center font-black text-slate-300 text-xs">{fd(idx + 1)}</div>
                                         <div>
                                             <div className="font-black text-slate-900 text-base leading-tight tracking-tight uppercase">{item.partNumber}</div>
+                                            {part && <div className="text-[10px] text-slate-400 font-bold uppercase truncate mt-0.5">{part.name}</div>}
                                             <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest mt-1">Rate: ₹{item.price.toLocaleString()}</p>
                                         </div>
                                     </div>
@@ -1072,6 +1076,7 @@ const Billing: React.FC<Props> = ({ user }) => {
                           const balance = total - (item.paidAmount || 0);
                           const isFullyPaid = balance <= 0;
                           const isAddingToThis = isAddingPayment === item.id;
+                          const part = inventory.find(i => i.partNumber.toLowerCase() === item.partNumber.toLowerCase());
 
                           return (
                             <div key={item.id} className="p-5 bg-white border border-slate-100 rounded-[1.75rem] shadow-soft hover:shadow-premium transition-all">
@@ -1082,6 +1087,7 @@ const Billing: React.FC<Props> = ({ user }) => {
                                     </div>
                                     <div className="col-span-2">
                                         <p className="font-black text-slate-900 text-sm md:text-base uppercase tracking-tight">{item.partNumber}</p>
+                                        {part && <p className="text-[10px] text-slate-500 font-bold uppercase truncate">{part.name}</p>}
                                         <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Qty: {fd(item.quantity)} @ ₹{item.price.toLocaleString()}</span>
                                     </div>
                                     <div className="col-span-1 flex md:justify-center">
