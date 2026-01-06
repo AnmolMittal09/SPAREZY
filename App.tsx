@@ -20,41 +20,39 @@ import ItemDetail from './pages/ItemDetail';
 import ProfitAnalysis from './pages/ProfitAnalysis';
 import Tasks from './pages/Tasks';
 
-const INACTIVITY_LIMIT_MS = 30 * 60 * 1000; // 30 Minutes
-const SESSION_KEY = 'sparezy_session_v4';
+const INACTIVITY_LIMIT_MS = 20 * 60 * 1000; // 20 Minutes
 
 const App: React.FC = () => {
-  const [user, setUser] = useState<User | null>(() => {
-    const saved = localStorage.getItem(SESSION_KEY);
-    return saved ? JSON.parse(saved) : null;
-  });
+  // Start with null to force login on every refresh
+  const [user, setUser] = useState<User | null>(null);
 
   const handleLogin = (newUser: User) => {
     setUser(newUser);
-    localStorage.setItem(SESSION_KEY, JSON.stringify(newUser));
   };
 
   const handleLogout = useCallback(() => {
     setUser(null);
-    localStorage.removeItem(SESSION_KEY);
   }, []);
 
   useEffect(() => {
     if (!user) return;
     let timeoutId: ReturnType<typeof setTimeout>;
+    
     const resetTimer = () => {
       clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
         // Only alert if not in dev bypass mode
         if (user.id !== 'dev-mode') {
-           alert("Session expired due to inactivity.");
+           alert("Session expired due to 20 minutes of inactivity.");
            handleLogout();
         }
       }, INACTIVITY_LIMIT_MS);
     };
+
     const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
     events.forEach(event => window.addEventListener(event, resetTimer));
     resetTimer();
+
     return () => {
       clearTimeout(timeoutId);
       events.forEach(event => window.removeEventListener(event, resetTimer));
