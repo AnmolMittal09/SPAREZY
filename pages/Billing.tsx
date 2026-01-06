@@ -14,30 +14,17 @@ import {
   Minus, 
   Plus, 
   Loader2,
-  Filter,
-  ArrowUpDown,
   ChevronDown,
   X,
-  TrendingDown,
-  TrendingUp,
-  Banknote,
   Layers,
   List,
   ChevronRight,
   Package,
   ArrowLeft,
   Users,
-  CheckCircle,
-  AlertTriangle,
-  Wallet,
   FileDown,
-  RotateCcw,
-  Download,
-  ExternalLink,
-  ClipboardList,
   FileSpreadsheet,
-  Check,
-  RefreshCw
+  Check
 } from 'lucide-react';
 import { createBulkTransactions, fetchTransactions, updateTransactionPayment } from '../services/transactionService';
 import { fetchInventory } from '../services/inventoryService';
@@ -86,7 +73,6 @@ const Billing: React.FC<Props> = ({ user }) => {
   const [inventory, setInventory] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [isSearchingOnMobile, setIsSearchingOnMobile] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
   
   // Modal states
   const [selectedBill, setSelectedBill] = useState<GroupedBill | null>(null);
@@ -101,10 +87,6 @@ const Billing: React.FC<Props> = ({ user }) => {
 
   // --- HISTORY FILTERS & SORTING STATE ---
   const [historySearch, setHistorySearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState<'ALL' | TransactionType.SALE | TransactionType.RETURN>('ALL');
-  const [dateRange, setDateRange] = useState<'ALL' | 'TODAY' | 'WEEK' | 'MONTH'>('ALL');
-  const [minAmount, setMinAmount] = useState<string>('');
-  const [maxAmount, setMaxAmount] = useState<string>('');
   const [sortBy, setSortBy] = useState<SortField>('date');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
 
@@ -206,30 +188,8 @@ const Billing: React.FC<Props> = ({ user }) => {
       );
     }
 
-    if (typeFilter !== 'ALL') {
-      result = result.filter(tx => tx.type === typeFilter);
-    }
-
-    if (dateRange !== 'ALL') {
-      const now = new Date();
-      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-      
-      result = result.filter(tx => {
-        const txTime = new Date(tx.createdAt).getTime();
-        if (dateRange === 'TODAY') return txTime >= startOfToday;
-        if (dateRange === 'WEEK') return txTime >= (now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        if (dateRange === 'MONTH') return txTime >= (now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        return true;
-      });
-    }
-
-    const min = parseFloat(minAmount);
-    const max = parseFloat(maxAmount);
-    if (!isNaN(min)) result = result.filter(tx => (tx.price * tx.quantity) >= min);
-    if (!isNaN(max)) result = result.filter(tx => (tx.price * tx.quantity) <= max);
-
     return result;
-  }, [history, historySearch, typeFilter, dateRange, minAmount, maxAmount]);
+  }, [history, historySearch]);
 
   const stackedHistory = useMemo(() => {
     const groups: Record<string, GroupedBill> = {};
@@ -461,16 +421,6 @@ const Billing: React.FC<Props> = ({ user }) => {
      const tx = salesLog.find(s => s.id === id);
      return acc + (tx ? (tx.price * selectedReturns[id]) : 0);
   }, 0);
-
-  const clearFilters = () => {
-    setHistorySearch('');
-    setTypeFilter('ALL');
-    setDateRange('ALL');
-    setMinAmount('');
-    setMaxAmount('');
-    setSortBy('date');
-    setSortOrder('desc');
-  };
 
   return (
     <div className="h-full flex flex-col bg-slate-50 md:bg-transparent">
@@ -755,12 +705,6 @@ const Billing: React.FC<Props> = ({ user }) => {
                          />
                       </div>
                       <button 
-                        onClick={() => setShowFilters(!showFilters)}
-                        className={`p-2 rounded-xl border transition-all flex items-center gap-2 whitespace-nowrap text-xs font-bold ${showFilters ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}
-                      >
-                         <Filter size={16} /> Filters {(typeFilter !== 'ALL' || dateRange !== 'ALL' || minAmount || maxAmount) && "•"}
-                      </button>
-                      <button 
                         onClick={loadHistory}
                         className="p-2 bg-white text-slate-400 border border-slate-200 rounded-xl hover:text-slate-600 transition-all"
                       >
@@ -775,7 +719,7 @@ const Billing: React.FC<Props> = ({ user }) => {
                   ) : (viewMode === 'LIST' ? sortedListHistory : viewMode === 'STACKED' ? stackedHistory : customerHistory).length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-24 text-slate-300">
                         <AlertCircle size={64} className="mb-4 opacity-10" />
-                        <p className="font-black text-xs uppercase tracking-widest">No entries found matching filters</p>
+                        <p className="font-black text-xs uppercase tracking-widest">No entries found</p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1183,5 +1127,25 @@ const Billing: React.FC<Props> = ({ user }) => {
     </div>
   );
 };
+
+const RefreshCw: React.FC<{ size?: number; className?: string }> = ({ size = 24, className }) => (
+  <svg 
+    xmlns="http://www.w3.org/2000/svg" 
+    width={size} 
+    height={size} 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className}
+  >
+    <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+    <path d="M3 3v5h5" />
+    <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+    <path d="M16 16h5v5" />
+  </svg>
+);
 
 export default Billing;
