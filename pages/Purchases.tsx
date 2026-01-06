@@ -36,7 +36,6 @@ import {
   Search,
   RotateCcw,
   FileSpreadsheet,
-  /* AlertSquare removed as it does not exist in lucide-react and is not used in this file */
   Sparkles
 } from 'lucide-react';
 import { fetchTransactions, createBulkTransactions } from '../services/transactionService';
@@ -462,43 +461,57 @@ const Purchases: React.FC<Props> = ({ user }) => {
                 
                 <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar pb-32">
                    {loading ? <div className="flex justify-center p-12"><TharLoader /></div> : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div className="flex flex-col gap-3">
                            {stackedHistory.length === 0 ? (
-                             <div className="col-span-full py-40 text-center text-slate-200 flex flex-col items-center justify-center">
+                             <div className="py-40 text-center text-slate-200 flex flex-col items-center justify-center">
                                 <History size={64} className="opacity-10 mb-6" />
                                 <p className="font-black uppercase tracking-[0.3em] text-slate-300">Journal Clear</p>
                              </div>
                            ) : (
                              stackedHistory.map(stack => (
-                                <div key={stack.id} onClick={() => setSelectedInbound(stack)} className="bg-white p-7 rounded-[2.5rem] border-2 border-slate-100 shadow-soft active:scale-[0.98] transition-all cursor-pointer group animate-fade-in relative overflow-hidden">
-                                   <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/[0.03] rounded-full -mr-12 -mt-12 group-hover:scale-110 transition-transform"></div>
+                                <div 
+                                  key={stack.id} 
+                                  onClick={() => setSelectedInbound(stack)} 
+                                  className="bg-white p-5 md:p-6 rounded-[2rem] border border-slate-200 shadow-soft hover:shadow-premium hover:border-blue-200 active:scale-[0.99] transition-all cursor-pointer group animate-fade-in relative flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-8"
+                                >
+                                   <div className="absolute top-0 left-0 w-1.5 h-full bg-blue-600 rounded-l-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
                                    
-                                   <div className="flex justify-between items-start mb-8 relative z-10">
-                                      <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl shadow-inner border border-blue-100/50"><Truck size={20} strokeWidth={2.5}/></div>
-                                      <div className="text-right">
-                                         <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest block mb-1">INBOUND TIMESTAMP</span>
-                                         <div className="flex items-center justify-end gap-2">
-                                            <Calendar size={12} className="text-blue-400" />
-                                            <span className="text-[14px] font-black text-slate-900 tracking-tight">{new Date(stack.createdAt).toLocaleDateString()}</span>
+                                   <div className="flex items-center gap-5 min-w-0 flex-1">
+                                      <div className="p-3 bg-slate-50 text-slate-400 rounded-xl group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors border border-slate-100">
+                                         <Truck size={20} strokeWidth={2.5}/>
+                                      </div>
+                                      <div className="min-w-0">
+                                         <h3 className="font-black text-[16px] md:text-lg text-slate-900 uppercase tracking-tight truncate leading-none group-hover:text-blue-600 transition-colors">
+                                            {stack.customerName || 'Main Provider'}
+                                         </h3>
+                                         <div className="flex items-center gap-3 mt-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                            <div className="flex items-center gap-1.5">
+                                               <Calendar size={12} className="text-blue-400" />
+                                               <span>Fetched: {new Date(stack.createdAt).toLocaleDateString()}</span>
+                                            </div>
+                                            <span className="hidden sm:inline opacity-30">•</span>
+                                            <div className="hidden sm:flex items-center gap-1.5">
+                                               <Clock size={12} className="opacity-40" />
+                                               <span>{new Date(stack.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                            </div>
                                          </div>
                                       </div>
                                    </div>
 
-                                   <div className="mb-8 px-1 relative z-10">
-                                      <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest block mb-2 opacity-60">DEALER IDENTITY</span>
-                                      <div className="font-black text-xl text-slate-900 truncate uppercase tracking-tight group-hover:text-blue-600 transition-colors">
-                                         {stack.customerName || 'Main Provider'}
-                                      </div>
-                                   </div>
-
-                                   <div className="flex justify-between items-end border-t border-slate-50 pt-6 relative z-10">
-                                      <div className="bg-slate-50 px-4 py-2 rounded-xl border border-slate-100 flex items-center gap-3 shadow-inner-soft">
-                                         <Package size={16} className="text-slate-400"/>
-                                         <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{fd(stack.items.length)} ASSETS</span>
+                                   <div className="flex items-center justify-between md:justify-end gap-6 md:gap-12 border-t md:border-t-0 border-slate-50 pt-4 md:pt-0">
+                                      <div className="flex flex-col items-start md:items-end">
+                                         <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-1">INVENTORY UNITS</span>
+                                         <div className="bg-slate-50 px-3 py-1 rounded-lg border border-slate-100 flex items-center gap-2 shadow-inner-soft">
+                                            <Package size={12} className="text-slate-400"/>
+                                            <span className="text-[10px] font-black text-slate-600">{fd(stack.items.length)} ASSETS</span>
+                                         </div>
                                       </div>
                                       <div className="text-right">
-                                         <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-1">BATCH VALUE</p>
-                                         <p className="font-black text-2xl text-slate-900 tracking-tighter tabular-nums leading-none">₹{stack.totalValue.toLocaleString()}</p>
+                                         <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-1 block">BATCH VALUE</span>
+                                         <p className="font-black text-xl md:text-2xl text-slate-900 tracking-tighter tabular-nums leading-none">₹{stack.totalValue.toLocaleString()}</p>
+                                      </div>
+                                      <div className="hidden md:block">
+                                         <ChevronRight size={20} className="text-slate-200 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
                                       </div>
                                    </div>
                                 </div>
