@@ -2,7 +2,19 @@ import { supabase } from './supabase';
 import { Invoice, Role, Transaction, TransactionStatus, TransactionType } from '../types';
 import { completeRequestsForParts } from './requestService';
 
+const TX_STORAGE_KEY = 'sparezy_transactions_v1';
+const INV_STORAGE_KEY = 'sparezy_inventory_v1';
+
 // --- HELPERS ---
+
+const getTransactionsFromLS = (): Transaction[] => {
+  const stored = localStorage.getItem(TX_STORAGE_KEY);
+  return stored ? JSON.parse(stored) : [];
+};
+
+const saveTransactionsToLS = (txs: Transaction[]) => {
+  localStorage.setItem(TX_STORAGE_KEY, JSON.stringify(txs));
+};
 
 const mapDBToTransaction = (item: any): Transaction => ({
   id: item.id,
@@ -10,11 +22,11 @@ const mapDBToTransaction = (item: any): Transaction => ({
   type: item.type as TransactionType,
   quantity: item.quantity,
   price: item.price,
-  paidAmount: item.paid_amount || 0, // Map from DB
+  paidAmount: item.paid_amount || 0,
   customerName: item.customer_name,
   status: item.status as TransactionStatus,
   createdByRole: item.created_by_role as Role,
-  createdByName: item.created_by_name || 'System', // Added mapper for name
+  createdByName: item.created_by_name || 'System',
   createdAt: item.created_at,
   relatedTransactionId: item.related_transaction_id,
   invoiceId: item.invoice_id
@@ -29,200 +41,291 @@ export const createTransaction = async (
 };
 
 export const updateTransactionPayment = async (id: string, amount: number): Promise<{ success: boolean, message?: string }> => {
-  if (!supabase) return { success: false, message: "Database not connected" };
-  const { error } = await supabase.from('transactions').update({ paid_amount: amount }).eq('id', id);
-  if (error) return { success: false, message: error.message };
-  return { success: true };
+  if (supabase) {
+    const { error } = await supabase.from('transactions').update({ paid_amount: amount }).eq('id', id);
+    if (error) return { success: false, message: error.message };
+    return { success: true };
+  }
+  
+  const txs = getTransactionsFromLS();
+  const index = txs.findIndex(t => t.id === id);
+  if (index > -1) {
+    txs[index].paidAmount = amount;
+    saveTransactionsToLS(txs);
+    return { success: true };
+  }
+  return { success: false, message: "Transaction not found" };
 };
 
 export const createBulkTransactions = async (
   transactions: Omit<Transaction, 'id' | 'status' | 'createdAt'>[]
 ): Promise<{ success: boolean; message?: string }> => {
-  if (!supabase) return { success: false, message: "Supabase client not connected." };
-
   const createdByRole = transactions[0].createdByRole;
   const initialStatus = (createdByRole === Role.OWNER)
     ? TransactionStatus.APPROVED 
     : TransactionStatus.PENDING;
 
-  try {
-    if (transactions.length === 0) return { success: true };
+  if (supabase) {
+    try {
+      if (transactions.length === 0) return { success: true };
 
-    // --- AUTO CUSTOMER REGISTRATION (CASE-INSENSITIVE) ---
-    const namesToRegister = [...new Set(transactions.map(t => (t.customerName || '').toUpperCase().trim()))]
-      .filter(name => {
-        if (!name) return false;
-        const lower = name.toLowerCase();
-        return !['walk-in', 'cash bill', 'standard checkout', 'cash', 'direct acquisition', 'verified provider'].includes(lower);
-      });
+      // --- AUTO CUSTOMER REGISTRATION (CASE-INSENSITIVE) ---
+      const namesToRegister = [...new Set(transactions.map(t => (t.customerName || '').toUpperCase().trim()))]
+        .filter(name => {
+          if (!name) return false;
+          const lower = name.toLowerCase();
+          return !['walk-in', 'cash bill', 'standard checkout', 'cash', 'direct acquisition', 'verified provider'].includes(lower);
+        });
 
-    if (namesToRegister.length > 0) {
-      const customerRows = namesToRegister.map(name => ({ name }));
-      await supabase.from('customers').upsert(customerRows, { onConflict: 'name' });
-    }
+      if (namesToRegister.length > 0) {
+        const customerRows = namesToRegister.map(name => ({ name }));
+        await supabase.from('customers').upsert(customerRows, { onConflict: 'name' });
+      }
 
-    // 1. Pre-Validation (Stock Check)
-    const saleTransactions = transactions.filter(t => t.type === TransactionType.SALE);
-    if (saleTransactions.length > 0) {
-        const partNumbers = [...new Set(saleTransactions.map(t => t.partNumber))];
-        const { data: stocks, error } = await supabase
-            .from('inventory')
-            .select('part_number, quantity')
-            .in('part_number', partNumbers);
-        
-        if (error) throw new Error(error.message);
+      // 1. Pre-Validation (Stock Check)
+      const saleTransactions = transactions.filter(t => t.type === TransactionType.SALE);
+      if (saleTransactions.length > 0) {
+          const partNumbers = [...new Set(saleTransactions.map(t => t.partNumber))];
+          const { data: stocks, error } = await supabase
+              .from('inventory')
+              .select('part_number, quantity')
+              .in('part_number', partNumbers);
+          
+          if (error) throw new Error(error.message);
 
-        if (stocks) {
-            const stockMap = new Map<string, number>();
-            stocks.forEach((s: any) => stockMap.set(s.part_number.toLowerCase(), s.quantity));
+          if (stocks) {
+              const stockMap = new Map<string, number>();
+              stocks.forEach((s: any) => stockMap.set(s.part_number.toLowerCase(), s.quantity));
 
-            for (const tx of saleTransactions) {
-                const currentStock = stockMap.get(tx.partNumber.toLowerCase());
-                if (currentStock === undefined || tx.quantity > currentStock) {
-                    return { 
-                        success: false, 
-                        message: `Insufficient stock for part '${tx.partNumber}'. Available: ${currentStock || 0}, Requested: ${tx.quantity}` 
-                    };
-                }
-            }
+              for (const tx of saleTransactions) {
+                  const currentStock = stockMap.get(tx.partNumber.toLowerCase());
+                  if (currentStock === undefined || tx.quantity > currentStock) {
+                      return { 
+                          success: false, 
+                          message: `Insufficient stock for part '${tx.partNumber}'. Available: ${currentStock || 0}, Requested: ${tx.quantity}` 
+                      };
+                  }
+              }
+          }
+      }
+
+      // 2. Insert Transactions
+      const dbRows = transactions.map(t => ({
+        part_number: t.partNumber,
+        type: t.type,
+        quantity: t.quantity,
+        price: t.price,
+        paid_amount: t.paidAmount || 0,
+        customer_name: (t.customerName || '').toUpperCase().trim(),
+        status: initialStatus,
+        created_by_role: t.createdByRole,
+        created_by_name: t.createdByName,
+        related_transaction_id: t.relatedTransactionId
+      }));
+
+      const { error: insertError } = await supabase.from('transactions').insert(dbRows);
+      if (insertError) throw new Error(insertError.message);
+
+      // 3. Update Inventory (if Approved immediately)
+      if (initialStatus === TransactionStatus.APPROVED) {
+        for (const tx of transactions) {
+           if (tx.type !== TransactionType.PURCHASE_ORDER) {
+             await updateStockForTransaction(tx.partNumber, tx.type, tx.quantity);
+           }
         }
+      }
+      return { success: true };
+
+    } catch (error: any) {
+      console.error("Create Bulk Transaction Error:", error);
+      return { success: false, message: error.message };
     }
+  }
 
-    // 2. Insert Transactions with Normalized Customer Names
-    const dbRows = transactions.map(t => ({
-      part_number: t.partNumber,
-      type: t.type,
-      quantity: t.quantity,
-      price: t.price,
-      paid_amount: t.paidAmount || 0,
-      customer_name: (t.customerName || '').toUpperCase().trim(),
-      status: initialStatus,
-      created_by_role: t.createdByRole,
-      created_by_name: t.createdByName, // Store user name in DB
-      related_transaction_id: t.relatedTransactionId
-    }));
+  // --- LOCAL STORAGE FALLBACK ---
+  const currentTxs = getTransactionsFromLS();
+  const newTxs: Transaction[] = transactions.map(t => ({
+    ...t,
+    id: crypto.randomUUID(),
+    status: initialStatus,
+    createdAt: new Date().toISOString()
+  }));
 
-    const { error: insertError } = await supabase.from('transactions').insert(dbRows);
-    if (insertError) throw new Error(insertError.message);
+  const allTxs = [...newTxs, ...currentTxs];
+  saveTransactionsToLS(allTxs);
 
-    // 3. Update Inventory (if Approved immediately)
-    if (initialStatus === TransactionStatus.APPROVED) {
-      for (const tx of transactions) {
-         if (tx.type !== TransactionType.PURCHASE_ORDER) {
-           await updateStockForTransaction(tx.partNumber, tx.type, tx.quantity);
-         }
+  // Update local stock immediately if approved
+  if (initialStatus === TransactionStatus.APPROVED) {
+    for (const tx of transactions) {
+      if (tx.type !== TransactionType.PURCHASE_ORDER) {
+        await updateStockForTransaction(tx.partNumber, tx.type, tx.quantity);
       }
     }
-    return { success: true };
-
-  } catch (error: any) {
-    console.error("Create Bulk Transaction Error:", error);
-    return { success: false, message: error.message };
   }
+
+  return { success: true };
 };
 
 export const fetchTransactions = async (
   status?: TransactionStatus | TransactionStatus[], 
   type?: TransactionType | TransactionType[]
 ): Promise<Transaction[]> => {
-  if (!supabase) return [];
+  if (supabase) {
+    let query = supabase.from('transactions').select('*').order('created_at', { ascending: false });
 
-  let query = supabase.from('transactions').select('*').order('created_at', { ascending: false });
+    if (status) {
+      if (Array.isArray(status)) query = query.in('status', status);
+      else query = query.eq('status', status);
+    } else {
+      query = query.limit(200);
+    }
 
+    if (type) {
+      if (Array.isArray(type)) query = query.in('type', type);
+      else query = query.eq('type', type);
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      console.error('Error fetching transactions:', error);
+      return [];
+    }
+    return data.map(mapDBToTransaction);
+  }
+
+  // --- LOCAL STORAGE FALLBACK ---
+  let txs = getTransactionsFromLS();
+  
   if (status) {
-    if (Array.isArray(status)) query = query.in('status', status);
-    else query = query.eq('status', status);
-  } else {
-    query = query.limit(200);
+    const statuses = Array.isArray(status) ? status : [status];
+    txs = txs.filter(t => statuses.includes(t.status));
   }
 
   if (type) {
-    if (Array.isArray(type)) query = query.in('type', type);
-    else query = query.eq('type', type);
+    const types = Array.isArray(type) ? type : [type];
+    txs = txs.filter(t => types.includes(t.type));
   }
 
-  const { data, error } = await query;
-  if (error) {
-    console.error('Error fetching transactions:', error);
-    return [];
-  }
-  return data.map(mapDBToTransaction);
+  return txs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 };
 
 export const fetchItemTransactions = async (partNumber: string): Promise<Transaction[]> => {
-  if (!supabase) return [];
-  const { data, error } = await supabase
-    .from('transactions')
-    .select('*')
-    .ilike('part_number', partNumber)
-    .order('created_at', { ascending: false });
-  
-  if (error || !data) return [];
-  return data.map(mapDBToTransaction);
+  if (supabase) {
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('*')
+      .ilike('part_number', partNumber)
+      .order('created_at', { ascending: false });
+    
+    if (error || !data) return [];
+    return data.map(mapDBToTransaction);
+  }
+
+  return getTransactionsFromLS().filter(t => t.partNumber.toLowerCase() === partNumber.toLowerCase());
 };
 
 export const approveTransaction = async (id: string, partNumber: string, type: TransactionType, quantity: number): Promise<void> => {
-  if (!supabase) throw new Error("Database not connected");
+  if (supabase) {
+    if (type === TransactionType.SALE) {
+        const { data: item } = await supabase.from('inventory').select('quantity').ilike('part_number', partNumber).single();
+        if (!item || item.quantity < quantity) throw new Error(`Insufficient stock for approval.`);
+    }
 
-  if (type === TransactionType.SALE) {
-      const { data: item } = await supabase.from('inventory').select('quantity').ilike('part_number', partNumber).single();
-      if (!item || item.quantity < quantity) throw new Error(`Insufficient stock for approval.`);
+    const { error: txError } = await supabase.from('transactions').update({ status: TransactionStatus.APPROVED }).eq('id', id);
+    if (txError) throw new Error(txError.message);
+
+    if (type !== TransactionType.PURCHASE_ORDER) await updateStockForTransaction(partNumber, type, quantity);
+    return;
   }
 
-  const { error: txError } = await supabase.from('transactions').update({ status: TransactionStatus.APPROVED }).eq('id', id);
-  if (txError) throw new Error(txError.message);
-
-  if (type !== TransactionType.PURCHASE_ORDER) await updateStockForTransaction(partNumber, type, quantity);
+  // --- LOCAL STORAGE FALLBACK ---
+  const txs = getTransactionsFromLS();
+  const index = txs.findIndex(t => t.id === id);
+  if (index > -1) {
+    txs[index].status = TransactionStatus.APPROVED;
+    saveTransactionsToLS(txs);
+    if (type !== TransactionType.PURCHASE_ORDER) await updateStockForTransaction(partNumber, type, quantity);
+  }
 };
 
 export const rejectTransaction = async (id: string): Promise<void> => {
-  if (!supabase) throw new Error("Database not connected");
-  const { error } = await supabase.from('transactions').update({ status: TransactionStatus.REJECTED }).eq('id', id);
-  if (error) throw new Error(error.message);
+  if (supabase) {
+    const { error } = await supabase.from('transactions').update({ status: TransactionStatus.REJECTED }).eq('id', id);
+    if (error) throw new Error(error.message);
+    return;
+  }
+
+  const txs = getTransactionsFromLS();
+  const index = txs.findIndex(t => t.id === id);
+  if (index > -1) {
+    txs[index].status = TransactionStatus.REJECTED;
+    saveTransactionsToLS(txs);
+  }
 };
 
 const updateStockForTransaction = async (partNumber: string, type: TransactionType, quantity: number) => {
-  if (!supabase) return;
+  if (supabase) {
+    const { data: items } = await supabase
+      .from('inventory')
+      .select('quantity, part_number, is_archived')
+      .ilike('part_number', partNumber)
+      .limit(1);
+
+    if (!items || items.length === 0) return;
+
+    const dbItem = items[0];
+    const currentQty = dbItem.quantity;
+    let newQty = currentQty;
+
+    if (type === TransactionType.SALE) {
+      newQty = currentQty - quantity;
+    } else if (type === TransactionType.PURCHASE || type === TransactionType.RETURN) {
+      newQty = currentQty + quantity;
+    }
+
+    if (newQty < 0 && type === TransactionType.SALE) newQty = 0;
+
+    const shouldUnarchive = dbItem.is_archived && newQty > 0;
+
+    const updatePayload: any = { 
+      quantity: newQty, 
+      last_updated: new Date().toISOString() 
+    };
+
+    if (shouldUnarchive) {
+      updatePayload.is_archived = false;
+    }
+
+    await supabase
+      .from('inventory')
+      .update(updatePayload)
+      .eq('part_number', dbItem.part_number);
+
+    if (type === TransactionType.PURCHASE) {
+      await completeRequestsForParts([partNumber]);
+    }
+    return;
+  }
+
+  // --- LOCAL STORAGE FALLBACK ---
+  const storedInv = localStorage.getItem(INV_STORAGE_KEY);
+  if (!storedInv) return;
   
-  const { data: items } = await supabase
-    .from('inventory')
-    .select('quantity, part_number, is_archived')
-    .ilike('part_number', partNumber)
-    .limit(1);
-
-  if (!items || items.length === 0) return;
-
-  const dbItem = items[0];
-  const currentQty = dbItem.quantity;
-  let newQty = currentQty;
-
-  if (type === TransactionType.SALE) {
-    newQty = currentQty - quantity;
-  } else if (type === TransactionType.PURCHASE || type === TransactionType.RETURN) {
-    newQty = currentQty + quantity;
-  }
-
-  if (newQty < 0 && type === TransactionType.SALE) newQty = 0;
-
-  const shouldUnarchive = dbItem.is_archived && newQty > 0;
-
-  const updatePayload: any = { 
-    quantity: newQty, 
-    last_updated: new Date().toISOString() 
-  };
-
-  if (shouldUnarchive) {
-    updatePayload.is_archived = false;
-  }
-
-  await supabase
-    .from('inventory')
-    .update(updatePayload)
-    .eq('part_number', dbItem.part_number);
-
-  // --- AUTO-FULFILL REQUISITIONS ---
-  if (type === TransactionType.PURCHASE) {
-    await completeRequestsForParts([partNumber]);
+  const inventory: any[] = JSON.parse(storedInv);
+  const index = inventory.findIndex(i => i.partNumber.toLowerCase() === partNumber.toLowerCase());
+  
+  if (index > -1) {
+    const item = inventory[index];
+    if (type === TransactionType.SALE) {
+      item.quantity -= quantity;
+    } else if (type === TransactionType.PURCHASE || type === TransactionType.RETURN) {
+      item.quantity += quantity;
+    }
+    if (item.quantity < 0) item.quantity = 0;
+    if (item.quantity > 0) item.isArchived = false;
+    item.lastUpdated = new Date().toISOString();
+    
+    localStorage.setItem(INV_STORAGE_KEY, JSON.stringify(inventory));
   }
 };
 
@@ -295,72 +398,78 @@ export const fetchAnalytics = async (startDate: Date, endDate: Date): Promise<An
 };
 
 export const fetchUninvoicedSales = async (): Promise<Transaction[]> => {
-  if (!supabase) return [];
-
-  const { data, error } = await supabase
-    .from('transactions')
-    .select('*')
-    .eq('type', 'SALE')
-    .eq('status', 'APPROVED')
-    .is('invoice_id', null) 
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    console.error("Fetch uninvoiced sales error:", error);
-    return [];
-  }
-  
-  if (!data || data.length === 0) return [];
-
-  const saleIds = data.map(s => s.id);
-  
-  const { data: returns } = await supabase
+  if (supabase) {
+    const { data, error } = await supabase
       .from('transactions')
-      .select('related_transaction_id, quantity')
-      .eq('type', 'RETURN')
+      .select('*')
+      .eq('type', 'SALE')
       .eq('status', 'APPROVED')
-      .in('related_transaction_id', saleIds);
+      .is('invoice_id', null) 
+      .order('created_at', { ascending: false });
 
-  const returnMap = new Map<string, number>();
-  if (returns) {
-      returns.forEach((r: any) => {
-          const current = returnMap.get(r.related_transaction_id) || 0;
-          returnMap.set(r.related_transaction_id, current + r.quantity);
-      });
+    if (error) {
+      console.error("Fetch uninvoiced sales error:", error);
+      return [];
+    }
+    
+    if (!data || data.length === 0) return [];
+
+    const saleIds = data.map(s => s.id);
+    
+    const { data: returns } = await supabase
+        .from('transactions')
+        .select('related_transaction_id, quantity')
+        .eq('type', 'RETURN')
+        .eq('status', 'APPROVED')
+        .in('related_transaction_id', saleIds);
+
+    const returnMap = new Map<string, number>();
+    if (returns) {
+        returns.forEach((r: any) => {
+            const current = returnMap.get(r.related_transaction_id) || 0;
+            returnMap.set(r.related_transaction_id, current + r.quantity);
+        });
+    }
+
+    const validData = data.filter((s: any) => {
+        const returned = returnMap.get(s.id) || 0;
+        return s.quantity > returned;
+    });
+
+    return validData.map(mapDBToTransaction);
   }
 
-  const validData = data.filter((s: any) => {
-      const returned = returnMap.get(s.id) || 0;
-      return s.quantity > returned;
-  });
-
-  return validData.map(mapDBToTransaction);
+  // --- LOCAL STORAGE FALLBACK ---
+  const txs = getTransactionsFromLS().filter(t => t.type === TransactionType.SALE && t.status === TransactionStatus.APPROVED && !t.invoiceId);
+  return txs;
 };
 
 export const fetchInvoices = async (): Promise<Invoice[]> => {
-  if (!supabase) return [];
+  if (supabase) {
+    const { data, error } = await supabase.from('invoices').select('*').order('date', { ascending: false });
+    
+    if (error || !data) {
+      console.error("Fetch invoices error:", error);
+      return [];
+    }
 
-  const { data, error } = await supabase.from('invoices').select('*').order('date', { ascending: false });
-  
-  if (error || !data) {
-    console.error("Fetch invoices error:", error);
-    return [];
+    return data.map((i: any) => ({
+        id: i.id,
+        invoiceNumber: i.invoice_number,
+        date: i.date,
+        customerName: i.customer_name,
+        customerPhone: i.customer_phone,
+        customerAddress: i.customer_address,
+        customerGst: i.customer_gst,
+        totalAmount: i.total_amount,
+        taxAmount: i.tax_amount,
+        paymentMode: i.payment_mode,
+        itemsCount: i.items_count,
+        generatedBy: i.generated_by
+    }));
   }
 
-  return data.map((i: any) => ({
-      id: i.id,
-      invoiceNumber: i.invoice_number,
-      date: i.date,
-      customerName: i.customer_name,
-      customerPhone: i.customer_phone,
-      customerAddress: i.customer_address,
-      customerGst: i.customer_gst,
-      totalAmount: i.total_amount,
-      taxAmount: i.tax_amount,
-      paymentMode: i.payment_mode,
-      itemsCount: i.items_count,
-      generatedBy: i.generated_by
-  }));
+  return []; // Invoices not heavily used in LS fallback currently
 };
 
 export const generateTaxInvoiceRecord = async (
@@ -369,58 +478,68 @@ export const generateTaxInvoiceRecord = async (
   totals: { amount: number, tax: number },
   userRole: string
 ): Promise<{ success: boolean, invoice?: Invoice, message?: string }> => {
-  if (!supabase) return { success: false, message: "Database not connected" };
+  if (supabase) {
+    const invoiceNumber = `INV-${Date.now().toString().slice(-8)}`;
 
-  const invoiceNumber = `INV-${Date.now().toString().slice(-8)}`;
+    try {
+      const { data: invoiceData, error: invError } = await supabase
+        .from('invoices')
+        .insert({
+          invoice_number: invoiceNumber,
+          customer_name: customerDetails.name.toUpperCase().trim(),
+          customer_phone: customerDetails.phone,
+          customer_address: customerDetails.address,
+          customer_gst: customerDetails.gst,
+          total_amount: totals.amount,
+          tax_amount: totals.tax,
+          payment_mode: customerDetails.paymentMode.toUpperCase(), 
+          items_count: transactionIds.length,
+          generated_by: userRole
+        })
+        .select()
+        .single();
 
-  try {
-    const { data: invoiceData, error: invError } = await supabase
-      .from('invoices')
-      .insert({
-        invoice_number: invoiceNumber,
-        customer_name: customerDetails.name.toUpperCase().trim(),
-        customer_phone: customerDetails.phone,
-        customer_address: customerDetails.address,
-        customer_gst: customerDetails.gst,
-        total_amount: totals.amount,
-        tax_amount: totals.tax,
-        // Fixed: Use paymentMode property instead of payment_mode
-        payment_mode: customerDetails.paymentMode.toUpperCase(), 
-        items_count: transactionIds.length,
-        generated_by: userRole
-      })
-      .select()
-      .single();
+      if (invError || !invoiceData) throw new Error(invError?.message || "Failed to create invoice");
 
-    if (invError || !invoiceData) throw new Error(invError?.message || "Failed to create invoice");
+      const { error: txError } = await supabase
+        .from('transactions')
+        .update({ invoice_id: invoiceData.id })
+        .in('id', transactionIds);
 
-    const { error: txError } = await supabase
-      .from('transactions')
-      .update({ invoice_id: invoiceData.id })
-      .in('id', transactionIds);
+      if (txError) throw new Error("Failed to link items to invoice");
 
-    if (txError) throw new Error("Failed to link items to invoice");
+      return { 
+        success: true, 
+        invoice: {
+          id: invoiceData.id,
+          invoiceNumber: invoiceData.invoice_number,
+          date: invoiceData.date,
+          customerName: invoiceData.customer_name,
+          customerPhone: invoiceData.customer_phone,
+          customerAddress: invoiceData.customer_address,
+          customerGst: invoiceData.customer_gst,
+          totalAmount: invoiceData.total_amount,
+          taxAmount: invoiceData.tax_amount,
+          paymentMode: invoiceData.payment_mode as any,
+          itemsCount: invoiceData.items_count,
+          generatedBy: invoiceData.generated_by
+        } 
+      };
 
-    return { 
-      success: true, 
-      invoice: {
-        id: invoiceData.id,
-        invoiceNumber: invoiceData.invoice_number,
-        date: invoiceData.date,
-        customerName: invoiceData.customer_name,
-        customerPhone: invoiceData.customer_phone,
-        customerAddress: invoiceData.customer_address,
-        customerGst: invoiceData.customer_gst,
-        totalAmount: invoiceData.total_amount,
-        taxAmount: invoiceData.tax_amount,
-        paymentMode: invoiceData.payment_mode as any,
-        itemsCount: invoiceData.items_count,
-        generatedBy: invoiceData.generated_by
-      } 
-    };
-
-  } catch (err: any) {
-    console.error("Invoice Gen Error:", err);
-    return { success: false, message: err.message };
+    } catch (err: any) {
+      console.error("Invoice Gen Error:", err);
+      return { success: false, message: err.message };
+    }
   }
+
+  // --- LOCAL STORAGE FALLBACK ---
+  const txs = getTransactionsFromLS();
+  const invoiceId = crypto.randomUUID();
+  transactionIds.forEach(id => {
+    const idx = txs.findIndex(t => t.id === id);
+    if (idx > -1) txs[idx].invoiceId = invoiceId;
+  });
+  saveTransactionsToLS(txs);
+
+  return { success: true };
 };
