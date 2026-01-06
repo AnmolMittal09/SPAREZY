@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 
 // Access environment variables safely
@@ -17,40 +16,32 @@ export const supabase = (supabaseUrl && supabaseKey)
  * SUPABASE SQL COMMANDS (Run in SQL Editor)
  * ==========================================
  * 
- * --- 🚨 FIX FOR RLS POLICY ERROR 🚨 ---
- * If you see "violates row-level security policy", run these commands:
+ * --- 🚨 EMERGENCY REPAIR SCRIPT 🚨 ---
+ * Run this if you see "Could not find column created_by_name":
  * 
- * -- Enable RLS (if not already enabled)
- * ALTER TABLE stock_requests ENABLE ROW LEVEL SECURITY;
+ * ALTER TABLE transactions 
+ * ADD COLUMN IF NOT EXISTS created_by_name text,
+ * ADD COLUMN IF NOT EXISTS created_by_role text,
+ * ADD COLUMN IF NOT EXISTS paid_amount numeric DEFAULT 0,
+ * ADD COLUMN IF NOT EXISTS related_transaction_id uuid,
+ * ADD COLUMN IF NOT EXISTS invoice_id uuid;
  * 
- * -- Create a policy that allows all operations (Public access for this specific table)
- * -- In a real production app with Supabase Auth, you would restrict this to authenticated users.
- * DROP POLICY IF EXISTS "Enable all access for everyone" ON stock_requests;
- * CREATE POLICY "Enable all access for everyone" ON stock_requests FOR ALL USING (true) WITH CHECK (true);
- * 
- * -- Repeat for other tables if necessary:
- * ALTER TABLE inventory ENABLE ROW LEVEL SECURITY;
- * CREATE POLICY "Enable all access for everyone" ON inventory FOR ALL USING (true) WITH CHECK (true);
- * 
+ * -- Enable RLS and create a wide-open policy for testing
  * ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
- * CREATE POLICY "Enable all access for everyone" ON transactions FOR ALL USING (true) WITH CHECK (true);
+ * DROP POLICY IF EXISTS "Public Access" ON transactions;
+ * CREATE POLICY "Public Access" ON transactions FOR ALL USING (true) WITH CHECK (true);
+ * 
+ * -- FORCE RELOAD CACHE (CRITICAL)
+ * NOTIFY pgrst, 'reload schema';
  * 
  * ---------------------------------------------
+ * -- FULL DATABASE DEFINITIONS
+ * ---------------------------------------------
  * 
- * -- 1. Enable UUID Extension
+ * -- 1. Extensions
  * create extension if not exists "uuid-ossp";
  * 
- * -- 2. App Users (Role Based Access)
- * create table if not exists app_users (
- *   id uuid default uuid_generate_v4() primary key,
- *   username text unique not null,
- *   password text not null,
- *   name text not null,
- *   role text not null check (role in ('OWNER', 'MANAGER')),
- *   created_at timestamptz default now()
- * );
- * 
- * -- 3. Inventory Table
+ * -- 2. Inventory
  * create table if not exists inventory (
  *   id uuid default uuid_generate_v4() primary key,
  *   part_number text unique not null,
@@ -64,102 +55,35 @@ export const supabase = (supabaseUrl && supabaseKey)
  *   is_archived boolean default false
  * );
  * 
- * -- 4. Customers
- * create table if not exists customers (
- *   id uuid default uuid_generate_v4() primary key,
- *   name text not null,
- *   phone text,
- *   type text check (type in ('RETAIL', 'GARAGE')),
- *   gst text,
- *   address text,
- *   created_at timestamptz default now()
- * );
- * 
- * -- 5. Suppliers
- * create table if not exists suppliers (
- *   id uuid default uuid_generate_v4() primary key,
- *   name text not null,
- *   contact_person text,
- *   phone text,
- *   gst text,
- *   terms text,
- *   created_at timestamptz default now()
- * );
- * 
- * -- 6. Shop Settings
- * create table if not exists shop_settings (
- *   id uuid default uuid_generate_v4() primary key,
- *   name text,
- *   address text,
- *   phone text,
- *   gst text,
- *   default_tax_rate numeric default 18,
- *   updated_at timestamptz default now()
- * );
- * 
- * -- 7. Invoices
- * create table if not exists invoices (
- *   id uuid default uuid_generate_v4() primary key,
- *   invoice_number text unique not null,
- *   date timestamptz default now(),
- *   customer_name text,
- *   customer_phone text,
- *   customer_address text,
- *   customer_gst text,
- *   total_amount numeric,
- *   tax_amount numeric,
- *   payment_mode text check (payment_mode in ('CASH', 'UPI', 'CARD', 'CREDIT')),
- *   items_count int,
- *   generated_by text,
- *   created_at timestamptz default now()
- * );
- * 
- * -- 8. Transactions (Linked to Inventory and Invoices)
+ * -- 3. Transactions
  * create table if not exists transactions (
  *   id uuid default uuid_generate_v4() primary key,
- *   part_number text not null, -- Intentionally text to allow unlinked history, or add references inventory(part_number)
- *   type text not null, -- 'SALE', 'PURCHASE', 'RETURN'
+ *   part_number text not null,
+ *   type text not null, 
  *   quantity int not null,
- *   price numeric,
+ *   price numeric default 0,
+ *   paid_amount numeric default 0,
  *   customer_name text,
  *   status text default 'PENDING',
  *   created_by_role text,
+ *   created_by_name text,
  *   created_at timestamptz default now(),
  *   related_transaction_id uuid,
- *   invoice_id uuid references invoices(id)
+ *   invoice_id uuid
  * );
  * 
- * -- 9. Stock Requests
- * create table if not exists stock_requests (
+ * -- 4. App Users
+ * create table if not exists app_users (
  *   id uuid default uuid_generate_v4() primary key,
- *   part_number text not null,
- *   quantity_needed int not null,
- *   requester_name text,
- *   status text default 'PENDING',
+ *   username text unique not null,
+ *   password text not null,
+ *   name text not null,
+ *   role text not null check (role in ('OWNER', 'MANAGER')),
  *   created_at timestamptz default now()
  * );
  * 
- * -- 10. Histories
- * create table if not exists price_history (
- *   id uuid default uuid_generate_v4() primary key,
- *   part_number text not null,
- *   old_price numeric,
- *   new_price numeric,
- *   change_date timestamptz default now()
- * );
- * 
- * create table if not exists upload_history (
- *   id uuid default uuid_generate_v4() primary key,
- *   file_name text,
- *   upload_mode text,
- *   item_count int,
- *   status text default 'SUCCESS',
- *   snapshot_data jsonb,
- *   created_at timestamptz default now()
- * );
- * 
- * -- SEED DEFAULT USER (Optional)
+ * -- 5. Seed Admin
  * insert into app_users (username, password, name, role) 
- * values ('admin', 'admin', 'System Admin', 'OWNER')
+ * values ('admin', 'admin', 'Master Admin', 'OWNER')
  * on conflict do nothing;
  */

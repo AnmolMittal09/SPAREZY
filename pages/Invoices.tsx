@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { User, Transaction, ShopSettings, TransactionStatus, TransactionType } from '../types';
 import { fetchUninvoicedSales, generateTaxInvoiceRecord, fetchInvoices, fetchTransactions } from '../services/transactionService';
@@ -336,7 +335,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
          <div className="bg-amber-50 border border-amber-200 rounded-[1.5rem] md:rounded-[2rem] p-4 md:p-5 flex flex-col md:flex-row items-start md:items-center justify-between shadow-soft animate-fade-in no-print gap-4 mx-1">
             <div className="flex items-center gap-3 md:gap-4">
                <div className="bg-white p-2 md:p-2.5 rounded-xl text-amber-600 shadow-inner border border-amber-100">
-                  <AlertTriangle size={18} md:size={22} />
+                  <AlertTriangle size={18} className="md:w-[22px] md:h-[22px]" />
                </div>
                <div>
                   <h3 className="text-xs md:text-sm font-black text-amber-900 uppercase tracking-tight leading-none mb-1">Authorization Pipeline</h3>
@@ -372,7 +371,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
                     <div className="bg-white rounded-[1.75rem] md:rounded-[3rem] shadow-premium border border-slate-200/60 flex flex-col overflow-hidden max-w-6xl mx-auto w-full h-full">
                        <div className="p-4 md:p-8 border-b border-slate-100 flex flex-col md:flex-row justify-between items-center bg-slate-50/50 gap-4 md:gap-6">
                           <div className="flex items-center gap-3 md:gap-5 w-full md:w-auto">
-                             <div className="p-2 md:p-3.5 bg-white rounded-xl md:rounded-2xl shadow-soft border border-slate-100 text-slate-900"><Scale size={18} md:size={20} /></div>
+                             <div className="p-2 md:p-3.5 bg-white rounded-xl md:rounded-2xl shadow-soft border border-slate-100 text-slate-900"><Scale size={18} className="md:w-5 md:h-5" /></div>
                              <div>
                                 <h3 className="font-black text-slate-900 uppercase text-xs md:text-sm tracking-tight">Active Logs</h3>
                                 <p className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Approved items awaiting dispatch</p>
@@ -381,7 +380,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
                           <div className="flex items-center gap-2 md:gap-4 w-full md:w-auto">
                              <button onClick={selectAll} className="flex-1 md:flex-none px-4 md:px-6 py-2.5 md:py-3 bg-white border border-slate-200 rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-100 active:scale-95 transition-all shadow-sm">Select All</button>
                              <div className="relative flex-[2] md:w-72">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={16} md:size={18} />
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 md:w-[18px] md:h-[18px]" size={16} />
                                 <input 
                                     type="text" 
                                     placeholder="Filter entries..." 
@@ -396,7 +395,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
                        <div className="flex-1 overflow-auto bg-slate-50/30 p-4 md:p-8 no-scrollbar">
                           {sales.length === 0 ? (
                              <div className="flex flex-col items-center justify-center h-full py-20 text-slate-400">
-                                <Scale size={64} md:size={80} className="mb-6 md:mb-8 opacity-5" />
+                                <Scale size={64} className="mb-6 md:mb-8 opacity-5 md:w-[80px] md:h-[80px]" />
                                 <p className="font-black uppercase tracking-[0.4em] text-[12px] md:text-[14px]">Reconciliation Queue Empty</p>
                              </div>
                           ) : (
@@ -420,7 +419,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
                                          <div className="flex justify-between items-start">
                                             <div className="flex items-center gap-3 md:gap-5">
                                                <div className={`w-8 h-8 md:w-10 md:h-10 rounded-xl border-2 flex items-center justify-center transition-all ${isSelected ? 'bg-blue-600 border-blue-600 text-white shadow-lg' : 'bg-slate-50 border-slate-100 text-transparent'}`}>
-                                                  <Check size={16} md:size={20} strokeWidth={4} />
+                                                  <Check size={16} strokeWidth={4} className="md:w-5 md:h-5" />
                                                </div>
                                                <div className="min-w-0 flex-1">
                                                   <div className="font-black text-slate-900 text-sm md:text-lg leading-tight uppercase tracking-tight group-hover:text-blue-600 transition-colors truncate max-w-[140px] md:max-w-full">{partInfo?.name || 'GENUINE SPARE PART'}</div>
@@ -435,7 +434,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
                                          </div>
                                          <div className="flex items-end justify-between border-t border-slate-50 pt-4 md:pt-6">
                                             <div className="flex items-center gap-2.5 md:gap-3.5 min-w-0">
-                                               <div className="p-1.5 md:p-2.5 bg-slate-50 rounded-xl text-slate-400"><UserIcon size={14} md:size={16}/></div>
+                                               <div className="p-1.5 md:p-2.5 bg-slate-50 rounded-xl text-slate-400"><UserIcon size={14} className="md:w-4 md:h-4" /></div>
                                                <span className="text-[10px] md:text-[11px] font-black text-slate-500 uppercase tracking-tight truncate max-w-[100px] md:max-w-[150px]">{sale.customerName || 'Standard Client'}</span>
                                             </div>
                                             <div className="text-right flex-none">
@@ -469,7 +468,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
                              onClick={() => setStep(2)}
                              className="w-full md:w-auto bg-slate-900 hover:bg-black text-white px-8 md:px-12 py-4 md:py-5 rounded-2xl font-black flex items-center justify-center gap-3 md:gap-4 disabled:opacity-30 shadow-2xl transition-all active:scale-95 uppercase text-[11px] md:text-sm tracking-widest"
                           >
-                             Review Profile <ArrowRight size={18} md:size={22} strokeWidth={3} />
+                             Review Profile <ArrowRight size={18} strokeWidth={3} className="md:w-[22px] md:h-[22px]" />
                           </button>
                        </div>
                     </div>
@@ -483,7 +482,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
                            <div className="absolute top-0 left-0 w-1.5 md:w-2 h-full bg-blue-600"></div>
                            <div className="flex items-center gap-4 md:gap-8">
                               <div className="p-3 md:p-5 bg-blue-50 text-blue-600 rounded-2xl md:rounded-[1.75rem] shadow-inner">
-                                 <Wallet size={24} md:size={32} strokeWidth={2.5} />
+                                 <Wallet size={24} strokeWidth={2.5} className="md:w-8 md:h-8" />
                               </div>
                               <div>
                                  <p className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 opacity-60">Ledger Statement Value</p>
@@ -498,7 +497,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
 
                         <div className="bg-white rounded-[1.75rem] md:rounded-[3rem] shadow-premium border border-slate-200 overflow-hidden">
                            <div className="p-6 md:p-10 border-b border-slate-100 flex items-center gap-4 md:gap-6 bg-slate-50/30">
-                              <div className="w-10 h-10 md:w-14 md:h-14 bg-slate-900 rounded-xl md:rounded-2xl flex items-center justify-center text-white shadow-lg"><UserIcon size={20} md:size={28} /></div>
+                              <div className="w-10 h-10 md:w-14 md:h-14 bg-slate-900 rounded-xl md:rounded-2xl flex items-center justify-center text-white shadow-lg"><UserIcon size={20} className="md:w-7 md:h-7" /></div>
                               <div>
                                  <h3 className="font-black text-slate-900 text-lg md:text-2xl tracking-tight uppercase">Target Profile</h3>
                                  <p className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Dispatching Account Details</p>
@@ -510,7 +509,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
                                  <div>
                                     <label className="block text-[8px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 md:mb-3 ml-1">Entity / Station Full Name</label>
                                     <div className="relative group">
-                                       <UserIcon size={18} md:size={20} className="absolute left-4 md:left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" />
+                                       <UserIcon size={18} className="absolute left-4 md:left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors md:w-5 md:h-5" />
                                        <input 
                                           autoFocus
                                           type="text" 
@@ -526,7 +525,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
                                     <div>
                                        <label className="block text-[8px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 md:mb-3 ml-1">Contact Reference</label>
                                        <div className="relative group">
-                                          <Phone size={18} md:size={20} className="absolute left-4 md:left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500" />
+                                          <Phone size={18} className="absolute left-4 md:left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 md:w-5 md:h-5" />
                                           <input 
                                              type="text" 
                                              className="w-full pl-11 md:pl-14 pr-6 md:pr-8 py-3.5 md:py-5 bg-slate-50 border-2 border-transparent rounded-xl md:rounded-2xl focus:ring-8 focus:ring-12 focus:ring-blue-500/5 focus:border-blue-500/10 focus:bg-white outline-none transition-all font-bold text-xs md:text-sm shadow-inner-soft"
@@ -539,7 +538,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
                                     <div>
                                        <label className="block text-[8px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 md:mb-3 ml-1">GSTIN Identifier</label>
                                        <div className="relative group">
-                                          <Building2 size={18} md:size={20} className="absolute left-4 md:left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500" />
+                                          <Building2 size={18} className="absolute left-4 md:left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 md:w-5 md:h-5" />
                                           <input 
                                              type="text" 
                                              className="w-full pl-11 md:pl-14 pr-6 md:pr-8 py-3.5 md:py-5 bg-slate-50 border-2 border-transparent rounded-xl md:rounded-2xl focus:ring-8 focus:ring-12 focus:ring-blue-500/5 focus:border-blue-500/10 focus:bg-white outline-none transition-all font-black text-xs md:text-sm shadow-inner-soft uppercase"
@@ -554,7 +553,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
                                  <div>
                                     <label className="block text-[8px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 md:mb-3 ml-1">Billing Station Address</label>
                                     <div className="relative group">
-                                       <MapPin size={18} md:size={20} className="absolute left-4 md:left-5 top-5 text-slate-300 group-focus-within:text-blue-500" />
+                                       <MapPin size={18} className="absolute left-4 md:left-5 top-5 text-slate-300 group-focus-within:text-blue-500 md:w-5 md:h-5" />
                                        <textarea 
                                           className="w-full pl-11 md:pl-14 pr-6 md:pr-8 py-3.5 md:py-5 bg-slate-50 border-2 border-transparent rounded-xl md:rounded-2xl focus:ring-8 focus:ring-12 focus:ring-blue-500/5 focus:border-blue-500/10 focus:bg-white outline-none transition-all resize-none font-bold text-xs md:text-sm shadow-inner-soft uppercase"
                                           rows={3}
@@ -584,7 +583,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
                                                 : 'bg-white text-slate-500 border-slate-100 hover:bg-slate-50 hover:border-slate-200'
                                           }`}
                                        >
-                                          <item.icon size={20} md:size={26} strokeWidth={2.5} />
+                                          <item.icon size={20} strokeWidth={2.5} className="md:w-[26px] md:h-[26px]" />
                                           <span className="text-[9px] md:text-[11px] font-black uppercase tracking-widest">{item.mode}</span>
                                        </button>
                                     ))}
@@ -594,14 +593,14 @@ const Invoices: React.FC<Props> = ({ user }) => {
 
                            <div className="p-6 md:p-10 bg-slate-50 border-t border-slate-100 flex justify-between items-center gap-4">
                               <button onClick={() => setStep(1)} className="text-slate-400 font-black hover:text-slate-900 flex items-center gap-2 transition-all uppercase text-[9px] md:text-[11px] tracking-widest px-2">
-                                 <ChevronLeft size={18} md:size={22} strokeWidth={3} /> Revise
+                                 <ChevronLeft size={18} strokeWidth={3} className="md:w-5 md:h-5" /> Revise
                               </button>
                               <button 
                                  disabled={!customerDetails.name}
                                  onClick={() => setStep(3)}
                                  className="flex-1 md:flex-none bg-slate-900 hover:bg-black text-white px-8 md:px-12 py-4 md:py-5 rounded-xl md:rounded-2xl font-black flex items-center justify-center gap-3 md:gap-4 disabled:opacity-30 transition-all shadow-2xl active:scale-95 uppercase text-[11px] md:text-sm tracking-widest"
                               >
-                                 Document Audit <ArrowRight size={18} md:size={22} strokeWidth={3} />
+                                 Document Audit <ArrowRight size={18} strokeWidth={3} className="md:w-5 md:h-5" />
                               </button>
                            </div>
                         </div>
@@ -637,7 +636,7 @@ const Invoices: React.FC<Props> = ({ user }) => {
                                  onClick={handleConfirmAndPrint}
                                  className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 md:py-6 rounded-xl md:rounded-3xl font-black shadow-xl shadow-blue-200 transition-all flex items-center justify-center gap-3 md:gap-5 active:scale-95 uppercase text-sm md:text-base tracking-widest"
                               >
-                                 <Printer size={22} md:size={26} strokeWidth={2.5} /> Commit & Print
+                                 <Printer size={22} strokeWidth={2.5} className="md:w-[26px] md:h-[26px]" /> Commit & Print
                               </button>
                               <button 
                                  onClick={() => setStep(2)}
@@ -662,17 +661,17 @@ const Invoices: React.FC<Props> = ({ user }) => {
              <div className="bg-white rounded-2xl md:rounded-[3rem] shadow-premium border border-slate-200/60 h-full flex flex-col overflow-hidden m-2 md:m-6 no-print animate-fade-in pb-20 md:pb-0">
                 <div className="px-5 md:px-10 py-5 md:py-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/40">
                     <span className="font-black text-slate-900 flex items-center gap-3 md:gap-4 uppercase text-xs md:text-base tracking-tight leading-none">
-                       <History size={18} md:size={22} className="text-blue-600" /> Dispatch Registry
+                       <History size={18} className="text-blue-600 md:w-[22px] md:h-[22px]" /> Dispatch Registry
                     </span>
                     <button onClick={loadHistory} className="p-2 md:p-3 hover:bg-white rounded-xl md:rounded-2xl text-slate-400 hover:text-blue-600 transition-all border border-transparent hover:border-slate-100 shadow-sm active:scale-90">
-                        <RefreshCw size={18} md:size={22} className={loading ? 'animate-spin' : ''} />
+                        <RefreshCw size={18} className={`${loading ? 'animate-spin' : ''} md:w-[22px] md:h-[22px]`} />
                     </button>
                 </div>
                 
                 <div className="flex-1 overflow-auto no-scrollbar pb-24 md:pb-0">
                    {ledgerHistory.length === 0 ? (
                      <div className="p-20 md:p-40 text-center text-slate-200">
-                        <FileText size={64} md:size={100} className="mx-auto mb-6 md:mb-10 opacity-5" />
+                        <FileText size={64} className="mx-auto mb-6 md:mb-10 opacity-5 md:w-[100px] md:h-[100px]" />
                         <p className="font-black uppercase tracking-[0.4em] text-[12px] md:text-[15px]">No statement logs</p>
                      </div>
                    ) : (
