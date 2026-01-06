@@ -54,11 +54,19 @@ export const extractInvoiceData = async (files: InvoiceFile[]) => {
     }));
 
     const prompt = `
-      Analyze these car spare parts invoice pages. They may be multiple images of the same bill.
+      Analyze these car spare parts invoice pages. 
       
+      IMPORTANT FILTERING RULES:
+      1. ONLY PROCESS THE ORIGINAL COPY: Invoices often contain 'Original', 'Duplicate', 'Triplicate', and 'Quadruplicate' pages. 
+      2. You MUST ONLY extract data from the page(s) explicitly marked as "ORIGINAL" or "ORIGINAL FOR RECIPIENT/BUYER".
+      3. IGNORE ALL OTHER COPIES: Do not process or extract items from pages marked as 'DUPLICATE', 'TRIPLICATE', 'QUADRUPLICATE', 'EXTRA COPY', 'TRANSPORT COPY', or 'OFFICE COPY'.
+      4. CONSOLIDATE: If the "Original" invoice itself spans multiple pages (e.g. Page 1 of 2, Page 2 of 2), extract and combine all items from those original pages.
+      5. DE-DUPLICATION: If the user provides multiple images of the same "Original" page, only extract those items once.
+
+      DATA TO EXTRACT:
       1. Identify the Dealer/Vendor Name (The company selling the parts).
       2. Identify the Invoice Date.
-      3. Extract ALL line items across ALL provided pages with these specific fields:
+      3. Extract line items strictly from the ORIGINAL pages with these fields:
          - Part Number (alphanumeric SKU)
          - Part Name/Description (the full descriptive name of the part)
          - Quantity (Qty)
@@ -67,7 +75,6 @@ export const extractInvoiceData = async (files: InvoiceFile[]) => {
          - Printed Net Unit Price (Final price for one unit shown on the bill)
 
       Ensure numerical values are clean numbers. 
-      If a part appears across a page break, combine it.
       Return the data strictly as a JSON object.
     `;
 
@@ -105,6 +112,6 @@ export const extractInvoiceData = async (files: InvoiceFile[]) => {
     return JSON.parse(response.text || "{}");
   } catch (error) {
     console.error("Invoice Extraction Error:", error);
-    throw new Error("Failed to read the invoice. Please ensure all document pages are clear.");
+    throw new Error("Failed to read the invoice. Please ensure the 'Original' copy is clear and included.");
   }
 };
