@@ -47,13 +47,12 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [sessionSecs, setSessionSecs] = useState(1200); // 20 mins
 
-  // SESSION COUNTDOWN (Sidebar visual only, real logic is in App.tsx)
+  // SESSION COUNTDOWN LOGIC (Kept for internal tracking per request, but visual removed)
   useEffect(() => {
     const timer = setInterval(() => {
       setSessionSecs(prev => (prev > 0 ? prev - 1 : 0));
     }, 1000);
     
-    // Reset counter on interaction
     const resetCounter = () => setSessionSecs(1200);
     window.addEventListener('click', resetCounter);
     window.addEventListener('keydown', resetCounter);
@@ -121,23 +120,6 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
               <span className="text-xl font-black text-slate-900 tracking-tighter uppercase">Sparezy</span>
            </Link>
            <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-1.5 text-slate-400 hover:bg-slate-50 rounded-lg transition-colors"><X size={20} /></button>
-        </div>
-
-        {/* SECURITY MONITOR */}
-        <div className="px-5 py-4 bg-slate-50/50 border-b border-slate-100">
-           <div className="bg-white p-3 rounded-2xl border border-slate-200/60 shadow-sm flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
-                 <div className="flex flex-col">
-                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Secure Session</span>
-                    <span className="text-[10px] font-black text-slate-900 uppercase flex items-center gap-1">
-                       <Clock size={10} className="text-slate-400" /> 
-                       {Math.floor(sessionSecs / 60)}:{String(sessionSecs % 60).padStart(2, '0')}
-                    </span>
-                 </div>
-              </div>
-              <ShieldCheck size={16} className="text-blue-600" />
-           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 py-6 space-y-8 no-scrollbar">
