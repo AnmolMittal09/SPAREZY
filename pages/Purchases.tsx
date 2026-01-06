@@ -32,9 +32,12 @@ import {
   AlertCircle,
   MessageCircle,
   Upload,
-  User as UserIcon
+  User as UserIcon,
+  ShoppingBag,
+  Send,
+  Inbox
 } from 'lucide-react';
-import { fetchTransactions, createBulkTransactions } from '../services/transactionService';
+import { fetchTransactions, createBulkTransactions, bulkUpdateTransactionStatus, receivePurchaseOrder } from '../services/transactionService';
 import { fetchInventory, updateOrAddItems } from '../services/inventoryService';
 import { extractInvoiceData, InvoiceFile } from '../services/geminiService';
 import TharLoader from '../components/TharLoader';
@@ -66,6 +69,7 @@ interface GroupedInbound {
   id: string;
   createdAt: string;
   customerName: string; 
+  status?: TransactionStatus;
   items: Transaction[];
   totalValue: number;
 }
@@ -77,15 +81,17 @@ interface QueuedFile {
 }
 
 const Purchases: React.FC<Props> = ({ user }) => {
-  const [activeTab, setActiveTab] = useState<'NEW' | 'IMPORT' | 'HISTORY'>('NEW');
+  const [activeTab, setActiveTab] = useState<'NEW' | 'PO' | 'IMPORT' | 'HISTORY'>('NEW');
   const [viewMode, setViewMode] = useState<'STACKED' | 'LIST'>('STACKED');
   const [history, setHistory] = useState<Transaction[]>([]);
+  const [poList, setPoList] = useState<Transaction[]>([]);
   const [inventory, setInventory] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [isSearchingOnMobile, setIsSearchingOnMobile] = useState(false);
   const [queuedFiles, setQueuedFiles] = useState<QueuedFile[]>([]);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [selectedInbound, setSelectedInbound] = useState<GroupedInbound | null>(null);
+  const [selectedPo, setSelectedPo] = useState<GroupedInbound | null>(null);
   const [importing, setImporting] = useState(false);
   const [importLog, setImportLog] = useState<{ success: boolean; message: string; count: number; totalValue: number; errorCount: number; addedCount?: number; updatedCount?: number; dealer?: string } | null>(null);
   const [previewData, setPreviewData] = useState<ExtractedItem[]>([]);
@@ -96,6 +102,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
 
   useEffect(() => {
     if (activeTab === 'HISTORY') loadHistory();
+    if (activeTab === 'PO') loadPOs();
     fetchInventory().then(setInventory);
   }, [activeTab]);
 
@@ -103,6 +110,13 @@ const Purchases: React.FC<Props> = ({ user }) => {
     setLoading(true);
     const data = await fetchTransactions(TransactionStatus.APPROVED, TransactionType.PURCHASE);
     setHistory(data);
+    setLoading(false);
+  };
+
+  const loadPOs = async () => {
+    setLoading(true);
+    const data = await fetchTransactions(undefined, TransactionType.PURCHASE_ORDER);
+    setPoList(data);
     setLoading(false);
   };
 
@@ -130,6 +144,64 @@ const Purchases: React.FC<Props> = ({ user }) => {
     });
     return result;
   }, [history, sortOrder]);
+
+  const stackedPOs = useMemo(() => {
+    const groups: Record<string, GroupedInbound> = {};
+    poList.forEach(tx => {
+       const key = `${tx.createdAt}_${tx.customerName}`;
+       if (!groups[key]) {
+         groups[key] = {
+           id: tx.id,
+           createdAt: tx.createdAt,
+           customerName: tx.customerName,
+           status: tx.status,
+           items: [],
+           totalValue: 0
+         };
+       }
+       groups[key].items.push(tx);
+       groups[key].totalValue += (tx.price * tx.quantity);
+    });
+    const result = Object.values(groups);
+    result.sort((a, b) => {
+       const timeA = new Date(a.createdAt).getTime();
+       const timeB = new Date(b.createdAt).getTime();
+       return sortOrder === 'desc' ? timeB - timeA : timeA - timeB;
+    });
+    return result;
+  }, [poList, sortOrder]);
+
+  const handleOrderPo = async (group: GroupedInbound) => {
+      if (!confirm("Mark this order as SENT to the supplier?")) return;
+      setLoading(true);
+      try {
+          const ids = group.items.map(i => i.id);
+          await bulkUpdateTransactionStatus(ids, TransactionStatus.ORDERED);
+          loadPOs();
+          setSelectedPo(null);
+      } catch (err: any) {
+          alert("Error: " + err.message);
+      } finally {
+          setLoading(false);
+      }
+  };
+
+  const handleReceivePo = async (group: GroupedInbound) => {
+      if (!confirm("Finalize receipt? This will add these parts to your physical stock inventory.")) return;
+      setLoading(true);
+      try {
+          const ids = group.items.map(i => i.id);
+          const items = group.items.map(i => ({ partNumber: i.partNumber, quantity: i.quantity }));
+          await receivePurchaseOrder(ids, items);
+          loadPOs();
+          setSelectedPo(null);
+          alert("Parts received and stock levels updated.");
+      } catch (err: any) {
+          alert("Error: " + err.message);
+      } finally {
+          setLoading(false);
+      }
+  };
 
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -267,10 +339,11 @@ const Purchases: React.FC<Props> = ({ user }) => {
     <div className="h-full flex flex-col bg-slate-50 md:bg-transparent">
        {!isSearchingOnMobile && (
          <div className="md:hidden bg-white p-4 border-b border-slate-100 z-20 sticky top-0 shadow-sm animate-fade-in">
-            <div className="flex bg-slate-100 p-1 rounded-2xl">
-               <button onClick={() => setActiveTab('NEW')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'NEW' ? 'bg-white text-slate-900 shadow-md ring-1 ring-slate-100' : 'text-slate-400'}`}>Manual</button>
-               <button onClick={() => setActiveTab('IMPORT')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'IMPORT' ? 'bg-blue-600 text-white shadow-md ring-1 ring-blue-100' : 'text-slate-400'}`}>AI Scan</button>
-               <button onClick={() => setActiveTab('HISTORY')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'HISTORY' ? 'bg-white text-slate-900 shadow-md ring-1 ring-slate-100' : 'text-slate-400'}`}>History</button>
+            <div className="flex bg-slate-100 p-1 rounded-2xl overflow-x-auto no-scrollbar">
+               <button onClick={() => setActiveTab('NEW')} className={`flex-none px-4 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'NEW' ? 'bg-white text-slate-900 shadow-md ring-1 ring-slate-100' : 'text-slate-400'}`}>Manual</button>
+               <button onClick={() => setActiveTab('PO')} className={`flex-none px-4 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'PO' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400'}`}>Orders</button>
+               <button onClick={() => setActiveTab('IMPORT')} className={`flex-none px-4 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'IMPORT' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400'}`}>AI Scan</button>
+               <button onClick={() => setActiveTab('HISTORY')} className={`flex-none px-4 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'HISTORY' ? 'bg-white text-slate-900 shadow-md ring-1 ring-slate-100' : 'text-slate-400'}`}>History</button>
             </div>
          </div>
        )}
@@ -280,11 +353,12 @@ const Purchases: React.FC<Props> = ({ user }) => {
              <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-lg"><Truck size={24} /></div>
              <div>
                 <h1 className="text-2xl font-black text-slate-900 tracking-tight leading-none mb-1.5">Purchase Inbound</h1>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Document Registry & B.DC Verification</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Document Registry & PO Management</p>
              </div>
           </div>
           <div className="flex bg-white p-1.5 rounded-2xl border border-slate-200 shadow-soft">
-             <button onClick={() => setActiveTab('NEW')} className={`px-6 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 ${activeTab === 'NEW' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}><PlusCircle size={16} /> Manual</button>
+             <button onClick={() => setActiveTab('NEW')} className={`px-6 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 ${activeTab === 'NEW' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}><PlusCircle size={16} /> New PO</button>
+             <button onClick={() => setActiveTab('PO')} className={`px-6 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 ${activeTab === 'PO' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}><ShoppingBag size={16} /> Orders</button>
              <button onClick={() => setActiveTab('IMPORT')} className={`px-6 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 ${activeTab === 'IMPORT' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}><ScanLine size={16} /> AI Scan</button>
              <button onClick={() => setActiveTab('HISTORY')} className={`px-6 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 ${activeTab === 'HISTORY' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}><History size={16} /> History</button>
           </div>
@@ -292,6 +366,63 @@ const Purchases: React.FC<Props> = ({ user }) => {
 
        <div className="flex-1 overflow-hidden flex flex-col">
           {activeTab === 'NEW' && <DailyTransactions user={user} forcedMode="PURCHASE" onSearchToggle={setIsSearchingOnMobile} />}
+
+          {activeTab === 'PO' && (
+             <div className="p-4 space-y-4 overflow-y-auto no-scrollbar pb-40 animate-fade-in">
+                {loading ? <TharLoader /> : stackedPOs.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-24 text-slate-300 bg-white rounded-3xl border border-slate-100">
+                        <ShoppingBag size={64} className="mb-6 opacity-10" />
+                        <h3 className="font-black uppercase tracking-widest text-sm text-slate-900 mb-1">No Active Orders</h3>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-tight">Generate a new Purchase Order to begin.</p>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {stackedPOs.map(po => (
+                            <div key={po.id} onClick={() => setSelectedPo(po)} className="bg-white p-6 rounded-[2.5rem] shadow-soft border border-slate-200/60 flex flex-col gap-5 active:scale-[0.98] transition-all cursor-pointer group hover:border-indigo-200">
+                                <div className="flex justify-between items-start">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`p-2.5 rounded-xl ${
+                                            po.status === TransactionStatus.PENDING ? 'bg-amber-50 text-amber-600' :
+                                            po.status === TransactionStatus.ORDERED ? 'bg-indigo-50 text-indigo-600' :
+                                            'bg-teal-50 text-teal-600'
+                                        }`}>
+                                            <ShoppingBag size={20} />
+                                        </div>
+                                        <div>
+                                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">ORDER LOG</span>
+                                            <p className="text-[11px] font-bold text-slate-900">{new Date(po.createdAt).toLocaleDateString()}</p>
+                                        </div>
+                                    </div>
+                                    <span className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest shadow-sm ${
+                                        po.status === TransactionStatus.PENDING ? 'bg-amber-50 text-amber-700' :
+                                        po.status === TransactionStatus.ORDERED ? 'bg-indigo-600 text-white' :
+                                        'bg-teal-600 text-white'
+                                    }`}>
+                                        {po.status}
+                                    </span>
+                                </div>
+
+                                <div>
+                                    <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-1.5">Supplier Target</p>
+                                    <div className="font-black text-base text-slate-900 truncate uppercase leading-tight">{po.customerName || 'Standard Supplier'}</div>
+                                </div>
+
+                                <div className="flex justify-between items-end border-t border-slate-50 pt-5 mt-auto">
+                                    <div className="bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100 flex items-center gap-2">
+                                        <Package size={12} className="text-slate-400" />
+                                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{fd(po.items.length)} Line Items</span>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest block mb-0.5">Order Est.</span>
+                                        <p className="font-black text-lg text-slate-900 tabular-nums tracking-tighter">₹{po.totalValue.toLocaleString()}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+             </div>
+          )}
 
           {activeTab === 'IMPORT' && (
              <div className="max-w-4xl mx-auto w-full p-4 md:p-6 space-y-6 flex flex-col h-full overflow-y-auto no-scrollbar pb-40">
@@ -420,6 +551,82 @@ const Purchases: React.FC<Props> = ({ user }) => {
              </div>
           )}
        </div>
+
+       {/* PO DETAIL MODAL */}
+       {selectedPo && (
+          <div className="fixed inset-0 z-[200] bg-slate-900/60 backdrop-blur-md flex items-end justify-center animate-fade-in">
+              <div className="bg-white w-full rounded-t-[2.5rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-slide-up">
+                  <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                      <div className="flex items-center gap-4">
+                          <button onClick={() => setSelectedPo(null)} className="p-2.5 bg-white text-slate-400 rounded-xl shadow-soft border border-slate-100 active:scale-90 transition-all"><ArrowLeft size={20}/></button>
+                          <div>
+                              <h3 className="font-black text-slate-900 text-lg uppercase tracking-tight leading-none mb-1.5 truncate max-w-[200px]">{selectedPo.customerName || 'Purchase Order'}</h3>
+                              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{new Date(selectedPo.createdAt).toLocaleDateString()} • Order Draft</p>
+                          </div>
+                      </div>
+                      <span className={`px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest ${
+                          selectedPo.status === TransactionStatus.PENDING ? 'bg-amber-100 text-amber-700' :
+                          selectedPo.status === TransactionStatus.ORDERED ? 'bg-indigo-600 text-white shadow-lg' :
+                          'bg-teal-600 text-white'
+                      }`}>
+                          {selectedPo.status}
+                      </span>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-6 no-scrollbar space-y-4">
+                      {selectedPo.items.map((item, idx) => (
+                        <div key={item.id} className="p-5 bg-slate-50/40 rounded-2xl border border-slate-100 flex flex-col gap-4">
+                            <div className="flex justify-between items-start">
+                                <div className="min-w-0 pr-4">
+                                    <div className="font-black text-slate-900 text-base uppercase leading-none mb-2">{item.partNumber}</div>
+                                    <div className="flex items-center gap-3">
+                                       <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Rate: ₹{item.price.toLocaleString()}</span>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-[8px] font-black text-slate-300 uppercase mb-0.5">Quantity</p>
+                                    <p className="text-lg font-black text-slate-900 tabular-nums">{fd(item.quantity)}</p>
+                                </div>
+                            </div>
+                            <div className="flex justify-between items-center border-t border-white pt-4">
+                                <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Est. Subtotal</span>
+                                <span className="font-black text-slate-900 text-base">₹{(item.price * item.quantity).toLocaleString()}</span>
+                            </div>
+                        </div>
+                      ))}
+                  </div>
+                  <div className="p-8 border-t border-slate-100 bg-white pb-safe">
+                      <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+                          <div className="flex flex-col w-full md:w-auto">
+                              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Valuation</span>
+                              <span className="text-3xl font-black text-slate-900 tracking-tighter tabular-nums">₹{selectedPo.totalValue.toLocaleString()}</span>
+                          </div>
+                          
+                          <div className="flex gap-3 w-full md:w-auto">
+                            {selectedPo.status === TransactionStatus.PENDING && (
+                                <button 
+                                  onClick={() => handleOrderPo(selectedPo)} 
+                                  disabled={loading}
+                                  className="flex-1 md:flex-none px-8 py-5 bg-indigo-600 text-white font-black rounded-[1.5rem] shadow-xl shadow-indigo-100 active:scale-95 transition-all flex items-center justify-center gap-3 uppercase text-xs tracking-widest"
+                                >
+                                    {loading ? <Loader2 className="animate-spin" size={18}/> : <Send size={18}/>} Mark as Sent
+                                </button>
+                            )}
+                            {selectedPo.status === TransactionStatus.ORDERED && (
+                                <button 
+                                  onClick={() => handleReceivePo(selectedPo)} 
+                                  disabled={loading}
+                                  className="flex-1 md:flex-none px-8 py-5 bg-teal-600 text-white font-black rounded-[1.5rem] shadow-xl shadow-teal-100 active:scale-95 transition-all flex items-center justify-center gap-3 uppercase text-xs tracking-widest"
+                                >
+                                    {loading ? <Loader2 className="animate-spin" size={18}/> : <Inbox size={18}/>} Finalize Receipt
+                                </button>
+                            )}
+                            <button onClick={() => setSelectedPo(null)} className="px-8 py-5 bg-slate-100 text-slate-500 font-black rounded-[1.5rem] active:scale-95 text-xs uppercase tracking-widest">Close</button>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+       )}
 
        {selectedInbound && (
           <div className="fixed inset-0 z-[200] bg-slate-900/60 backdrop-blur-md flex items-end justify-center animate-fade-in">

@@ -28,6 +28,13 @@ export const createTransaction = async (
   return createBulkTransactions([transaction]);
 };
 
+export const updateTransactionStatus = async (id: string, status: TransactionStatus): Promise<{ success: boolean, message?: string }> => {
+  if (!supabase) return { success: false, message: "Database not connected" };
+  const { error } = await supabase.from('transactions').update({ status }).eq('id', id);
+  if (error) return { success: false, message: error.message };
+  return { success: true };
+};
+
 export const updateTransactionPayment = async (id: string, amount: number): Promise<{ success: boolean, message?: string }> => {
   if (!supabase) return { success: false, message: "Database not connected" };
   const { error } = await supabase.from('transactions').update({ paid_amount: amount }).eq('id', id);
@@ -40,10 +47,18 @@ export const createBulkTransactions = async (
 ): Promise<{ success: boolean; message?: string }> => {
   if (!supabase) return { success: false, message: "Supabase client not connected." };
 
+  const type = transactions[0].type;
   const createdByRole = transactions[0].createdByRole;
-  const initialStatus = (createdByRole === Role.OWNER)
-    ? TransactionStatus.APPROVED 
-    : TransactionStatus.PENDING;
+  
+  let initialStatus = TransactionStatus.PENDING;
+  
+  if (type === TransactionType.PURCHASE_ORDER) {
+      initialStatus = TransactionStatus.PENDING; // POs always start as pending drafts
+  } else {
+      initialStatus = (createdByRole === Role.OWNER)
+        ? TransactionStatus.APPROVED 
+        : TransactionStatus.PENDING;
+  }
 
   try {
     if (transactions.length === 0) return { success: true };
@@ -132,7 +147,7 @@ export const fetchTransactions = async (
     if (Array.isArray(status)) query = query.in('status', status);
     else query = query.eq('status', status);
   } else {
-    query = query.limit(200);
+    query = query.limit(500);
   }
 
   if (type) {
@@ -171,7 +186,27 @@ export const approveTransaction = async (id: string, partNumber: string, type: T
   const { error: txError } = await supabase.from('transactions').update({ status: TransactionStatus.APPROVED }).eq('id', id);
   if (txError) throw new Error(txError.message);
 
-  if (type !== TransactionType.PURCHASE_ORDER) await updateStockForTransaction(partNumber, type, quantity);
+  // Note: For PURCHASE_ORDER, converting it to APPROVED means it was RECEIVED
+  await updateStockForTransaction(partNumber, type, quantity);
+};
+
+export const bulkUpdateTransactionStatus = async (ids: string[], status: TransactionStatus): Promise<void> => {
+    if (!supabase) throw new Error("Database not connected");
+    const { error } = await supabase.from('transactions').update({ status }).in('id', ids);
+    if (error) throw new Error(error.message);
+};
+
+export const receivePurchaseOrder = async (ids: string[], items: { partNumber: string, quantity: number }[]): Promise<void> => {
+    if (!supabase) throw new Error("Database not connected");
+    
+    // 1. Mark transactions as APPROVED (which means Received)
+    const { error } = await supabase.from('transactions').update({ status: TransactionStatus.APPROVED }).in('id', ids);
+    if (error) throw new Error(error.message);
+
+    // 2. Update stock for each item
+    for (const item of items) {
+        await updateStockForTransaction(item.partNumber, TransactionType.PURCHASE, item.quantity);
+    }
 };
 
 export const rejectTransaction = async (id: string): Promise<void> => {
@@ -195,9 +230,10 @@ const updateStockForTransaction = async (partNumber: string, type: TransactionTy
   const currentQty = dbItem.quantity;
   let newQty = currentQty;
 
+  // PURCHASE_ORDER treated as PURCHASE when finalizing stock update
   if (type === TransactionType.SALE) {
     newQty = currentQty - quantity;
-  } else if (type === TransactionType.PURCHASE || type === TransactionType.RETURN) {
+  } else if (type === TransactionType.PURCHASE || type === TransactionType.RETURN || type === TransactionType.PURCHASE_ORDER) {
     newQty = currentQty + quantity;
   }
 
@@ -220,7 +256,7 @@ const updateStockForTransaction = async (partNumber: string, type: TransactionTy
     .eq('part_number', dbItem.part_number);
 
   // --- AUTO-FULFILL REQUISITIONS ---
-  if (type === TransactionType.PURCHASE) {
+  if (type === TransactionType.PURCHASE || type === TransactionType.PURCHASE_ORDER) {
     await completeRequestsForParts([partNumber]);
   }
 };
@@ -267,7 +303,7 @@ export const fetchAnalytics = async (startDate: Date, endDate: Date): Promise<An
     } else if (t.type === TransactionType.RETURN) {
       totalReturns += val;
       returnCount++;
-    } else if (t.type === TransactionType.PURCHASE) {
+    } else if (t.type === TransactionType.PURCHASE || t.type === TransactionType.PURCHASE_ORDER) {
       totalPurchases += val;
     }
   });
@@ -411,7 +447,7 @@ export const generateTaxInvoiceRecord = async (
         customerGst: invoiceData.customer_gst,
         totalAmount: invoiceData.total_amount,
         taxAmount: invoiceData.tax_amount,
-        paymentMode: invoiceData.payment_mode as any,
+        paymentMode: invoiceData.customerDetails.paymentMode as any,
         itemsCount: invoiceData.items_count,
         generatedBy: invoiceData.generated_by
       } 

@@ -50,6 +50,7 @@ export enum TransactionType {
 
 export enum TransactionStatus {
   PENDING = 'PENDING',
+  ORDERED = 'ORDERED',
   APPROVED = 'APPROVED',
   REJECTED = 'REJECTED',
 }
