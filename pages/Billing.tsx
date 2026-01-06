@@ -1019,7 +1019,7 @@ const Billing: React.FC<Props> = ({ user }) => {
        {/* CUSTOMER LEDGER MODAL */}
        {selectedCustomer && (
           <div className="fixed inset-0 z-[200] bg-slate-900/60 backdrop-blur-md flex items-end md:items-center justify-center animate-fade-in md:p-10">
-              <div className="bg-white w-full max-w-4xl rounded-t-[2.5rem] md:rounded-[3rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-slide-up">
+              <div className="bg-white w-full max-w-5xl rounded-t-[2.5rem] md:rounded-[3rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-slide-up">
                   <div className="p-8 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center bg-slate-50/40 gap-6">
                       <div className="flex items-center gap-5">
                           <button onClick={() => setSelectedCustomer(null)} className="p-3 bg-white text-slate-400 rounded-2xl shadow-soft border border-slate-100 active:scale-90 transition-all"><ArrowLeft size={22}/></button>
@@ -1062,32 +1062,49 @@ const Billing: React.FC<Props> = ({ user }) => {
                   </div>
 
                   <div className="flex-1 overflow-y-auto p-4 md:p-8 no-scrollbar space-y-4">
-                      <div className="hidden md:grid grid-cols-6 gap-4 px-4 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest mb-4">
+                      <div className="hidden md:grid grid-cols-7 gap-4 px-4 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest mb-4 sticky top-0 z-10">
                          <div className="col-span-1">Date</div>
                          <div className="col-span-2">Part & Description</div>
                          <div className="col-span-1 text-center">Type</div>
                          <div className="col-span-1 text-right">Value</div>
-                         <div className="col-span-1 text-right">Balance</div>
+                         <div className="col-span-1 text-right">Running Bal</div>
+                         <div className="col-span-1 text-right">Action</div>
                       </div>
                       
-                      {selectedCustomer.transactions.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((item) => {
+                      {(() => {
+                        // Logic to calculate running balance chronologically
+                        let currentRunningBal = 0;
+                        const sortedChronological = [...selectedCustomer.transactions].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+                        const txWithBal = sortedChronological.map(tx => {
+                            const val = tx.price * tx.quantity;
+                            const paid = tx.paidAmount || 0;
+                            // Debit for Sales, Credit for Returns
+                            const netImpact = tx.type === TransactionType.SALE ? (val - paid) : -(val - paid);
+                            currentRunningBal += netImpact;
+                            return { ...tx, runningBalance: currentRunningBal };
+                        });
+                        // Reverse back for display (newest first)
+                        return txWithBal.reverse();
+                      })().map((item) => {
                           const isReturn = item.type === TransactionType.RETURN;
                           const total = item.price * item.quantity;
                           const balance = total - (item.paidAmount || 0);
                           const isFullyPaid = balance <= 0;
+                          const isOverdue = !isReturn && !isFullyPaid;
                           const isAddingToThis = isAddingPayment === item.id;
                           const part = inventory.find(i => i.partNumber.toLowerCase() === item.partNumber.toLowerCase());
 
                           return (
-                            <div key={item.id} className="p-5 bg-white border border-slate-100 rounded-[1.75rem] shadow-soft hover:shadow-premium transition-all">
-                                <div className="grid grid-cols-1 md:grid-cols-6 gap-4 md:items-center">
+                            <div key={item.id} className={`p-5 border rounded-[1.75rem] shadow-soft hover:shadow-premium transition-all relative overflow-hidden ${isOverdue ? 'bg-rose-50/20 border-rose-100 ring-1 ring-rose-100/50' : 'bg-white border-slate-100'}`}>
+                                {isOverdue && <div className="absolute top-0 right-0 bg-rose-600 text-white px-3 py-1 rounded-bl-xl text-[7px] font-black uppercase tracking-widest animate-pulse">Payment Overdue</div>}
+                                <div className="grid grid-cols-1 md:grid-cols-7 gap-4 md:items-center">
                                     <div className="col-span-1 flex items-center gap-3">
                                         <div className="p-2 bg-slate-50 rounded-lg md:hidden"><Calendar size={14} className="text-slate-400" /></div>
                                         <span className="text-[11px] font-bold text-slate-500">{new Date(item.createdAt).toLocaleDateString()}</span>
                                     </div>
                                     <div className="col-span-2">
                                         <p className="font-black text-slate-900 text-sm md:text-base uppercase tracking-tight">{item.partNumber}</p>
-                                        {part && <p className="text-[10px] text-slate-500 font-bold uppercase truncate">{part.name}</p>}
+                                        {part && <p className="text-[10px] text-slate-500 font-bold uppercase truncate pr-4">{part.name}</p>}
                                         <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Qty: {fd(item.quantity)} @ ₹{item.price.toLocaleString()}</span>
                                     </div>
                                     <div className="col-span-1 flex md:justify-center">
@@ -1097,6 +1114,14 @@ const Billing: React.FC<Props> = ({ user }) => {
                                     </div>
                                     <div className="col-span-1 text-right">
                                         <p className={`font-black text-sm md:text-base ${isReturn ? 'text-rose-600' : 'text-slate-900'}`}>₹{total.toLocaleString()}</p>
+                                        <span className="text-[8px] font-bold text-slate-400 uppercase">Paid: ₹{(item.paidAmount || 0).toLocaleString()}</span>
+                                    </div>
+                                    <div className="col-span-1 text-right bg-slate-50/50 p-2 rounded-xl md:bg-transparent md:p-0">
+                                        <span className="md:hidden text-[8px] font-black text-slate-400 uppercase block mb-1">Running Balance</span>
+                                        <p className={`font-black text-base md:text-lg tabular-nums tracking-tighter ${item.runningBalance > 0 ? 'text-rose-600' : 'text-teal-600'}`}>
+                                            ₹{Math.abs(item.runningBalance).toLocaleString()}
+                                            <span className="text-[8px] ml-1">{item.runningBalance > 0 ? 'DR' : 'CR'}</span>
+                                        </p>
                                     </div>
                                     <div className="col-span-1 flex flex-col items-end">
                                         {!isReturn ? (
