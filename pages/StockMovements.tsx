@@ -20,7 +20,8 @@ import {
   User as UserIcon,
   Users,
   Truck,
-  Layers
+  Layers,
+  ArrowLeft
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -70,6 +71,18 @@ const StockMovements: React.FC<Props> = ({ user }) => {
     }
   };
 
+  const parseEntity = (name: string) => {
+    if (!name) return { identity: 'Retail Walk-in', invDate: null };
+    const parts = name.split(' (INV: ');
+    if (parts.length > 1) {
+      return { 
+        identity: parts[0].trim(), 
+        invDate: parts[1].replace(')', '').trim() 
+      };
+    }
+    return { identity: name, invDate: null };
+  };
+
   const filteredTransactions = useMemo(() => {
     return transactions.filter(tx => {
       if (typeFilter !== 'ALL' && tx.type !== typeFilter) return false;
@@ -96,9 +109,9 @@ const StockMovements: React.FC<Props> = ({ user }) => {
 
   const customerGroups = useMemo(() => {
     const groups: Record<string, EntityGroup> = {};
-    // Only Sales and Returns for customer tab
     filteredTransactions.filter(t => t.type === TransactionType.SALE || t.type === TransactionType.RETURN).forEach(tx => {
-      const name = (tx.customerName || 'Retail Walk-in').toUpperCase().trim();
+      const { identity } = parseEntity(tx.customerName || 'Retail Walk-in');
+      const name = identity.toUpperCase().trim();
       if (!groups[name]) groups[name] = { name, totalVolume: 0, count: 0, lastActive: tx.createdAt, transactions: [] };
       const val = tx.price * tx.quantity;
       groups[name].totalVolume += tx.type === TransactionType.SALE ? val : -val;
@@ -111,9 +124,9 @@ const StockMovements: React.FC<Props> = ({ user }) => {
 
   const supplierGroups = useMemo(() => {
     const groups: Record<string, EntityGroup> = {};
-    // Only Purchases for supplier tab
     filteredTransactions.filter(t => t.type === TransactionType.PURCHASE).forEach(tx => {
-      const name = (tx.customerName || 'Main Supplier').toUpperCase().trim();
+      const { identity } = parseEntity(tx.customerName || 'Main Supplier');
+      const name = identity.toUpperCase().trim();
       if (!groups[name]) groups[name] = { name, totalVolume: 0, count: 0, lastActive: tx.createdAt, transactions: [] };
       groups[name].totalVolume += (tx.price * tx.quantity);
       groups[name].count++;
@@ -124,17 +137,21 @@ const StockMovements: React.FC<Props> = ({ user }) => {
   }, [filteredTransactions]);
 
   const handleExport = () => {
-    const dataToExport = filteredTransactions.map(tx => ({
-      'Date': new Date(tx.createdAt).toLocaleDateString(),
-      'Time': new Date(tx.createdAt).toLocaleTimeString(),
-      'Process': tx.type,
-      'Part Number': tx.partNumber,
-      'Entity': tx.customerName || 'Direct Entry',
-      'Logged By': tx.createdByName,
-      'Quantity': tx.quantity,
-      'Unit Rate': tx.price,
-      'Total Value': tx.price * tx.quantity
-    }));
+    const dataToExport = filteredTransactions.map(tx => {
+      const { identity, invDate } = parseEntity(tx.customerName);
+      return {
+        'Invoice Date': invDate || new Date(tx.createdAt).toLocaleDateString(),
+        'Scanned Date': new Date(tx.createdAt).toLocaleDateString(),
+        'Time': new Date(tx.createdAt).toLocaleTimeString(),
+        'Process': tx.type,
+        'Part Number': tx.partNumber,
+        'Entity': identity,
+        'Logged By': tx.createdByName,
+        'Quantity': tx.quantity,
+        'Unit Rate': tx.price,
+        'Total Value': tx.price * tx.quantity
+      };
+    });
     const ws = XLSX.utils.json_to_sheet(dataToExport);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Ledger");
@@ -145,7 +162,7 @@ const StockMovements: React.FC<Props> = ({ user }) => {
 
   return (
     <div className="space-y-6 md:space-y-10 animate-fade-in max-w-6xl mx-auto pb-24">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 px-1">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 px-1 pt-2">
         <div className="flex items-center gap-5">
            <div className="w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-elevated">
               <History size={28} strokeWidth={2.5} />
@@ -210,62 +227,100 @@ const StockMovements: React.FC<Props> = ({ user }) => {
                 ) : (
                   <table className="w-full text-left text-sm border-collapse">
                     <thead className="bg-slate-50/50 text-slate-400 font-black uppercase text-[9px] tracking-[0.2em] border-b border-slate-100 sticky top-0 z-10 backdrop-blur-md">
-                      <tr><th className="px-10 py-6">Timestamp</th><th className="px-10 py-6">Identity / Part</th><th className="px-10 py-6 text-center">Type</th><th className="px-10 py-6 text-center">Qty</th><th className="px-10 py-6 text-right">Value</th></tr>
+                      <tr><th className="px-10 py-6">Timestamp Audit</th><th className="px-10 py-6">Identity / Part</th><th className="px-10 py-6 text-center">Type</th><th className="px-10 py-6 text-center">Qty</th><th className="px-10 py-6 text-right">Value</th></tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
-                      {filteredTransactions.map(tx => (
-                        <tr key={tx.id} className="hover:bg-slate-50/80 transition-all group">
-                          <td className="px-10 py-6">
-                            <div className="flex flex-col"><span className="font-black text-slate-900 text-sm">{new Date(tx.createdAt).toLocaleDateString()}</span><span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{new Date(tx.createdAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span></div>
-                          </td>
-                          <td className="px-10 py-6">
-                             <div className="flex flex-col gap-1">
-                                <span className="font-black text-slate-900 text-[15px] tracking-tight uppercase group-hover:text-blue-600 transition-colors">{tx.partNumber}</span>
-                                <div className="flex items-center gap-2"><UserIcon size={12} className="text-slate-300" /><span className="text-[10px] font-bold text-slate-500 uppercase truncate max-w-[200px]">{tx.customerName || 'Retail Client'}</span></div>
-                             </div>
-                          </td>
-                          <td className="px-10 py-6 text-center"><span className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border shadow-sm inline-block ${tx.type === 'SALE' ? 'bg-teal-50 text-teal-600 border-teal-100' : tx.type === 'PURCHASE' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>{tx.type}</span></td>
-                          <td className="px-10 py-6 text-center"><span className="text-lg font-black tracking-tight">{tx.type === 'SALE' ? '-' : '+'}{fd(tx.quantity)}</span> <span className="text-[9px] font-black text-slate-300 uppercase">PCS</span></td>
-                          <td className="px-10 py-6 text-right"><div className="flex flex-col items-end"><span className="font-black text-slate-900 text-base tabular-nums">₹{(tx.price * tx.quantity).toLocaleString()}</span><span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">@ ₹{tx.price.toLocaleString()}</span></div></td>
-                        </tr>
-                      ))}
+                      {filteredTransactions.map(tx => {
+                        const { identity, invDate } = parseEntity(tx.customerName);
+                        return (
+                          <tr key={tx.id} className="hover:bg-slate-50/80 transition-all group">
+                            <td className="px-10 py-6">
+                              <div className="flex flex-col gap-1">
+                                <div className="flex items-center gap-1.5 text-slate-900 font-black text-sm">
+                                  <Calendar size={12} className="text-blue-600" />
+                                  <span>{invDate || new Date(tx.createdAt).toLocaleDateString()}</span>
+                                </div>
+                                <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest opacity-80">
+                                  <Clock size={10} />
+                                  <span>Scanned: {new Date(tx.createdAt).toLocaleDateString()}</span>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-10 py-6">
+                               <div className="flex flex-col gap-1">
+                                  <span className="font-black text-slate-900 text-[15px] tracking-tight uppercase group-hover:text-blue-600 transition-colors">{tx.partNumber}</span>
+                                  <div className="flex items-center gap-2"><UserIcon size={12} className="text-slate-300" /><span className="text-[10px] font-bold text-slate-500 uppercase truncate max-w-[200px]">{identity}</span></div>
+                               </div>
+                            </td>
+                            <td className="px-10 py-6 text-center"><span className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border shadow-sm inline-block ${tx.type === 'SALE' ? 'bg-teal-50 text-teal-600 border-teal-100' : tx.type === 'PURCHASE' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>{tx.type}</span></td>
+                            <td className="px-10 py-6 text-center"><span className="text-lg font-black tracking-tight">{tx.type === 'SALE' ? '-' : '+'}{fd(tx.quantity)}</span> <span className="text-[9px] font-black text-slate-300 uppercase">PCS</span></td>
+                            <td className="px-10 py-6 text-right"><div className="flex flex-col items-end"><span className="font-black text-slate-900 text-base tabular-nums">₹{(tx.price * tx.quantity).toLocaleString()}</span><span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">@ ₹{tx.price.toLocaleString()}</span></div></td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 )}
             </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in">
-           {(activeGroupTab === 'CUSTOMERS' ? customerGroups : supplierGroups).map(group => (
-              <div 
-                key={group.name} 
-                onClick={() => setSelectedEntity(group)}
-                className="bg-white p-8 rounded-[2.5rem] border-2 border-slate-100 shadow-soft hover:border-blue-200 transition-all cursor-pointer group relative overflow-hidden active:scale-[0.98]"
-              >
-                  <div className="flex justify-between items-start mb-8 relative z-10">
-                      <div className={`w-14 h-14 ${activeGroupTab === 'CUSTOMERS' ? 'bg-blue-600' : 'bg-slate-900'} rounded-2xl flex items-center justify-center text-white shadow-xl group-hover:rotate-6 transition-transform`}>
-                          {activeGroupTab === 'CUSTOMERS' ? <UserIcon size={26} strokeWidth={2.5} /> : <Truck size={26} strokeWidth={2.5} />}
-                      </div>
-                      <div className="text-right">
-                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 opacity-70">Lifetime Net</p>
-                          <p className={`text-2xl font-black tracking-tighter tabular-nums leading-none ${group.totalVolume >= 0 ? 'text-slate-900' : 'text-rose-600'}`}>
-                             ₹{Math.abs(group.totalVolume).toLocaleString()}
-                          </p>
-                      </div>
+        <div className="flex flex-col gap-3">
+           {(activeGroupTab === 'CUSTOMERS' ? customerGroups : supplierGroups).map(group => {
+              // Find latest transaction for dual date logic
+              const latestTx = group.transactions.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+              const { identity, invDate } = parseEntity(latestTx.customerName);
+              const isCustomer = activeGroupTab === 'CUSTOMERS';
+
+              return (
+                <div 
+                  key={group.name} 
+                  onClick={() => setSelectedEntity(group)}
+                  className="bg-white p-5 md:p-6 rounded-[2rem] border border-slate-200 shadow-soft hover:shadow-premium hover:border-blue-200 active:scale-[0.99] transition-all cursor-pointer group animate-fade-in relative flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-8"
+                >
+                  <div className={`absolute top-0 left-0 w-1.5 h-full ${isCustomer ? 'bg-blue-600' : 'bg-slate-900'} rounded-l-full opacity-0 group-hover:opacity-100 transition-opacity`}></div>
+                  
+                  <div className="flex items-center gap-5 min-w-0 flex-1">
+                    <div className={`p-3 rounded-xl transition-all shadow-sm ${isCustomer ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-600'} group-hover:bg-opacity-100`}>
+                       {isCustomer ? <Users size={20} strokeWidth={2.5} /> : <Truck size={20} strokeWidth={2.5} />}
+                    </div>
+                    <div className="min-w-0">
+                       <h3 className="font-black text-[16px] md:text-lg text-slate-900 uppercase tracking-tight truncate leading-none group-hover:text-blue-600 transition-colors">
+                          {group.name}
+                       </h3>
+                       <div className="flex flex-col gap-1 mt-2">
+                          <div className="flex items-center gap-1.5 text-[10px] font-black text-slate-700 uppercase tracking-widest">
+                             <Calendar size={12} className={isCustomer ? 'text-blue-600' : 'text-slate-600'} />
+                             <span>Latest Invoice: {invDate || new Date(latestTx.createdAt).toLocaleDateString()}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-[9px] font-black text-slate-400 uppercase tracking-[0.15em] opacity-80 pl-0.5">
+                             <Clock size={10} />
+                             <span>Last Scanned: {new Date(group.lastActive).toLocaleDateString()}</span>
+                          </div>
+                       </div>
+                    </div>
                   </div>
-                  <div className="mb-8 relative z-10">
-                      <h3 className="font-black text-lg text-slate-900 uppercase tracking-tight leading-tight truncate pr-6 group-hover:text-blue-600 transition-colors">{group.name}</h3>
-                      <div className="flex items-center gap-3 mt-3">
-                          <span className="text-[9px] font-black text-slate-500 bg-slate-50 px-3 py-1 rounded-xl shadow-inner border border-slate-200 uppercase tracking-widest">{fd(group.count)} Logs</span>
-                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">• Last: {new Date(group.lastActive).toLocaleDateString()}</span>
-                      </div>
+
+                  <div className="flex items-center justify-between md:justify-end gap-6 md:gap-12 border-t md:border-t-0 border-slate-50 pt-4 md:pt-0">
+                    <div className="flex flex-col items-start md:items-end">
+                       <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-1">TOTAL LOGS</span>
+                       <div className="bg-slate-50 px-3 py-1 rounded-lg border border-slate-100 flex items-center gap-2 shadow-inner-soft">
+                          <Package size={12} className="text-slate-400"/>
+                          <span className="text-[10px] font-black text-slate-600">{fd(group.count)} ENTRIES</span>
+                       </div>
+                    </div>
+                    <div className="text-right">
+                       <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-1 block">LIFETIME VOLUME</span>
+                       <p className={`font-black text-xl md:text-2xl tracking-tighter tabular-nums leading-none ${group.totalVolume >= 0 ? 'text-slate-900' : 'text-rose-600'}`}>
+                          ₹{Math.abs(group.totalVolume).toLocaleString()}
+                       </p>
+                    </div>
+                    <div className="hidden md:block">
+                       <ChevronRight size={20} className="text-slate-200 group-hover:text-slate-900 group-hover:translate-x-1 transition-all" />
+                    </div>
                   </div>
-                  <div className="pt-6 border-t border-slate-50 flex items-center justify-between relative z-10 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                      <span>Full Identity Report</span>
-                      <ChevronRight size={18} className="text-slate-200 group-hover:text-slate-900 group-hover:translate-x-1 transition-all" />
-                  </div>
-              </div>
-           ))}
+                </div>
+              );
+           })}
         </div>
       )}
 
@@ -286,29 +341,41 @@ const StockMovements: React.FC<Props> = ({ user }) => {
                  </div>
               </div>
               <div className="flex-1 overflow-y-auto p-4 md:p-10 no-scrollbar space-y-4">
-                 {selectedEntity.transactions.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(tx => (
-                   <div key={tx.id} className="p-6 bg-white rounded-[2rem] border-2 border-slate-100 shadow-soft hover:shadow-premium transition-all flex flex-col md:flex-row md:items-center justify-between gap-6 group">
-                      <div className="flex items-center gap-6">
-                         <div className={`p-3 rounded-2xl shadow-inner ${tx.type === 'SALE' ? 'bg-teal-50 text-teal-600' : tx.type === 'PURCHASE' ? 'bg-blue-50 text-blue-600' : 'bg-rose-50 text-rose-600'}`}>
-                            {tx.type === 'SALE' ? <TrendingUp size={20}/> : tx.type === 'PURCHASE' ? <ShoppingBag size={20}/> : <RotateCcw size={20}/>}
-                         </div>
-                         <div>
-                            <p className="font-black text-slate-900 text-lg uppercase tracking-tight mb-1 group-hover:text-blue-600 transition-colors">{tx.partNumber}</p>
-                            <div className="flex items-center gap-3 text-[9px] font-black text-slate-400 uppercase tracking-widest"><Calendar size={12}/> {new Date(tx.createdAt).toLocaleDateString()} <span className="opacity-30">•</span> <Clock size={12}/> {new Date(tx.createdAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>
-                         </div>
-                      </div>
-                      <div className="flex items-center gap-10 text-right self-end md:self-center">
-                         <div className="flex flex-col">
-                            <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-0.5">PROTOCOL</span>
-                            <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-lg border w-fit ml-auto ${tx.type === 'SALE' ? 'bg-teal-50 text-teal-600 border-teal-100' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>{tx.type}</span>
-                         </div>
-                         <div className="min-w-[80px]">
-                            <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-0.5">NET VALUE</p>
-                            <p className="font-black text-xl text-slate-900 tabular-nums tracking-tighter">₹{(tx.price * tx.quantity).toLocaleString()}</p>
-                         </div>
-                      </div>
-                   </div>
-                 ))}
+                 {selectedEntity.transactions.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(tx => {
+                   const { invDate } = parseEntity(tx.customerName);
+                   return (
+                     <div key={tx.id} className="p-6 bg-white rounded-[2rem] border-2 border-slate-100 shadow-soft hover:shadow-premium transition-all flex flex-col md:flex-row md:items-center justify-between gap-6 group">
+                        <div className="flex items-center gap-6">
+                           <div className={`p-3 rounded-2xl shadow-inner ${tx.type === 'SALE' ? 'bg-teal-50 text-teal-600' : tx.type === 'PURCHASE' ? 'bg-blue-50 text-blue-600' : 'bg-rose-50 text-rose-600'}`}>
+                              {tx.type === 'SALE' ? <TrendingUp size={20}/> : tx.type === 'PURCHASE' ? <ShoppingBag size={20}/> : <RotateCcw size={20}/>}
+                           </div>
+                           <div>
+                              <p className="font-black text-slate-900 text-lg uppercase tracking-tight mb-1 group-hover:text-blue-600 transition-colors">{tx.partNumber}</p>
+                              <div className="flex flex-col gap-1">
+                                 <div className="flex items-center gap-2 text-[10px] font-black text-slate-700 uppercase tracking-widest">
+                                    <Calendar size={12} className="text-blue-500" />
+                                    <span>Inv: {invDate || new Date(tx.createdAt).toLocaleDateString()}</span>
+                                 </div>
+                                 <div className="flex items-center gap-2 text-[9px] font-black text-slate-400 uppercase tracking-widest opacity-60">
+                                    <Clock size={10} />
+                                    <span>Scanned: {new Date(tx.createdAt).toLocaleDateString()} at {new Date(tx.createdAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
+                                 </div>
+                              </div>
+                           </div>
+                        </div>
+                        <div className="flex items-center gap-10 text-right self-end md:self-center">
+                           <div className="flex flex-col">
+                              <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-0.5">PROTOCOL</span>
+                              <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-lg border w-fit ml-auto ${tx.type === 'SALE' ? 'bg-teal-50 text-teal-600 border-teal-100' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>{tx.type}</span>
+                           </div>
+                           <div className="min-w-[80px]">
+                              <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-0.5">NET VALUE</p>
+                              <p className="font-black text-xl text-slate-900 tabular-nums tracking-tighter">₹{(tx.price * tx.quantity).toLocaleString()}</p>
+                           </div>
+                        </div>
+                     </div>
+                   );
+                 })}
               </div>
            </div>
         </div>
