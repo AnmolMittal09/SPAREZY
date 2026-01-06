@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useRef } from 'react';
 import { Role, TransactionType, User, StockItem, Customer, Brand, TransactionStatus } from '../types';
 import { createBulkTransactions, fetchTransactions } from '../services/transactionService';
@@ -240,7 +241,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
               let newQty = item.quantity + delta;
               if (newQty < 1) newQty = 1;
               if (mode === 'SALES') {
-                  const stockItem = inventory.find(i => i.partNumber === item.partNumber);
+                  const stockItem = inventory.find(i => i.partNumber.toUpperCase() === item.partNumber.toUpperCase());
                   if (stockItem) {
                     const available = getAvailableStock(stockItem);
                     if (newQty > available) newQty = available;
@@ -257,10 +258,12 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
       if (item.tempId === id) {
         let newQty = Math.max(1, val);
         if (mode === 'SALES') {
-          const stockItem = inventory.find(i => i.partNumber === item.partNumber);
+          const stockItem = inventory.find(i => i.partNumber.toUpperCase() === item.partNumber.toUpperCase());
           if (stockItem) {
             const available = getAvailableStock(stockItem);
-            if (newQty > available) newQty = available;
+            if (newQty > available) {
+              newQty = available;
+            }
           }
         }
         return { ...item, quantity: newQty };
@@ -638,65 +641,75 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-10 pt-4 space-y-4 no-scrollbar">
-                    {cart.map(item => (
-                        <div key={item.tempId} className={`p-6 rounded-[2rem] border border-white/5 bg-white/[0.03] flex flex-col gap-4 animate-fade-in hover:bg-white/[0.05] transition-all ${item.isNewSku ? 'ring-1 ring-blue-500/30' : ''}`}>
-                            <div className="flex justify-between items-start">
-                                <div className="min-w-0 pr-4 flex-1">
-                                    <div className="flex items-center gap-2 mb-1.5">
-                                        <div className="font-black text-white text-lg tracking-tight uppercase leading-none">{item.partNumber}</div>
-                                        {item.isNewSku && <span className="text-[8px] font-black bg-blue-600 px-1.5 py-0.5 rounded text-white uppercase tracking-widest">NEW SKU</span>}
+                    {cart.map(item => {
+                        const stockItem = inventory.find(i => i.partNumber.toUpperCase() === item.partNumber.toUpperCase());
+                        const available = stockItem ? getAvailableStock(stockItem) : 999999;
+                        return (
+                            <div key={item.tempId} className={`p-6 rounded-[2rem] border border-white/5 bg-white/[0.03] flex flex-col gap-4 animate-fade-in hover:bg-white/[0.05] transition-all ${item.isNewSku ? 'ring-1 ring-blue-500/30' : ''}`}>
+                                <div className="flex justify-between items-start">
+                                    <div className="min-w-0 pr-4 flex-1">
+                                        <div className="flex items-center gap-2 mb-1.5">
+                                            <div className="font-black text-white text-lg tracking-tight uppercase leading-none">{item.partNumber}</div>
+                                            {item.isNewSku && <span className="text-[8px] font-black bg-blue-600 px-1.5 py-0.5 rounded text-white uppercase tracking-widest">NEW SKU</span>}
+                                        </div>
+                                        <div className="text-[12px] text-white font-bold truncate uppercase tracking-tight">{item.name}</div>
                                     </div>
-                                    <div className="text-[12px] text-white font-bold truncate uppercase tracking-tight">{item.name}</div>
+                                    <div className="text-right">
+                                        <div className="font-black text-white text-lg tracking-tighter">₹{(item.price * item.quantity).toLocaleString()}</div>
+                                    </div>
                                 </div>
-                                <div className="text-right">
-                                    <div className="font-black text-white text-lg tracking-tighter">₹{(item.price * item.quantity).toLocaleString()}</div>
+                                
+                                <div className="flex flex-col gap-4 pt-4 border-t border-white/5">
+                                    <div className="flex flex-wrap items-center gap-4">
+                                        {/* QTY Control */}
+                                        <div className="flex items-center gap-4 bg-white/5 p-2 rounded-2xl">
+                                            <button onClick={() => updateQty(item.tempId, -1)} className="w-9 h-9 bg-white/10 rounded-xl flex items-center justify-center hover:bg-white/20 active:scale-90 transition-all"><Minus size={16} strokeWidth={3}/></button>
+                                            <input 
+                                              type="number"
+                                              className="w-12 bg-transparent text-white font-black text-center outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                              value={item.quantity}
+                                              max={mode === 'SALES' ? available : undefined}
+                                              onChange={(e) => setQtyDirect(item.tempId, parseInt(e.target.value) || 1)}
+                                              onFocus={(e) => e.target.select()}
+                                            />
+                                            <button 
+                                              onClick={() => updateQty(item.tempId, 1)} 
+                                              className={`w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center hover:bg-blue-50 active:scale-90 transition-all ${mode === 'SALES' && item.quantity >= available ? 'opacity-20 cursor-not-allowed' : ''}`}
+                                            >
+                                                <Plus size={16} strokeWidth={3}/>
+                                            </button>
+                                        </div>
+
+                                        {/* Custom Price Control */}
+                                        <div className="flex-1 flex items-center gap-3 bg-white/5 p-2 px-4 rounded-2xl border border-white/5 min-w-[120px]">
+                                            <span className="text-[9px] font-black text-white/40 uppercase tracking-widest whitespace-nowrap">Unit ₹</span>
+                                            <input 
+                                              type="number"
+                                              className="w-full bg-transparent text-white font-black outline-none text-right"
+                                              value={item.price}
+                                              onChange={(e) => updateUnitPrice(item.tempId, parseFloat(e.target.value) || 0)}
+                                              onFocus={(e) => e.target.select()}
+                                            />
+                                        </div>
+
+                                        {/* Discount Control */}
+                                        <div className="flex items-center gap-3 bg-white/5 p-2 px-4 rounded-2xl border border-white/5">
+                                            <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Disc %</span>
+                                            <input 
+                                              type="number"
+                                              className="w-12 bg-transparent text-white font-black text-center outline-none"
+                                              value={item.discount}
+                                              onChange={(e) => updateDiscount(item.tempId, parseFloat(e.target.value) || 0)}
+                                              onFocus={(e) => e.target.select()}
+                                            />
+                                        </div>
+
+                                        <button onClick={() => removeItem(item.tempId)} className="text-white/20 hover:text-rose-400 p-2.5 rounded-2xl transition-all ml-auto"><Trash2 size={20}/></button>
+                                    </div>
                                 </div>
                             </div>
-                            
-                            <div className="flex flex-col gap-4 pt-4 border-t border-white/5">
-                                <div className="flex flex-wrap items-center gap-4">
-                                    {/* QTY Control */}
-                                    <div className="flex items-center gap-4 bg-white/5 p-2 rounded-2xl">
-                                        <button onClick={() => updateQty(item.tempId, -1)} className="w-9 h-9 bg-white/10 rounded-xl flex items-center justify-center hover:bg-white/20 active:scale-90 transition-all"><Minus size={16} strokeWidth={3}/></button>
-                                        <input 
-                                          type="number"
-                                          className="w-12 bg-transparent text-white font-black text-center outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                          value={fd(item.quantity)}
-                                          onChange={(e) => setQtyDirect(item.tempId, parseInt(e.target.value) || 1)}
-                                          onFocus={(e) => e.target.select()}
-                                        />
-                                        <button onClick={() => updateQty(item.tempId, 1)} className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center hover:bg-blue-50 active:scale-90 transition-all"><Plus size={16} strokeWidth={3}/></button>
-                                    </div>
-
-                                    {/* Custom Price Control */}
-                                    <div className="flex-1 flex items-center gap-3 bg-white/5 p-2 px-4 rounded-2xl border border-white/5 min-w-[120px]">
-                                        <span className="text-[9px] font-black text-white/40 uppercase tracking-widest whitespace-nowrap">Unit ₹</span>
-                                        <input 
-                                          type="number"
-                                          className="w-full bg-transparent text-white font-black outline-none text-right"
-                                          value={item.price}
-                                          onChange={(e) => updateUnitPrice(item.tempId, parseFloat(e.target.value) || 0)}
-                                          onFocus={(e) => e.target.select()}
-                                        />
-                                    </div>
-
-                                    {/* Discount Control */}
-                                    <div className="flex items-center gap-3 bg-white/5 p-2 px-4 rounded-2xl border border-white/5">
-                                        <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Disc %</span>
-                                        <input 
-                                          type="number"
-                                          className="w-12 bg-transparent text-white font-black text-center outline-none"
-                                          value={item.discount}
-                                          onChange={(e) => updateDiscount(item.tempId, parseFloat(e.target.value) || 0)}
-                                          onFocus={(e) => e.target.select()}
-                                        />
-                                    </div>
-
-                                    <button onClick={() => removeItem(item.tempId)} className="text-white/20 hover:text-rose-400 p-2.5 rounded-2xl transition-all ml-auto"><Trash2 size={20}/></button>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
 
                 <div className="p-10 border-t border-white/5 bg-black/20">
@@ -747,66 +760,76 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                          <p className="font-black text-slate-300 uppercase tracking-[0.4em] text-[10px]">Registry Empty</p>
                       </div>
                   ) : (
-                     cart.map(item => (
-                        <div key={item.tempId} className={`bg-white p-5 rounded-[2rem] shadow-soft border border-slate-200/60 flex flex-col gap-5 animate-fade-in ${item.isNewSku ? 'ring-2 ring-indigo-500/20' : ''}`}>
-                           <div className="flex justify-between items-start">
-                               <div className="flex-1 min-w-0 pr-4">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <div className="font-black text-slate-900 text-lg tracking-tighter uppercase leading-none">{item.partNumber}</div>
-                                    {item.isNewSku && <span className="text-[8px] font-black bg-indigo-600 px-1.5 py-0.5 rounded text-white uppercase tracking-widest">New</span>}
+                     cart.map(item => {
+                        const stockItem = inventory.find(i => i.partNumber.toUpperCase() === item.partNumber.toUpperCase());
+                        const available = stockItem ? getAvailableStock(stockItem) : 999999;
+                        return (
+                           <div key={item.tempId} className={`bg-white p-5 rounded-[2rem] shadow-soft border border-slate-200/60 flex flex-col gap-5 animate-fade-in ${item.isNewSku ? 'ring-2 ring-indigo-500/20' : ''}`}>
+                              <div className="flex justify-between items-start">
+                                  <div className="flex-1 min-w-0 pr-4">
+                                     <div className="flex items-center gap-2 mb-1">
+                                       <div className="font-black text-slate-900 text-lg tracking-tighter uppercase leading-none">{item.partNumber}</div>
+                                       {item.isNewSku && <span className="text-[8px] font-black bg-indigo-600 px-1.5 py-0.5 rounded text-white uppercase tracking-widest">New</span>}
+                                     </div>
+                                     <div className="text-[12px] text-slate-900 font-bold uppercase tracking-tight mb-1">{item.name}</div>
                                   </div>
-                                  <div className="text-[12px] text-slate-900 font-bold uppercase tracking-tight mb-1">{item.name}</div>
-                               </div>
-                               <div className="text-right">
-                                  <div className="font-black text-slate-900 text-lg tracking-tighter tabular-nums">₹{(item.price * item.quantity).toLocaleString()}</div>
-                               </div>
-                           </div>
-                           
-                           <div className="flex flex-col gap-4 border-t border-slate-50 pt-5">
-                               {/* Row 1: Qty and Delete */}
-                               <div className="flex items-center justify-between">
-                                  <div className="flex items-center bg-slate-100 p-1.5 rounded-2xl shadow-inner-soft">
-                                      <button onClick={() => updateQty(item.tempId, -1)} className="w-10 h-10 bg-white shadow-soft rounded-xl flex items-center justify-center text-slate-600 active:scale-90 transition-all"><Minus size={18} strokeWidth={4}/></button>
-                                      <input 
-                                         type="number"
-                                         className="w-12 bg-transparent text-slate-900 font-black text-center outline-none text-xl [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                         value={fd(item.quantity)}
-                                         onChange={(e) => setQtyDirect(item.tempId, parseInt(e.target.value) || 1)}
-                                         onFocus={(e) => e.target.select()}
-                                       />
-                                      <button onClick={() => updateQty(item.tempId, 1)} className={`w-10 h-10 ${accentColor} text-white shadow-xl rounded-xl flex items-center justify-center active:scale-90 transition-all`}><Plus size={18} strokeWidth={4}/></button>
+                                  <div className="text-right">
+                                     <div className="font-black text-slate-900 text-lg tracking-tighter tabular-nums">₹{(item.price * item.quantity).toLocaleString()}</div>
                                   </div>
-                                  <button onClick={() => removeItem(item.tempId)} className="p-3.5 text-rose-500 bg-rose-50 rounded-2xl active:scale-90 transition-all border border-rose-100">
-                                    <Trash2 size={22} />
-                                  </button>
-                               </div>
+                              </div>
+                              
+                              <div className="flex flex-col gap-4 border-t border-slate-50 pt-5">
+                                  {/* Row 1: Qty and Delete */}
+                                  <div className="flex items-center justify-between">
+                                     <div className="flex items-center bg-slate-100 p-1.5 rounded-2xl shadow-inner-soft">
+                                         <button onClick={() => updateQty(item.tempId, -1)} className="w-10 h-10 bg-white shadow-soft rounded-xl flex items-center justify-center text-slate-600 active:scale-90 transition-all"><Minus size={18} strokeWidth={4}/></button>
+                                         <input 
+                                            type="number"
+                                            className="w-12 bg-transparent text-slate-900 font-black text-center outline-none text-xl [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                            value={item.quantity}
+                                            max={mode === 'SALES' ? available : undefined}
+                                            onChange={(e) => setQtyDirect(item.tempId, parseInt(e.target.value) || 1)}
+                                            onFocus={(e) => e.target.select()}
+                                          />
+                                         <button 
+                                           onClick={() => updateQty(item.tempId, 1)} 
+                                           className={`w-10 h-10 ${accentColor} text-white shadow-xl rounded-xl flex items-center justify-center active:scale-90 transition-all ${mode === 'SALES' && item.quantity >= available ? 'opacity-20 cursor-not-allowed' : ''}`}
+                                         >
+                                           <Plus size={18} strokeWidth={4}/>
+                                         </button>
+                                     </div>
+                                     <button onClick={() => removeItem(item.tempId)} className="p-3.5 text-rose-500 bg-rose-50 rounded-2xl active:scale-90 transition-all border border-rose-100">
+                                       <Trash2 size={22} />
+                                     </button>
+                                  </div>
 
-                               {/* Row 2: Price and Discount */}
-                               <div className="flex items-center gap-3">
-                                   <div className="flex-1 flex items-center gap-2 bg-slate-50 px-4 py-3 rounded-2xl border border-slate-100 shadow-inner-soft">
-                                       <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">UNIT ₹</span>
-                                       <input 
-                                         type="number"
-                                         className="w-full bg-transparent text-slate-900 font-black outline-none text-sm text-right"
-                                         value={item.price}
-                                         onChange={(e) => updateUnitPrice(item.tempId, parseFloat(e.target.value) || 0)}
-                                         onFocus={(e) => e.target.select()}
-                                       />
-                                   </div>
-                                   <div className="flex items-center gap-2 bg-slate-50 px-4 py-3 rounded-2xl border border-slate-100 shadow-inner-soft">
-                                       <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">DISC %</span>
-                                       <input 
-                                         type="number"
-                                         className="w-10 bg-transparent text-slate-900 font-black text-center outline-none text-sm"
-                                         value={item.discount}
-                                         onChange={(e) => updateDiscount(item.tempId, parseFloat(e.target.value) || 0)}
-                                         onFocus={(e) => e.target.select()}
-                                       />
-                                   </div>
-                               </div>
+                                  {/* Row 2: Price and Discount */}
+                                  <div className="flex items-center gap-3">
+                                      <div className="flex-1 flex items-center gap-2 bg-slate-50 px-4 py-3 rounded-2xl border border-slate-100 shadow-inner-soft">
+                                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">UNIT ₹</span>
+                                          <input 
+                                            type="number"
+                                            className="w-full bg-transparent text-slate-900 font-black outline-none text-sm text-right"
+                                            value={item.price}
+                                            onChange={(e) => updateUnitPrice(item.tempId, parseFloat(e.target.value) || 0)}
+                                            onFocus={(e) => e.target.select()}
+                                          />
+                                      </div>
+                                      <div className="flex items-center gap-2 bg-slate-50 px-4 py-3 rounded-2xl border border-slate-100 shadow-inner-soft">
+                                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">DISC %</span>
+                                          <input 
+                                            type="number"
+                                            className="w-10 bg-transparent text-slate-900 font-black text-center outline-none text-sm"
+                                            value={item.discount}
+                                            onChange={(e) => updateDiscount(item.tempId, parseFloat(e.target.value) || 0)}
+                                            onFocus={(e) => e.target.select()}
+                                          />
+                                      </div>
+                                  </div>
+                              </div>
                            </div>
-                        </div>
-                     ))
+                        );
+                     })
                   )}
               </div>
           </div>
