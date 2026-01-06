@@ -102,7 +102,6 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
       title: 'Counter & Sales',
       items: [
         { label: 'Point of Sale', path: '/billing', icon: Zap },
-        { label: 'Tax Invoices', path: '/invoices', icon: FileText, requiredRole: Role.OWNER },
         { label: 'Stock Returns', path: '/billing?tab=return', icon: ArrowRightLeft },
       ]
     },

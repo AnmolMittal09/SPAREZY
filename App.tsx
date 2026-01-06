@@ -18,7 +18,6 @@ import ImportExport from './pages/ImportExport';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import ItemDetail from './pages/ItemDetail';
-import Invoices from './pages/Invoices';
 import ProfitAnalysis from './pages/ProfitAnalysis';
 import Tasks from './pages/Tasks';
 
@@ -78,10 +77,6 @@ const App: React.FC = () => {
           
           {/* TRANSACTIONS */}
           <Route path="/billing" element={<Billing user={user} />} />
-          <Route 
-             path="/invoices" 
-             element={user.role === Role.OWNER ? <Invoices user={user} /> : <Navigate to="/" replace />} 
-          />
           <Route path="/purchases" element={<Purchases user={user} />} />
           <Route path="/requisitions" element={<Requisitions user={user} />} />
           <Route 
