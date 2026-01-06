@@ -268,8 +268,8 @@ export const updateOrAddItems = async (
         if (itemChanged) result.updated++;
 
         const finalQuantity = newItem.quantity !== undefined ? newItem.quantity : existingItem.quantity;
-        const shouldUnarchive = existingItem.isArchived && finalQuantity > 0;
-
+        
+        // RULE UPDATE: Any item listed in a sheet automatically unarchives
         upsertPayload.push({
           part_number: cleanPN, 
           name: newItem.name || existingItem.name,
@@ -279,7 +279,7 @@ export const updateOrAddItems = async (
           min_stock_threshold: newItem.minStockThreshold !== undefined ? newItem.minStockThreshold : existingItem.minStockThreshold,
           price: newItem.price !== undefined ? newItem.price : existingItem.price,
           last_updated: new Date().toISOString(),
-          is_archived: shouldUnarchive ? false : existingItem.isArchived
+          is_archived: false // Force unarchive
         });
 
       } else {
@@ -330,7 +330,7 @@ export const updateOrAddItems = async (
         partNumber: cleanPN,
         quantity: finalQuantity,
         lastUpdated: new Date().toISOString(),
-        isArchived: existing.isArchived && finalQuantity > 0 ? false : existing.isArchived
+        isArchived: false // Force unarchive locally
       };
       result.updated++;
     } else {
