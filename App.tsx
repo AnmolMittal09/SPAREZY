@@ -44,6 +44,8 @@ const App: React.FC = () => {
   const handleLogin = (newUser: User) => {
     setUser(newUser);
     resetTimers();
+    // Force landing on Dashboard (root) upon every successful login
+    window.location.hash = '#/';
   };
 
   const handleLogout = useCallback(() => {
@@ -110,7 +112,7 @@ const App: React.FC = () => {
                  <div className="flex gap-3 mt-4">
                     <button 
                       onClick={resetTimers}
-                      className="bg-white text-slate-900 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all"
+                      className="bg-white text-slate-900 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-[0.98] transition-all"
                     >
                       Stay Logged In
                     </button>
