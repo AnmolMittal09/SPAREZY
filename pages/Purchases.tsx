@@ -248,15 +248,19 @@ const Purchases: React.FC<Props> = ({ user }) => {
     const sourceName = (extractedMetadata.dealerName ? `${extractedMetadata.dealerName} (Inv: ${extractedMetadata.invoiceDate})` : `AI Audit (${new Date().toLocaleDateString()})`).toUpperCase().trim();
     
     try {
-        const inventoryPayload = previewData.map(item => {
-            const existing = inventory.find(i => i.partNumber.toLowerCase() === item.partNumber.toLowerCase());
-            return {
-                partNumber: item.partNumber, name: item.name, price: item.mrp,
-                quantity: (existing?.quantity || 0) + item.quantity,
-                brand: selectedBrand
-            };
-        });
+        // FIX: We do NOT calculate the new quantity manually here. 
+        // updateOrAddItems is used to upsert master data (Name, Brand, Price).
+        // createBulkTransactions then handles the actual stock increment logic based on Purchase type.
+        const inventoryPayload = previewData.map(item => ({
+            partNumber: item.partNumber, 
+            name: item.name, 
+            price: item.mrp,
+            brand: selectedBrand
+            // quantity is omitted so updateOrAddItems preserves existing or defaults to 0 for new parts
+        }));
+        
         const syncRes = await updateOrAddItems(inventoryPayload, { fileName: `Bill: ${sourceName}`, mode: 'AI_AUDIT_PURCHASE' });
+        
         const txPayload = previewData.map(item => ({
             partNumber: item.partNumber, 
             type: TransactionType.PURCHASE, 
@@ -267,7 +271,9 @@ const Purchases: React.FC<Props> = ({ user }) => {
             createdByRole: user.role as Role,
             createdByName: user.name
         }));
+        
         await createBulkTransactions(txPayload);
+        
         setImportLog({ 
             success: true, message: "Ledger Synchronized.", count: previewData.length,
             totalValue: txPayload.reduce((s, i) => s + (i.price * i.quantity), 0),
