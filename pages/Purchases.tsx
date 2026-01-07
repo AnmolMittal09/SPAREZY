@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { User, Transaction, TransactionStatus, TransactionType, Brand, Role } from '../types';
 import DailyTransactions from './DailyTransactions';
@@ -36,7 +37,8 @@ import {
   Search,
   RotateCcw,
   FileSpreadsheet,
-  Sparkles
+  Sparkles,
+  Percent
 } from 'lucide-react';
 import { fetchTransactions, createBulkTransactions } from '../services/transactionService';
 import { fetchInventory, updateOrAddItems } from '../services/inventoryService';
@@ -95,8 +97,9 @@ const Purchases: React.FC<Props> = ({ user }) => {
   const [extractedMetadata, setExtractedMetadata] = useState<{ dealerName?: string; invoiceDate?: string }>({});
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [historySearch, setHistorySearch] = useState('');
+  const [selectedBrand, setSelectedBrand] = useState<Brand>(Brand.HYUNDAI);
 
-  const STANDARD_DISCOUNT = 12;
+  const currentDiscountRate = selectedBrand === Brand.MAHINDRA ? 19.36 : 12;
 
   useEffect(() => {
     if (activeTab === 'HISTORY') loadHistory();
@@ -193,17 +196,17 @@ const Purchases: React.FC<Props> = ({ user }) => {
           const mrp = Number(row[2] || 0);
           const disc = Number(row[3] || 0);
           const printed = Number(row[4] || mrp * (1 - disc/100));
-          const calculatedAt12 = mrp * (1 - (STANDARD_DISCOUNT/100));
-          let hasError = disc < STANDARD_DISCOUNT || Math.abs(printed - calculatedAt12) > 0.5;
+          const calculatedAtRate = mrp * (1 - (currentDiscountRate/100));
+          let hasError = disc < currentDiscountRate || Math.abs(printed - calculatedAtRate) > 0.5;
           let errorType: 'DISCOUNT_LOW' | 'CALC_MISMATCH' | 'NONE' = 'NONE';
-          if (disc < STANDARD_DISCOUNT) errorType = 'DISCOUNT_LOW';
-          else if (Math.abs(printed - calculatedAt12) > 0.5) errorType = 'CALC_MISMATCH';
+          if (disc < currentDiscountRate) errorType = 'DISCOUNT_LOW';
+          else if (Math.abs(printed - calculatedAtRate) > 0.5) errorType = 'CALC_MISMATCH';
 
           return {
             partNumber: String(row[0] || '').toUpperCase().trim(),
             name: String(row[1] || 'Excel Row'),
             quantity: Number(row[5] || 1),
-            mrp, discountPercent: disc, printedUnitPrice: printed, calculatedPrice: calculatedAt12, hasError, errorType, diff: printed - calculatedAt12
+            mrp, discountPercent: disc, printedUnitPrice: printed, calculatedPrice: calculatedAtRate, hasError, errorType, diff: printed - calculatedAtRate
           };
         }).filter(i => i.partNumber && i.quantity > 0);
         setPreviewData(parsed as any);
@@ -221,14 +224,14 @@ const Purchases: React.FC<Props> = ({ user }) => {
         if (result && result.items && result.items.length > 0) {
           setExtractedMetadata({ dealerName: result.dealerName, invoiceDate: result.invoiceDate });
           const verifiedItems = result.items.map((item: any) => {
-            const expected = item.mrp * 0.88;
+            const expected = item.mrp * (1 - currentDiscountRate / 100);
             const diff = item.printedUnitPrice - expected;
-            const hasError = item.discountPercent < 12 || Math.abs(diff) > 0.5;
+            const hasError = item.discountPercent < currentDiscountRate || Math.abs(diff) > 0.5;
             return {
               ...item,
               partNumber: item.partNumber.toUpperCase().trim(),
               calculatedPrice: parseFloat(expected.toFixed(2)),
-              hasError, errorType: item.discountPercent < 12 ? 'DISCOUNT_LOW' : (Math.abs(diff) > 0.5 ? 'CALC_MISMATCH' : 'NONE'),
+              hasError, errorType: item.discountPercent < currentDiscountRate ? 'DISCOUNT_LOW' : (Math.abs(diff) > 0.5 ? 'CALC_MISMATCH' : 'NONE'),
               diff: parseFloat(diff.toFixed(2))
             };
           });
@@ -250,7 +253,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
             return {
                 partNumber: item.partNumber, name: item.name, price: item.mrp,
                 quantity: (existing?.quantity || 0) + item.quantity,
-                brand: item.partNumber.startsWith('HY') ? Brand.HYUNDAI : item.partNumber.startsWith('MH') ? Brand.MAHINDRA : undefined
+                brand: selectedBrand
             };
         });
         const syncRes = await updateOrAddItems(inventoryPayload, { fileName: `Bill: ${sourceName}`, mode: 'AI_AUDIT_PURCHASE' });
@@ -310,6 +313,33 @@ const Purchases: React.FC<Props> = ({ user }) => {
              <div className="flex-1 overflow-y-auto p-4 md:p-10 space-y-8 no-scrollbar bg-white md:rounded-[2.5rem] shadow-soft border border-slate-100">
                 {!previewData.length && !importLog && (
                   <div className="max-w-2xl mx-auto space-y-8">
+                     
+                     {/* BRAND TOGGLE FOR AI SCAN */}
+                     <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-200 shadow-inner-soft flex flex-col gap-4">
+                        <div className="flex items-center justify-between px-2">
+                           <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em]">Audit Protocol Select</h4>
+                           <div className="flex items-center gap-2 text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100 shadow-sm">
+                              <Percent size={12} strokeWidth={3} />
+                              <span className="text-[9px] font-black uppercase tracking-widest">Rule: {currentDiscountRate}% Off</span>
+                           </div>
+                        </div>
+                        <div className="flex bg-white p-1 rounded-2xl border border-slate-200 shadow-soft">
+                            {( [Brand.HYUNDAI, Brand.MAHINDRA] as const).map(b => (
+                               <button 
+                                 key={b}
+                                 onClick={() => setSelectedBrand(b)}
+                                 className={`flex-1 py-4 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all active:scale-[0.98] ${
+                                   selectedBrand === b 
+                                     ? 'bg-slate-900 text-white shadow-xl' 
+                                     : 'text-slate-400 hover:text-slate-600'
+                                 }`}
+                               >
+                                 {b}
+                               </button>
+                            ))}
+                        </div>
+                     </div>
+
                      <div className="bg-blue-50/50 border-2 border-dashed border-blue-200 rounded-[2.5rem] p-12 text-center group hover:bg-blue-50 transition-all cursor-pointer relative overflow-hidden">
                         <input type="file" multiple accept="image/*, application/pdf, .xlsx, .csv" onChange={handleFileSelect} className="absolute inset-0 opacity-0 cursor-pointer z-10" />
                         <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center text-blue-600 shadow-xl shadow-blue-100 mx-auto mb-6 group-hover:scale-110 transition-transform">
@@ -346,7 +376,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
                              className="w-full bg-blue-600 text-white font-black py-5 rounded-2xl flex items-center justify-center gap-4 shadow-xl shadow-blue-200 active:scale-[0.98] transition-all uppercase text-sm tracking-widest disabled:opacity-50"
                            >
                               {importing ? <Loader2 className="animate-spin" size={24} /> : <ScanLine size={24} strokeWidth={2.5} />}
-                              {importing ? 'Scanning Assets...' : 'Run Vision Audit'}
+                              {importing ? 'Scanning Assets...' : `Run ${selectedBrand} Audit`}
                            </button>
                         </div>
                      )}
@@ -361,10 +391,10 @@ const Purchases: React.FC<Props> = ({ user }) => {
                            <div className="w-16 h-16 bg-blue-600 rounded-3xl flex items-center justify-center shadow-xl shadow-blue-500/20"><Sparkles size={28} strokeWidth={2.5} /></div>
                            <div>
                               <h3 className="text-2xl font-black tracking-tight uppercase leading-none mb-2">{extractedMetadata.dealerName || 'Extracted Dealer'}</h3>
-                              <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-blue-400">
-                                 <Calendar size={14} /> {extractedMetadata.invoiceDate || 'No Date'}
-                                 <span className="text-white/20">•</span>
-                                 <Layers size={14} /> {fd(previewData.length)} Assets Logged
+                              <div className="flex flex-wrap items-center gap-4 text-[10px] font-black uppercase tracking-widest text-blue-400">
+                                 <span className="bg-white/10 text-white px-3 py-1 rounded-lg ring-1 ring-white/20">{selectedBrand}</span>
+                                 <div className="flex items-center gap-1.5"><Calendar size={14} /> {extractedMetadata.invoiceDate || 'No Date'}</div>
+                                 <div className="flex items-center gap-1.5"><Layers size={14} /> {fd(previewData.length)} Assets Logged</div>
                               </div>
                            </div>
                         </div>
@@ -385,7 +415,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
                                  <th className="px-8 py-6 text-center">Batch Qty</th>
                                  <th className="px-8 py-6 text-right">Extracted B.DC</th>
                                  <th className="px-8 py-6 text-right">Printed Net</th>
-                                 <th className="px-8 py-6 text-right">Protocol Audit</th>
+                                 <th className="px-8 py-6 text-right">Protocol Audit ({currentDiscountRate}%)</th>
                               </tr>
                            </thead>
                            <tbody className="divide-y divide-slate-50">
@@ -397,7 +427,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
                                     </td>
                                     <td className="px-8 py-6 text-center font-black text-slate-900 text-lg tabular-nums">#{fd(item.quantity)}</td>
                                     <td className="px-8 py-6 text-right">
-                                       <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border ${item.discountPercent < 12 ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-teal-50 text-teal-600 border-teal-100'}`}>
+                                       <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border ${item.discountPercent < currentDiscountRate ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-teal-50 text-teal-600 border-teal-100'}`}>
                                           {item.discountPercent.toFixed(1)}% OFF
                                        </span>
                                     </td>
