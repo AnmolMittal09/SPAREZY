@@ -7,12 +7,8 @@
     <meta name="theme-color" content="#ffffff" />
     <title>Sparezy - Smart Inventory System</title>
     
-    <!-- Resource Hints for Speed -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="preconnect" href="https://aistudiocdn.com">
-    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
-    
     <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA4MCA4MCI+PGcgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMGQ5NDg4IiBzdHJva2Utd2lkdGg9IjgiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTIwLDMwIEwzMCwxNSBMNTUsMTUgTjY1LDMwIEw1NSw0NSBMMzAsNDUgWiIvPjxwYXRoIGQ9Ik02MCw1MCBMNTAsNjUgTDI1LDY1IEwxNSw1MCBMMjUsMzUgTDUwLDM1IFoiIHN0cm9rZT0iIzMzNDE1NSIvPjwvZz48L3N2Zz4=" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -32,43 +28,30 @@
                 800: '#075985',
                 900: '#0c4a6e',
                 950: '#082f49',
-              },
-              accent: {
-                teal: '#14b8a6',
-                indigo: '#6366f1',
-                rose: '#f43f5e',
-                amber: '#f59e0b',
               }
             },
-            borderRadius: {
-              'xl': '0.75rem',
-              '2xl': '1rem',
-              '3xl': '1.5rem',
-              '4xl': '2rem',
-            },
             boxShadow: {
-              'etched': 'inset 0 1px 1px rgba(255, 255, 255, 0.4), 0 1px 2px rgba(0, 0, 0, 0.05)',
-              'soft': '0 2px 10px -2px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.02)',
-              'premium': '0 10px 15px -3px rgba(0, 0, 0, 0.04), 0 4px 6px -2px rgba(0, 0, 0, 0.02), inset 0 1px 0 rgba(255, 255, 255, 0.5)',
-              'elevated': '0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 10px 10px -5px rgba(0, 0, 0, 0.02)',
-              'inner-soft': 'inset 0 1px 3px 0 rgba(0, 0, 0, 0.04)',
+              'soft': '0 2px 10px -2px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.05)',
+              'premium': '0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04)',
+              'elevated': '0 20px 25px -5px rgba(0, 0, 0, 0.12), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+              'inner-soft': 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.06)',
             }
           }
         }
       }
     </script>
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
       
       body {
         font-family: 'Plus Jakarta Sans', sans-serif;
-        background-color: #F8FAFC;
+        background-color: #F1F5F9;
         -webkit-font-smoothing: antialiased;
-        color: #1E293B;
+        color: #0F172A; /* High contrast primary text */
       }
 
       @keyframes slideUp {
-        from { transform: translateY(10px); opacity: 0; }
+        from { transform: translateY(12px); opacity: 0; }
         to { transform: translateY(0); opacity: 1; }
       }
 
@@ -78,40 +61,24 @@
       }
 
       .animate-slide-up {
-        animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        animation: slideUp 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
       }
 
       .animate-fade-in {
-        animation: fadeIn 0.3s ease-out forwards;
+        animation: fadeIn 0.2s ease-out forwards;
       }
 
-      .glass-card {
-        background: rgba(255, 255, 255, 0.9);
-        backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.6);
-      }
-
-      .etched-border {
-        border: 1px solid rgba(15, 23, 42, 0.06);
-      }
-
-      .no-scrollbar::-webkit-scrollbar {
-        display: none;
-      }
-      .no-scrollbar {
-        -ms-overflow-style: none;
-        scrollbar-width: none;
-      }
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
       ::selection {
-        background: rgba(2, 132, 199, 0.12);
-        color: #075985;
+        background: #0284c7;
+        color: white;
       }
 
       @media print {
         .no-print { display: none !important; }
         body { background: white !important; overflow: visible !important; height: auto !important; }
-        main { overflow: visible !important; }
       }
     </style>
     <script>
@@ -139,7 +106,7 @@
 }
 </script>
   </head>
-  <body class="bg-slate-50 text-slate-800 h-screen overflow-hidden">
+  <body class="bg-slate-100 text-slate-900 h-screen overflow-hidden">
     <div id="root" class="h-full"></div>
     <script type="module" src="/index.tsx"></script>
   </body>
