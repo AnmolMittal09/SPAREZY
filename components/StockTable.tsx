@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 // @ts-ignore
 import { Link, useNavigate } from 'react-router-dom';
 import { StockItem, Brand, Role, PriceHistoryEntry } from '../types';
@@ -48,7 +48,8 @@ const formatQty = (n: number) => {
   return isNeg ? `-${str}` : str;
 };
 
-const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role; align?: 'left' | 'right' }> = ({ price, partNumber, userRole, align = 'right' }) => {
+// Memoized Price Cell to prevent re-renders in long lists
+const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role; align?: 'left' | 'right' }> = React.memo(({ price, partNumber, userRole, align = 'right' }) => {
   const [visible, setVisible] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<PriceHistoryEntry[]>([]);
@@ -202,7 +203,7 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role; 
       )}
     </div>
   );
-};
+});
 
 interface SwipeableItemProps {
     item: StockItem;
@@ -217,7 +218,8 @@ interface SwipeableItemProps {
     isUpdating?: boolean;
 }
 
-const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({ 
+// Memoized Swipeable Item
+const SwipeableMobileItem: React.FC<SwipeableItemProps> = React.memo(({ 
     item, userRole, shouldHidePrice, isSelected, toggleSelect, enableSelection, 
     onQuickRequest, isEditMode, onInlineUpdate, isUpdating 
 }) => {
@@ -391,7 +393,7 @@ const SwipeableMobileItem: React.FC<SwipeableItemProps> = ({
             </div>
         </div>
     );
-};
+});
 
 interface StockTableProps {
   items: StockItem[];
@@ -465,15 +467,15 @@ const StockTable: React.FC<StockTableProps> = ({
   }, [items, effectiveSearch, brandFilter, showArchived, sortConfig, stockStatusFilter]);
 
   const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
-  const currentItems = filteredItems.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const currentItems = useMemo(() => filteredItems.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredItems, currentPage]);
 
   const [mobileLimit, setMobileLimit] = useState(20);
-  const mobileItems = filteredItems.slice(0, mobileLimit);
+  const mobileItems = useMemo(() => filteredItems.slice(0, mobileLimit), [filteredItems, mobileLimit]);
 
   const isAllFilteredSelected = filteredItems.length > 0 && filteredItems.every(i => selectedParts.has(i.partNumber));
   const isPartiallySelected = selectedParts.size > 0 && !isAllFilteredSelected;
 
-  const handleExport = () => {
+  const handleExport = useCallback(() => {
     const dataToExport = filteredItems.map(item => ({
       'Part Number': item.partNumber,
       'Description': item.name,
@@ -487,7 +489,7 @@ const StockTable: React.FC<StockTableProps> = ({
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Inventory");
     XLSX.writeFile(wb, `Sparezy_Inventory_${new Date().toISOString().split('T')[0]}.xlsx`);
-  };
+  }, [filteredItems]);
 
   const handleQuickRequest = async (pn: string) => {
       const qtyStr = window.prompt(`Requisition for ${pn}:\nEnter quantity needed:`, "05");
@@ -530,7 +532,7 @@ const StockTable: React.FC<StockTableProps> = ({
       }
   };
 
-  const toggleSelectAll = () => {
+  const toggleSelectAll = useCallback(() => {
     const newSet = new Set(selectedParts);
     if (isAllFilteredSelected) {
       filteredItems.forEach(i => newSet.delete(i.partNumber));
@@ -538,7 +540,7 @@ const StockTable: React.FC<StockTableProps> = ({
       filteredItems.forEach(i => newSet.add(i.partNumber));
     }
     setSelectedParts(newSet);
-  };
+  }, [isAllFilteredSelected, filteredItems, selectedParts]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -546,12 +548,14 @@ const StockTable: React.FC<StockTableProps> = ({
     setSelectedParts(new Set());
   }, [effectiveSearch, brandFilter, showArchived, stockStatusFilter]);
 
-  const toggleSelect = (partNumber: string) => {
-      const newSet = new Set(selectedParts);
-      if (newSet.has(partNumber)) newSet.delete(partNumber);
-      else newSet.add(partNumber);
-      setSelectedParts(newSet);
-  };
+  const toggleSelect = useCallback((partNumber: string) => {
+      setSelectedParts(prev => {
+        const newSet = new Set(prev);
+        if (newSet.has(partNumber)) newSet.delete(partNumber);
+        else newSet.add(partNumber);
+        return newSet;
+      });
+  }, []);
 
   const handleBulkArchive = async () => {
       if (!confirm(`Archive ${formatQty(selectedParts.size)} items?`)) return;
@@ -573,10 +577,10 @@ const StockTable: React.FC<StockTableProps> = ({
     setSortConfig({ key, direction });
   };
 
-  const SortIcon = ({ col }: { col: keyof StockItem }) => {
+  const SortIcon = React.memo(({ col }: { col: keyof StockItem }) => {
       if (sortConfig?.key !== col) return <ArrowUpDown size={10} className="opacity-10" />;
       return sortConfig.direction === 'asc' ? <ArrowUp size={10} className="text-blue-600" /> : <ArrowDown size={10} className="text-blue-600" />;
-  };
+  });
 
   return (
     <div className="bg-white rounded-[2.5rem] shadow-premium border border-slate-200/50 flex flex-col overflow-visible">

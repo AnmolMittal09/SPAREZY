@@ -1,31 +1,40 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+
+import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 // @ts-ignore
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { User, Role } from './types';
 import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
 import Layout from './components/Layout';
-import PartsList from './pages/PartsList';
-import Billing from './pages/Billing';
-import Purchases from './pages/Purchases';
-import Requisitions from './pages/Requisitions';
-import Approvals from './pages/Approvals';
-import StockMovements from './pages/StockMovements';
-import LowStock from './pages/LowStock';
-import OutOfStock from './pages/OutOfStock';
-import ImportExport from './pages/ImportExport';
-import Reports from './pages/Reports';
-import Settings from './pages/Settings';
-import ItemDetail from './pages/ItemDetail';
-import ProfitAnalysis from './pages/ProfitAnalysis';
-import Tasks from './pages/Tasks';
-import { ShieldAlert, Lock, ShieldCheck } from 'lucide-react';
+import { ShieldAlert, ShieldCheck, Loader2 } from 'lucide-react';
+
+// Optimized Lazy Loading
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const PartsList = lazy(() => import('./pages/PartsList'));
+const Billing = lazy(() => import('./pages/Billing'));
+const Purchases = lazy(() => import('./pages/Purchases'));
+const Requisitions = lazy(() => import('./pages/Requisitions'));
+const Approvals = lazy(() => import('./pages/Approvals'));
+const StockMovements = lazy(() => import('./pages/StockMovements'));
+const LowStock = lazy(() => import('./pages/LowStock'));
+const OutOfStock = lazy(() => import('./pages/OutOfStock'));
+const ImportExport = lazy(() => import('./pages/ImportExport'));
+const Reports = lazy(() => import('./pages/Reports'));
+const Settings = lazy(() => import('./pages/Settings'));
+const ItemDetail = lazy(() => import('./pages/ItemDetail'));
+const ProfitAnalysis = lazy(() => import('./pages/ProfitAnalysis'));
+const Tasks = lazy(() => import('./pages/Tasks'));
 
 const INACTIVITY_LIMIT_MS = 20 * 60 * 1000; // 20 Minutes
 const WARNING_THRESHOLD_MS = 60 * 1000; // 1 Minute warning
 
+// Simple skeleton for lazy loading fallback
+const RouteLoader = () => (
+  <div className="flex h-full w-full items-center justify-center py-20">
+    <Loader2 className="animate-spin text-brand-600" size={40} />
+  </div>
+);
+
 const App: React.FC = () => {
-  // VOLATILE STATE: Null on every refresh ensures mandatory login
   const [user, setUser] = useState<User | null>(null);
   const [isTabFocused, setIsTabFocused] = useState(true);
   const [showWarning, setShowWarning] = useState(false);
@@ -53,12 +62,10 @@ const App: React.FC = () => {
 
     setShowWarning(false);
 
-    // Set warning timer (at 19 mins)
     warningTimerRef.current = setTimeout(() => {
       if (user.id !== 'dev-mode') setShowWarning(true);
     }, INACTIVITY_LIMIT_MS - WARNING_THRESHOLD_MS);
 
-    // Set actual logout timer (at 20 mins)
     logoutTimerRef.current = setTimeout(() => {
       if (user.id !== 'dev-mode') handleLogout();
     }, INACTIVITY_LIMIT_MS);
@@ -72,20 +79,16 @@ const App: React.FC = () => {
     
     events.forEach(event => window.addEventListener(event, resetHandler));
     
-    // Privacy Shield: Detect tab visibility with Debounce
-    // (Debounce fixes issues where browser 'Save Password' prompts trigger false hidden states)
     const handleVisibilityChange = () => {
       if (visibilityTimeoutRef.current) clearTimeout(visibilityTimeoutRef.current);
       
       const newState = document.visibilityState === 'visible';
       
       if (!newState) {
-        // If becoming hidden, wait 500ms before showing privacy shield
         visibilityTimeoutRef.current = setTimeout(() => {
           setIsTabFocused(false);
         }, 500);
       } else {
-        // If becoming visible, show immediately
         setIsTabFocused(true);
       }
     };
@@ -109,7 +112,6 @@ const App: React.FC = () => {
 
   return (
     <div className="relative h-screen w-full overflow-hidden">
-      {/* PRIVACY SHIELD */}
       {!isTabFocused && (
         <div className="fixed inset-0 z-[9999] bg-slate-900/40 backdrop-blur-[40px] flex flex-col items-center justify-center animate-fade-in">
            <div className="bg-white/10 p-8 rounded-[3rem] border border-white/20 shadow-2xl flex flex-col items-center gap-6">
@@ -124,7 +126,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* SESSION EXPIRING WARNING */}
       {showWarning && (
         <div className="fixed bottom-6 right-6 z-[1000] bg-slate-900 text-white p-6 rounded-[2rem] shadow-elevated border border-white/10 animate-slide-up max-w-sm ring-1 ring-amber-500/50">
            <div className="flex items-start gap-4">
@@ -157,39 +158,41 @@ const App: React.FC = () => {
 
       <HashRouter>
         <Layout user={user} onLogout={handleLogout}>
-          <Routes>
-            <Route path="/" element={<Dashboard user={user} />} />
-            <Route path="/parts" element={<PartsList user={user} />} />
-            <Route path="/tasks" element={<Tasks user={user} />} />
-            <Route path="/billing" element={<Billing user={user} />} />
-            <Route path="/purchases" element={<Purchases user={user} />} />
-            <Route path="/requisitions" element={<Requisitions user={user} />} />
-            <Route 
-              path="/approvals" 
-              element={user.role === Role.OWNER ? <Approvals user={user} /> : <Navigate to="/" replace />} 
-            />
-            <Route path="/movements" element={<StockMovements user={user} />} />
-            <Route path="/low-stock" element={<LowStock user={user} />} />
-            <Route path="/out-of-stock" element={<OutOfStock user={user} />} />
-            <Route 
-              path="/import-export" 
-              element={user.role === Role.OWNER ? <ImportExport /> : <Navigate to="/" replace />} 
-            />
-            <Route 
-              path="/reports" 
-              element={user.role === Role.OWNER ? <Reports user={user} /> : <Navigate to="/" replace />} 
-            />
-            <Route 
-              path="/profit-analysis" 
-              element={user.role === Role.OWNER ? <ProfitAnalysis user={user} /> : <Navigate to="/" replace />} 
-            />
-            <Route 
-              path="/settings" 
-              element={user.role === Role.OWNER ? <Settings user={user} /> : <Navigate to="/" replace />} 
-            />
-            <Route path="/item/:partNumber" element={<ItemDetail />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          <Suspense fallback={<RouteLoader />}>
+            <Routes>
+              <Route path="/" element={<Dashboard user={user} />} />
+              <Route path="/parts" element={<PartsList user={user} />} />
+              <Route path="/tasks" element={<Tasks user={user} />} />
+              <Route path="/billing" element={<Billing user={user} />} />
+              <Route path="/purchases" element={<Purchases user={user} />} />
+              <Route path="/requisitions" element={<Requisitions user={user} />} />
+              <Route 
+                path="/approvals" 
+                element={user.role === Role.OWNER ? <Approvals user={user} /> : <Navigate to="/" replace />} 
+              />
+              <Route path="/movements" element={<StockMovements user={user} />} />
+              <Route path="/low-stock" element={<LowStock user={user} />} />
+              <Route path="/out-of-stock" element={<OutOfStock user={user} />} />
+              <Route 
+                path="/import-export" 
+                element={user.role === Role.OWNER ? <ImportExport /> : <Navigate to="/" replace />} 
+              />
+              <Route 
+                path="/reports" 
+                element={user.role === Role.OWNER ? <Reports user={user} /> : <Navigate to="/" replace />} 
+              />
+              <Route 
+                path="/profit-analysis" 
+                element={user.role === Role.OWNER ? <ProfitAnalysis user={user} /> : <Navigate to="/" replace />} 
+              />
+              <Route 
+                path="/settings" 
+                element={user.role === Role.OWNER ? <Settings user={user} /> : <Navigate to="/" replace />} 
+              />
+              <Route path="/item/:partNumber" element={<ItemDetail />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
         </Layout>
       </HashRouter>
     </div>

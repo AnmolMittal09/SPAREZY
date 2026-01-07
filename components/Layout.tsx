@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 // @ts-ignore
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { User, Role } from '../types';
@@ -31,7 +31,6 @@ import {
 } from 'lucide-react';
 
 interface LayoutProps {
-  // Fix: React.Node is a Flow type, React.ReactNode is the correct TypeScript type for children
   children: React.ReactNode;
   user: User;
   onLogout: () => void;
@@ -43,14 +42,15 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const handleGlobalRefresh = () => {
+  const handleGlobalRefresh = useCallback(() => {
     setIsRefreshing(true);
     setTimeout(() => {
       window.location.reload();
     }, 600);
-  };
+  }, []);
 
-  const navGroups = [
+  // Memoize navGroups to avoid re-calculating on every render
+  const navGroups = useMemo(() => [
     {
       title: 'Navigation',
       items: [
@@ -85,7 +85,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
         { label: 'Admin Settings', path: '/settings', icon: Settings, requiredRole: Role.OWNER },
       ]
     }
-  ];
+  ], []);
 
   return (
     <div className="h-screen bg-slate-50 flex overflow-hidden font-['Plus_Jakarta_Sans']">
@@ -155,4 +155,4 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
   );
 };
 
-export default Layout;
+export default React.memo(Layout);
