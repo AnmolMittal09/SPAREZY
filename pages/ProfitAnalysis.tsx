@@ -1,32 +1,54 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
-import { User, Transaction, TransactionType, TransactionStatus, StockItem, Brand } from '../types';
+import { User, Transaction, TransactionType, TransactionStatus, StockItem } from '../types';
 import { fetchTransactions } from '../services/transactionService';
 import { fetchInventory } from '../services/inventoryService';
 import TharLoader from '../components/TharLoader';
 import { 
   TrendingUp, 
-  TrendingDown, 
   BarChart3, 
   AlertCircle, 
   IndianRupee, 
-  Percent, 
   Calendar,
   Layers,
   Box,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  Target,
+  ArrowRightLeft,
+  CheckCircle2,
+  AlertTriangle,
+  History,
+  Activity
 } from 'lucide-react';
+
+const fd = (n: number | string) => {
+    const num = parseInt(n.toString()) || 0;
+    return num >= 0 && num < 10 ? `0${num}` : `${num}`;
+};
 
 interface Props {
   user: User;
+}
+
+type PeriodFilter = 'TODAY' | 'WEEK' | 'MONTH' | 'YEAR';
+
+interface PartPerformance {
+  partNumber: string;
+  name: string;
+  qtySold: number;
+  avgSellPrice: number;
+  costBasis: number;
+  totalRevenue: number;
+  totalProfit: number;
+  margin: number;
 }
 
 const ProfitAnalysis: React.FC<Props> = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [inventory, setInventory] = useState<StockItem[]>([]);
-  const [timeFilter, setTimeFilter] = useState<'TODAY' | 'MONTH'>('TODAY');
+  const [period, setPeriod] = useState<PeriodFilter>('MONTH');
 
   useEffect(() => {
     const loadData = async () => {
@@ -49,288 +71,328 @@ const ProfitAnalysis: React.FC<Props> = ({ user }) => {
 
   const stats = useMemo(() => {
     const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-    const cutoff = timeFilter === 'TODAY' ? startOfToday : startOfMonth;
+    let cutoffDate = new Date();
 
-    // Filtered data set
-    const periodTxs = transactions.filter(tx => new Date(tx.createdAt).getTime() >= cutoff);
-    // Fix: Explicitly type the invMap to ensure the compiler knows it contains StockItem objects
-    const invMap = new Map<string, StockItem>(inventory.map(i => [i.partNumber.toUpperCase(), i]));
+    switch (period) {
+      case 'TODAY':
+        cutoffDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        break;
+      case 'WEEK':
+        const day = now.getDay();
+        const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Adjust for Monday start
+        cutoffDate = new Date(now.setDate(diff));
+        cutoffDate.setHours(0, 0, 0, 0);
+        break;
+      case 'MONTH':
+        cutoffDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        break;
+      case 'YEAR':
+        cutoffDate = new Date(now.getFullYear(), 0, 1);
+        break;
+    }
 
-    let totalSales = 0;
-    let totalReturns = 0;
-    let totalPurchases = 0;
-    let discountLeakage = 0;
-
-    const brandStats = {
-      HYUNDAI: { sales: 0, cost: 0, profit: 0 },
-      MAHINDRA: { sales: 0, cost: 0, profit: 0 }
-    };
-
-    const perPartMap = new Map<string, { sales: number, cost: number, leakage: number }>();
-
-    periodTxs.forEach(tx => {
-      const amount = tx.price * tx.quantity;
-      const pn = tx.partNumber.toUpperCase();
-      const isHyundai = pn.startsWith('HY');
-      const isMahindra = pn.startsWith('MH');
-      const brandKey = isHyundai ? 'HYUNDAI' : isMahindra ? 'MAHINDRA' : null;
-
-      const partData = perPartMap.get(pn) || { sales: 0, cost: 0, leakage: 0 };
-
-      if (tx.type === TransactionType.SALE) {
-        totalSales += amount;
-        partData.sales += amount;
-        if (brandKey) brandStats[brandKey].sales += amount;
-      } else if (tx.type === TransactionType.RETURN) {
-        totalReturns += amount;
-        partData.sales -= amount;
-        if (brandKey) brandStats[brandKey].sales -= amount;
-      } else if (tx.type === TransactionType.PURCHASE) {
-        totalPurchases += amount;
-        partData.cost += amount;
-        if (brandKey) brandStats[brandKey].cost += amount;
-
-        // Leakage calculation: (Actual - Expected 12% Disc Price) * Qty
-        const item = invMap.get(pn);
-        if (item) {
-          const expectedPrice = item.price * 0.88; // 12% discount off MRP
-          if (tx.price > expectedPrice) {
-            const leak = (tx.price - expectedPrice) * tx.quantity;
-            discountLeakage += leak;
-            partData.leakage += leak;
-          }
-        }
-      }
-      perPartMap.set(pn, partData);
+    const cutoff = cutoffDate.getTime();
+    
+    // 1. Build a "Cost Basis" Map for every part
+    // We look at the most recent APPROVED PURCHASE price for each part
+    const costMap = new Map<string, number>();
+    
+    // First, seed with standard 12% discount from inventory MRP as default
+    inventory.forEach(item => {
+        costMap.set(item.partNumber.toUpperCase(), item.price * 0.88);
     });
 
-    const netSales = totalSales - totalReturns;
-    const netProfit = netSales - totalPurchases;
-    const margin = netSales > 0 ? (netProfit / netSales) * 100 : 0;
+    // Then, override with actual latest purchase prices if found in history
+    const allPurchases = [...transactions]
+        .filter(tx => tx.type === TransactionType.PURCHASE)
+        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    
+    allPurchases.forEach(tx => {
+        costMap.set(tx.partNumber.toUpperCase(), tx.price);
+    });
 
-    // Calculate profit for brands
-    brandStats.HYUNDAI.profit = brandStats.HYUNDAI.sales - brandStats.HYUNDAI.cost;
-    brandStats.MAHINDRA.profit = brandStats.MAHINDRA.sales - brandStats.MAHINDRA.cost;
+    // 2. Filter transactions for the selected period
+    const periodTxs = transactions.filter(tx => new Date(tx.createdAt).getTime() >= cutoff);
 
-    // Convert map to array for display, sorted by absolute profit impact
-    const skuAnalysis = Array.from(perPartMap.entries()).map(([pn, data]) => ({
-      partNumber: pn,
-      name: invMap.get(pn)?.name || 'Spare Part',
-      profit: data.sales - data.cost,
-      leakage: data.leakage,
-      netSales: data.sales
-    })).sort((a, b) => Math.abs(b.profit) - Math.abs(a.profit));
+    let totalEarnings = 0; // Only Sales - Returns
+    let totalPurchaseValue = 0; // Actual spending in this period
+    let totalCostOfSales = 0; 
+    let salesCount = 0;
+    let returnsCount = 0;
+
+    const skuMap = new Map<string, { qty: number, rev: number }>();
+
+    periodTxs.forEach(tx => {
+        const pn = tx.partNumber.toUpperCase();
+        const amount = tx.price * tx.quantity;
+        const unitCost = costMap.get(pn) || 0;
+
+        if (tx.type === TransactionType.SALE) {
+            totalEarnings += amount;
+            totalCostOfSales += (unitCost * tx.quantity);
+            salesCount++;
+            
+            const current = skuMap.get(pn) || { qty: 0, rev: 0 };
+            skuMap.set(pn, { qty: current.qty + tx.quantity, rev: current.rev + amount });
+        } 
+        else if (tx.type === TransactionType.RETURN) {
+            totalEarnings -= amount;
+            totalCostOfSales -= (unitCost * tx.quantity);
+            returnsCount++;
+
+            const current = skuMap.get(pn) || { qty: 0, rev: 0 };
+            skuMap.set(pn, { qty: current.qty - tx.quantity, rev: current.rev - amount });
+        }
+        else if (tx.type === TransactionType.PURCHASE) {
+            totalPurchaseValue += amount;
+        }
+    });
+
+    const netProfit = totalEarnings - totalCostOfSales;
+    const margin = totalEarnings > 0 ? (netProfit / totalEarnings) * 100 : 0;
+    const isEarningMoreThanSpending = totalEarnings > totalPurchaseValue;
+
+    // Build Table Data
+    const tableData: PartPerformance[] = Array.from(skuMap.entries()).map(([pn, data]) => {
+        const invItem = inventory.find(i => i.partNumber.toUpperCase() === pn);
+        const costBasis = costMap.get(pn) || 0;
+        const profit = data.rev - (costBasis * data.qty);
+        return {
+            partNumber: pn,
+            name: invItem?.name || 'Unregistered Part',
+            qtySold: data.qty,
+            avgSellPrice: data.qty !== 0 ? data.rev / data.qty : 0,
+            costBasis: costBasis,
+            totalRevenue: data.rev,
+            totalProfit: profit,
+            margin: data.rev !== 0 ? (profit / data.rev) * 100 : 0
+        };
+    }).sort((a, b) => b.totalProfit - a.totalProfit);
 
     return {
-      netSales,
-      totalPurchases,
+      totalEarnings,
+      totalPurchaseValue,
       netProfit,
-      discountLeakage,
+      totalCostOfSales,
       margin,
-      brandStats,
-      skuAnalysis
+      isEarningMoreThanSpending,
+      salesCount,
+      returnsCount,
+      tableData
     };
-  }, [transactions, inventory, timeFilter]);
+  }, [transactions, inventory, period]);
 
   if (loading) return <TharLoader />;
 
   return (
-    <div className="max-w-6xl mx-auto space-y-10 pb-24 animate-fade-in">
-      {/* Header & Filter Toggle */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 px-1">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-lg">
-            <BarChart3 size={24} strokeWidth={2.5} />
+    <div className="max-w-7xl mx-auto space-y-8 md:space-y-12 animate-fade-in pb-32">
+      
+      {/* HEADER SECTION */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-8 px-2 pt-2">
+        <div className="flex items-center gap-5">
+           <div className="w-16 h-16 bg-slate-900 rounded-[2rem] flex items-center justify-center text-white shadow-elevated border border-white/10 ring-8 ring-slate-100">
+              <BarChart3 size={32} strokeWidth={2.5} />
+           </div>
+           <div>
+              <h1 className="text-3xl font-black text-slate-900 tracking-tight leading-none mb-2">Profit Intelligence</h1>
+              <div className="flex items-center gap-2">
+                 <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>
+                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Precision Financial Audit Log</p>
+              </div>
+           </div>
+        </div>
+
+        <div className="bg-slate-200/50 p-1.5 rounded-[1.75rem] border border-slate-200 shadow-inner-soft flex w-full md:w-auto">
+          {(['TODAY', 'WEEK', 'MONTH', 'YEAR'] as PeriodFilter[]).map(f => (
+            <button 
+              key={f}
+              onClick={() => setPeriod(f)}
+              className={`flex-1 md:px-8 py-2.5 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all active:scale-[0.98] ${period === f ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
+            >
+              {f === 'WEEK' ? 'This Week' : f === 'MONTH' ? 'This Month' : f === 'YEAR' ? 'This Year' : 'Today'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* PRIMARY METRICS GRID */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 px-1">
+        
+        {/* Total Earning (Net Sales) */}
+        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-soft flex flex-col justify-between group hover:shadow-premium transition-all">
+          <div className="flex items-center justify-between mb-6">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Earnings</span>
+            <div className="p-3 bg-teal-50 text-teal-600 rounded-2xl shadow-inner"><TrendingUp size={20} strokeWidth={2.5}/></div>
           </div>
           <div>
-            <h1 className="text-3xl font-black text-slate-900 tracking-tight leading-none mb-2">
-              Profit Intelligence
-            </h1>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em]">Financial Audit Ledger v4.2</p>
+            <p className="text-3xl font-black text-slate-900 tracking-tighter tabular-nums mb-1">₹{stats.totalEarnings.toLocaleString()}</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Net Realized Revenue</p>
           </div>
         </div>
 
-        <div className="bg-slate-200/50 p-1.5 rounded-2xl border border-slate-200 shadow-inner-soft flex w-full md:w-auto">
-          <button 
-            onClick={() => setTimeFilter('TODAY')}
-            className={`flex-1 md:px-8 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all active:scale-[0.98] ${timeFilter === 'TODAY' ? 'bg-white text-slate-900 shadow-soft border border-slate-200' : 'text-slate-400 hover:text-slate-600'}`}
-          >
-            Today
-          </button>
-          <button 
-            onClick={() => setTimeFilter('MONTH')}
-            className={`flex-1 md:px-8 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all active:scale-[0.98] ${timeFilter === 'MONTH' ? 'bg-white text-slate-900 shadow-soft border border-slate-200' : 'text-slate-400 hover:text-slate-600'}`}
-          >
-            This Month
-          </button>
+        {/* Total Purchase Value (Spending) */}
+        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-soft flex flex-col justify-between group hover:shadow-premium transition-all">
+          <div className="flex items-center justify-between mb-6">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Purchase Value</span>
+            <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl shadow-inner"><ArrowRightLeft size={20} strokeWidth={2.5}/></div>
+          </div>
+          <div>
+            <p className="text-3xl font-black text-slate-900 tracking-tighter tabular-nums mb-1">₹{stats.totalPurchaseValue.toLocaleString()}</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Inventory Investment</p>
+          </div>
         </div>
-      </div>
 
-      {/* Main Metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* Total Sales Card */}
-        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200/60 shadow-soft flex flex-col justify-between group hover:border-brand-200 transition-all relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-teal-500/5 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform"></div>
+        {/* Net Profit (Margin-based) */}
+        <div className="bg-[#1E293B] p-8 rounded-[2.5rem] shadow-elevated flex flex-col justify-between relative overflow-hidden ring-1 ring-white/5">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-teal-500/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
           <div className="flex items-center justify-between mb-6 relative z-10">
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Aggregate Sales</span>
-            <div className="p-3 bg-teal-50 text-teal-600 rounded-2xl shadow-inner"><TrendingUp size={18} strokeWidth={2.5}/></div>
+            <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Actual Profit</span>
+            <div className="p-3 bg-white/10 text-teal-400 rounded-2xl shadow-lg ring-1 ring-white/10"><Target size={20} strokeWidth={2.5}/></div>
           </div>
-          <p className="text-4xl font-black text-slate-900 tracking-tighter tabular-nums relative z-10">₹{stats.netSales.toLocaleString()}</p>
-          <p className="text-[10px] font-bold text-slate-400 mt-4 uppercase tracking-widest relative z-10">Net realized revenue</p>
+          <div className="relative z-10">
+            <p className="text-3xl font-black text-white tracking-tighter tabular-nums mb-2">₹{stats.netProfit.toLocaleString()}</p>
+            <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black text-teal-400 bg-teal-400/10 px-2 py-0.5 rounded-full border border-teal-400/20">{stats.margin.toFixed(1)}% Yield</span>
+            </div>
+          </div>
         </div>
 
-        {/* Purchase Cost Card */}
-        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200/60 shadow-soft flex flex-col justify-between group hover:border-brand-200 transition-all relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform"></div>
-          <div className="flex items-center justify-between mb-6 relative z-10">
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Inbound Cost</span>
-            <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl shadow-inner"><IndianRupee size={18} strokeWidth={2.5}/></div>
+        {/* Cash Flow Status */}
+        <div className={`p-8 rounded-[2.5rem] border shadow-soft flex flex-col justify-between transition-all ${stats.isEarningMoreThanSpending ? 'bg-teal-50 border-teal-100' : 'bg-rose-50 border-rose-100'}`}>
+          <div className="flex items-center justify-between mb-6">
+            <span className={`text-[10px] font-black uppercase tracking-widest ${stats.isEarningMoreThanSpending ? 'text-teal-600' : 'text-rose-600'}`}>Period Settlement</span>
+            <div className={`p-3 rounded-2xl shadow-inner ${stats.isEarningMoreThanSpending ? 'bg-white text-teal-600' : 'bg-white text-rose-600'}`}>
+                {stats.isEarningMoreThanSpending ? <CheckCircle2 size={20} strokeWidth={2.5}/> : <AlertTriangle size={20} strokeWidth={2.5}/>}
+            </div>
           </div>
-          <p className="text-4xl font-black text-slate-900 tracking-tighter tabular-nums relative z-10">₹{stats.totalPurchases.toLocaleString()}</p>
-          <p className="text-[10px] font-bold text-slate-400 mt-4 uppercase tracking-widest relative z-10">Total inventory liability</p>
-        </div>
-
-        {/* Net Profit Card */}
-        <div className="bg-[#1E293B] p-8 rounded-[2.5rem] shadow-elevated flex flex-col justify-between relative overflow-hidden border border-white/5 group">
-          <div className="absolute top-0 right-0 w-48 h-48 bg-teal-500/10 rounded-full -mr-24 -mt-24 group-hover:scale-110 transition-transform duration-700"></div>
-          <div className="flex items-center justify-between mb-6 relative z-10">
-            <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Net Margin</span>
-            <div className="p-3 bg-white/5 text-teal-400 rounded-2xl ring-1 ring-white/10 shadow-lg"><TrendingUp size={18} strokeWidth={2.5}/></div>
-          </div>
-          <p className="text-4xl font-black text-white tracking-tighter tabular-nums relative z-10">₹{stats.netProfit.toLocaleString()}</p>
-          <div className="mt-4 flex items-center gap-2 relative z-10">
-             <span className="text-[11px] font-black text-teal-400 bg-teal-400/10 px-3 py-1 rounded-full uppercase tracking-widest border border-teal-400/20">{stats.margin.toFixed(1)}% Yield</span>
+          <div>
+            <p className={`text-2xl font-black tracking-tight mb-1 ${stats.isEarningMoreThanSpending ? 'text-teal-900' : 'text-rose-900'}`}>
+                {stats.isEarningMoreThanSpending ? 'REVENUE POSITIVE' : 'INVESTMENT MODE'}
+            </p>
+            <p className={`text-[10px] font-bold uppercase tracking-widest ${stats.isEarningMoreThanSpending ? 'text-teal-600/60' : 'text-rose-600/60'}`}>
+                Earnings {stats.isEarningMoreThanSpending ? 'Exceed' : 'Below'} Spending
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Brand & SKU Analysis Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      {/* ANALYSIS SUB-SECTION */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 px-1">
         
-        {/* Brand Comparison Column */}
+        {/* LEFT: Stats Audit */}
         <div className="lg:col-span-4 space-y-6">
-          <div className="flex items-center gap-3 px-1 mb-2">
-            <Layers size={18} className="text-slate-400" />
-            <h2 className="font-black text-slate-900 text-[11px] uppercase tracking-[0.25em]">Brand Segregation</h2>
-          </div>
+            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200/80 shadow-soft">
+                <h3 className="font-black text-slate-400 text-[10px] uppercase tracking-[0.3em] mb-8 flex items-center gap-3">
+                    <Activity size={18} /> Cycle Statistics
+                </h3>
+                
+                <div className="space-y-6">
+                    <div className="flex justify-between items-end pb-5 border-b border-slate-50">
+                        <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Validated Sales</span>
+                        <span className="font-black text-slate-900 text-lg">{fd(stats.salesCount)} Logs</span>
+                    </div>
+                    <div className="flex justify-between items-end pb-5 border-b border-slate-50">
+                        <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Processed Returns</span>
+                        <span className="font-black text-rose-600 text-lg">{fd(stats.returnsCount)} Logs</span>
+                    </div>
+                    <div className="flex justify-between items-end">
+                        <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">COGS (Stock Cost)</span>
+                        <span className="font-black text-slate-900 text-lg">₹{stats.totalCostOfSales.toLocaleString()}</span>
+                    </div>
+                </div>
+            </div>
 
-          {/* Hyundai Card */}
-          <div className="bg-white rounded-[2.5rem] p-8 border border-slate-200/60 shadow-soft relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-32 h-full bg-blue-600/[0.03] -skew-x-12 translate-x-16 group-hover:translate-x-12 transition-transform"></div>
-            <div className="flex items-center gap-3 mb-8">
-              <div className="w-3 h-3 rounded-full bg-blue-600 shadow-[0_0_12px_rgba(37,99,235,0.4)]"></div>
-              <h3 className="font-black text-slate-900 text-xl tracking-tight uppercase leading-none">Hyundai</h3>
+            <div className="bg-indigo-600 p-8 rounded-[2.5rem] shadow-xl text-white relative overflow-hidden">
+                <div className="absolute bottom-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mb-16"></div>
+                <h3 className="font-black text-white/40 text-[10px] uppercase tracking-[0.3em] mb-6">Diagnostic Insight</h3>
+                <p className="text-sm font-bold leading-relaxed mb-6">
+                    {stats.isEarningMoreThanSpending 
+                        ? `Operational performance is healthy. You have generated ₹${(stats.totalEarnings - stats.totalPurchaseValue).toLocaleString()} in cash flow beyond this period's spending.`
+                        : `You have invested ₹${(stats.totalPurchaseValue - stats.totalEarnings).toLocaleString()} more into inventory than generated in sales this period. Ensure this stock translates to future revenue.`}
+                </p>
+                <div className="flex items-center gap-2 text-[10px] font-black bg-black/20 w-fit px-3 py-1 rounded-full uppercase tracking-widest">
+                    <Calendar size={12} /> Cycle: {period}
+                </div>
             </div>
-            
-            <div className="space-y-6 relative z-10">
-              <div className="flex justify-between items-end border-b border-slate-50 pb-5">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Revenue</span>
-                <span className="font-black text-slate-900 text-lg tabular-nums">₹{stats.brandStats.HYUNDAI.sales.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between items-end">
-                <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Profit Yield</span>
-                <span className="font-black text-blue-600 text-2xl tracking-tighter tabular-nums">₹{stats.brandStats.HYUNDAI.profit.toLocaleString()}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Mahindra Card */}
-          <div className="bg-white rounded-[2.5rem] p-8 border border-slate-200/60 shadow-soft relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-32 h-full bg-red-600/[0.03] -skew-x-12 translate-x-16 group-hover:translate-x-12 transition-transform"></div>
-            <div className="flex items-center gap-3 mb-8">
-              <div className="w-3 h-3 rounded-full bg-red-600 shadow-[0_0_12px_rgba(220,38,38,0.4)]"></div>
-              <h3 className="font-black text-slate-900 text-xl tracking-tight uppercase leading-none">Mahindra</h3>
-            </div>
-            
-            <div className="space-y-6 relative z-10">
-              <div className="flex justify-between items-end border-b border-slate-50 pb-5">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Revenue</span>
-                <span className="font-black text-slate-900 text-lg tabular-nums">₹{stats.brandStats.MAHINDRA.sales.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between items-end">
-                <span className="text-[10px] font-black text-red-600 uppercase tracking-widest">Profit Yield</span>
-                <span className="font-black text-red-600 text-2xl tracking-tighter tabular-nums">₹{stats.brandStats.MAHINDRA.profit.toLocaleString()}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Discount Leakage Summary */}
-          <div className="bg-rose-50 rounded-[2.5rem] p-8 border border-rose-100 shadow-sm group">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-[10px] font-black text-rose-500 uppercase tracking-widest">Discount Leakage</span>
-              <div className="p-2 bg-rose-100 text-rose-600 rounded-xl"><AlertCircle size={16} strokeWidth={2.5}/></div>
-            </div>
-            <p className="text-3xl font-black text-rose-600 tracking-tighter tabular-nums">₹{stats.discountLeakage.toLocaleString()}</p>
-            <p className="text-[9px] font-bold text-rose-400 mt-2 uppercase tracking-widest leading-relaxed">Purchases exceeding 12% B.DC baseline protocol.</p>
-          </div>
         </div>
 
-        {/* SKU Performance Table */}
+        {/* RIGHT: SKU Performance Ledger */}
         <div className="lg:col-span-8">
-          <div className="bg-white rounded-[3rem] shadow-premium border border-slate-200/60 overflow-hidden h-full flex flex-col">
-            <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
-              <div className="flex items-center gap-4">
-                  <div className="p-3 bg-white rounded-2xl shadow-soft border border-slate-100 text-blue-600">
-                      <Box size={22} strokeWidth={2.5} />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-black text-slate-900 uppercase tracking-[0.2em] leading-none mb-1.5">SKU Performance Ledger</h3>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Profit and Leakage per Part Number</p>
-                  </div>
-              </div>
-            </div>
+            <div className="bg-white rounded-[3rem] shadow-premium border border-slate-200/60 overflow-hidden flex flex-col h-full">
+                <div className="p-10 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-white rounded-2xl shadow-soft border border-slate-100 text-blue-600">
+                            <Box size={22} strokeWidth={2.5} />
+                        </div>
+                        <div>
+                            <h3 className="text-sm font-black text-slate-900 uppercase tracking-[0.2em] leading-none mb-1.5">SKU Profit Performance</h3>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Net Realized Margin per Part Number</p>
+                        </div>
+                    </div>
+                </div>
 
-            <div className="flex-1 overflow-x-auto no-scrollbar">
-              <table className="w-full text-left text-sm border-collapse">
-                <thead className="bg-slate-50/50 text-slate-400 font-black uppercase text-[9px] tracking-[0.2em] border-b border-slate-100 sticky top-0 z-10 backdrop-blur-md">
-                  <tr>
-                    <th className="px-8 py-5">Spare Part SKU</th>
-                    <th className="px-8 py-5 text-right">Yield (Profit)</th>
-                    <th className="px-8 py-5 text-right">Leakage Loss</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {stats.skuAnalysis.length === 0 ? (
-                    <tr>
-                      <td colSpan={3} className="px-8 py-24 text-center text-slate-300 font-black uppercase tracking-[0.3em] text-xs opacity-50">No Data Logs for selected period</td>
-                    </tr>
-                  ) : (
-                    stats.skuAnalysis.slice(0, 50).map((row) => (
-                      <tr key={row.partNumber} className="hover:bg-slate-50/50 transition-colors group">
-                        <td className="px-8 py-5">
-                          <div className="font-black text-slate-900 text-[15px] tracking-tight uppercase leading-none group-hover:text-blue-600 transition-colors">{row.partNumber}</div>
-                          <div className="text-[10px] text-slate-400 font-bold uppercase truncate max-w-[200px] mt-1">{row.name}</div>
-                        </td>
-                        <td className="px-8 py-5 text-right">
-                          <div className={`flex items-center justify-end gap-2 font-black text-lg tabular-nums tracking-tighter ${row.profit >= 0 ? 'text-teal-600' : 'text-rose-600'}`}>
-                            {row.profit >= 0 ? <ArrowUpRight size={14} strokeWidth={3} /> : <ArrowDownRight size={14} strokeWidth={3} />}
-                            ₹{Math.abs(row.profit).toLocaleString()}
-                          </div>
-                          <div className="text-[9px] text-slate-300 font-black uppercase tracking-widest mt-1">Rev: ₹{row.netSales.toLocaleString()}</div>
-                        </td>
-                        <td className="px-8 py-5 text-right">
-                          <div className={`font-black text-lg tabular-nums tracking-tighter ${row.leakage > 0 ? 'text-rose-500' : 'text-slate-300 opacity-40'}`}>
-                            {row.leakage > 0 ? `₹${row.leakage.toLocaleString()}` : '—'}
-                          </div>
-                          {row.leakage > 0 && <div className="text-[9px] text-rose-300 font-black uppercase tracking-widest mt-1">Protocol Break</div>}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                <div className="flex-1 overflow-x-auto no-scrollbar">
+                    <table className="w-full text-left text-sm border-collapse">
+                        <thead className="bg-slate-50/50 text-slate-400 font-black uppercase text-[9px] tracking-[0.2em] border-b border-slate-100 sticky top-0 z-10 backdrop-blur-md">
+                            <tr>
+                                <th className="px-10 py-6">Part Description</th>
+                                <th className="px-10 py-6 text-center">Net Qty</th>
+                                <th className="px-10 py-6 text-right">Cost vs Sell</th>
+                                <th className="px-10 py-6 text-right">Profit Yield</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                            {stats.tableData.length === 0 ? (
+                                <tr>
+                                    <td colSpan={4} className="py-40 text-center">
+                                        <div className="flex flex-col items-center justify-center text-slate-200">
+                                            <History size={64} className="opacity-10 mb-6" />
+                                            <p className="font-black uppercase tracking-[0.4em] text-[12px] text-slate-300">Journal Clear for period</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ) : (
+                                stats.tableData.map(row => (
+                                    <tr key={row.partNumber} className="hover:bg-slate-50/80 transition-all group">
+                                        <td className="px-10 py-6">
+                                            <div className="font-black text-slate-900 text-base uppercase tracking-tight leading-none mb-2 group-hover:text-blue-600 transition-colors">{row.partNumber}</div>
+                                            <div className="text-[10px] text-slate-400 font-bold uppercase truncate max-w-[200px] tracking-tight">{row.name}</div>
+                                        </td>
+                                        <td className="px-10 py-6 text-center">
+                                            <span className={`text-lg font-black tracking-tight tabular-nums ${row.qtySold < 0 ? 'text-rose-600' : 'text-slate-900'}`}>{row.qtySold < 0 ? '' : '+'}{row.qtySold}</span>
+                                            <span className="text-[9px] font-black text-slate-300 uppercase ml-2">PCS</span>
+                                        </td>
+                                        <td className="px-10 py-6 text-right">
+                                            <div className="flex flex-col gap-1">
+                                                <span className="text-[12px] font-black text-slate-900 tabular-nums leading-none">₹{row.avgSellPrice.toLocaleString()}</span>
+                                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Cost: ₹{row.costBasis.toLocaleString()}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-10 py-6 text-right">
+                                            <div className="flex flex-col items-end gap-1">
+                                                <div className={`flex items-center gap-1.5 font-black text-lg tracking-tighter tabular-nums leading-none ${row.totalProfit >= 0 ? 'text-teal-600' : 'text-rose-600'}`}>
+                                                    {row.totalProfit >= 0 ? <ArrowUpRight size={14} strokeWidth={3}/> : <ArrowDownRight size={14} strokeWidth={3}/>}
+                                                    ₹{Math.abs(row.totalProfit).toLocaleString()}
+                                                </div>
+                                                <span className={`text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-widest border ${row.totalProfit >= 0 ? 'bg-teal-50 text-teal-600 border-teal-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
+                                                    {row.margin.toFixed(1)}% Margin
+                                                </span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div className="p-6 bg-slate-50/50 border-t border-slate-50 text-center no-print">
+                    <span className="text-[8px] font-black text-slate-300 uppercase tracking-[0.5em]">End of Diagnostic Ledger</span>
+                </div>
             </div>
-            
-            {stats.skuAnalysis.length > 50 && (
-              <div className="p-6 border-t border-slate-100 bg-slate-50/20 text-center">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Showing top 50 SKU entries by profit impact</span>
-              </div>
-            )}
-          </div>
         </div>
       </div>
+
     </div>
   );
 };
