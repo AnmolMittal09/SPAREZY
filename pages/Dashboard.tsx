@@ -3,7 +3,7 @@ import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { User, StockItem, Brand } from '../types';
 import { fetchInventory } from '../services/inventoryService';
 import StockTable from '../components/StockTable';
-import { Search, RefreshCw, LayoutGrid, Activity, Layers, Boxes } from 'lucide-react';
+import { Search, RefreshCw, LayoutGrid, Activity, Boxes, Package } from 'lucide-react';
 import TharLoader from '../components/TharLoader';
 
 const fd = (n: number | string) => {
@@ -81,41 +81,52 @@ const Dashboard: React.FC<{ user: User }> = ({ user }) => {
 
       {/* Main Table Container */}
       <div className="bg-white rounded-[3rem] shadow-premium border-2 border-slate-200 overflow-hidden min-h-[600px] flex flex-col">
-         {/* Integrated Header with Compact Status Boxes */}
-         <div className="p-6 md:p-10 border-b-2 border-slate-100 bg-slate-50 flex flex-col gap-8">
-            <div className="flex flex-wrap gap-4">
-                {/* Compact Hyundai Status */}
-                <div className="bg-white p-4 px-6 rounded-2xl border-2 border-slate-200 border-l-[10px] border-l-blue-700 shadow-soft flex flex-col justify-center min-w-[160px] group/status hover:border-slate-300 transition-all">
-                   <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[10px] font-black text-blue-800 uppercase tracking-[0.2em]">Hyundai Stock</span>
-                   </div>
-                   <div className="flex items-baseline gap-2">
-                      <span className="text-2xl font-black text-slate-950 tabular-nums">{brandSnapshots.hy.u.toLocaleString()}</span>
-                      <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Units</span>
-                   </div>
-                </div>
-
-                {/* Compact Mahindra Status */}
-                <div className="bg-white p-4 px-6 rounded-2xl border-2 border-slate-200 border-l-[10px] border-l-red-700 shadow-soft flex flex-col justify-center min-w-[160px] group/status hover:border-slate-300 transition-all">
-                   <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[10px] font-black text-red-800 uppercase tracking-[0.2em]">Mahindra Stock</span>
-                   </div>
-                   <div className="flex items-baseline gap-2">
-                      <span className="text-2xl font-black text-slate-950 tabular-nums">{brandSnapshots.mh.u.toLocaleString()}</span>
-                      <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Units</span>
-                   </div>
-                </div>
+         {/* Integrated Header with Compact Status Boxes Aligned Top Right */}
+         <div className="p-6 md:p-10 border-b-2 border-slate-100 bg-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="flex items-center gap-4">
+               <div className="p-3 bg-white border-2 border-slate-200 rounded-2xl text-blue-700 shadow-inner"><LayoutGrid size={24} strokeWidth={3}/></div>
+               <div>
+                  <h2 className="text-[14px] font-black text-slate-950 uppercase tracking-[0.25em]">Master Parts Database</h2>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Real-time Catalog Registry</p>
+               </div>
             </div>
 
-            <div className="flex items-center justify-between">
-               <div className="flex items-center gap-4">
-                  <div className="p-3 bg-white border-2 border-slate-200 rounded-2xl text-blue-700 shadow-inner"><LayoutGrid size={24} strokeWidth={3}/></div>
-                  <div>
-                     <h2 className="text-[13px] font-black text-slate-950 uppercase tracking-[0.25em]">Master Parts Database</h2>
-                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Real-time Catalog Registry</p>
-                  </div>
-               </div>
-               <span className="hidden md:inline-block text-[11px] font-black text-slate-500 uppercase tracking-widest bg-white px-5 py-2.5 rounded-xl border-2 border-slate-200 shadow-inner-soft">Scanner Live</span>
+            <div className="flex flex-wrap md:flex-nowrap gap-4 justify-end">
+                {/* Hyundai Status Box */}
+                <div className="bg-white p-3 px-5 rounded-2xl border-2 border-slate-200 border-r-[8px] border-r-blue-700 shadow-soft flex flex-col justify-center min-w-[140px]">
+                   <div className="flex items-center justify-between gap-4 mb-2">
+                      <span className="text-[9px] font-black text-blue-800 uppercase tracking-widest">Hyundai</span>
+                      <Boxes size={12} className="text-slate-300" />
+                   </div>
+                   <div className="flex items-center justify-between gap-6">
+                      <div className="flex flex-col">
+                         <span className="text-[15px] font-black text-slate-950 tabular-nums leading-none">{brandSnapshots.hy.p.toLocaleString()}</span>
+                         <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter mt-1">Parts No.</span>
+                      </div>
+                      <div className="flex flex-col items-end">
+                         <span className="text-[15px] font-black text-slate-950 tabular-nums leading-none">{brandSnapshots.hy.u.toLocaleString()}</span>
+                         <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter mt-1">Qty.</span>
+                      </div>
+                   </div>
+                </div>
+
+                {/* Mahindra Status Box */}
+                <div className="bg-white p-3 px-5 rounded-2xl border-2 border-slate-200 border-r-[8px] border-r-red-700 shadow-soft flex flex-col justify-center min-w-[140px]">
+                   <div className="flex items-center justify-between gap-4 mb-2">
+                      <span className="text-[9px] font-black text-red-800 uppercase tracking-widest">Mahindra</span>
+                      <Package size={12} className="text-slate-300" />
+                   </div>
+                   <div className="flex items-center justify-between gap-6">
+                      <div className="flex flex-col">
+                         <span className="text-[15px] font-black text-slate-950 tabular-nums leading-none">{brandSnapshots.mh.p.toLocaleString()}</span>
+                         <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter mt-1">Parts No.</span>
+                      </div>
+                      <div className="flex flex-col items-end">
+                         <span className="text-[15px] font-black text-slate-950 tabular-nums leading-none">{brandSnapshots.mh.u.toLocaleString()}</span>
+                         <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter mt-1">Qty.</span>
+                      </div>
+                   </div>
+                </div>
             </div>
          </div>
 
