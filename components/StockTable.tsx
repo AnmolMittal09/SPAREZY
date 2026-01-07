@@ -30,7 +30,8 @@ import {
   Download,
   ChevronRight as ChevronRightIcon,
   X,
-  Trash2
+  Trash2,
+  CheckCircle2
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -186,10 +187,45 @@ const StockTable: React.FC<any> = ({ items, title, userRole, enableActions = tru
     setSelectedParts(prev => { const n = new Set(prev); if (n.has(pn)) n.delete(pn); else n.add(pn); return n; });
   }, []);
 
+  const isAllSelected = useMemo(() => {
+    return currentItems.length > 0 && currentItems.every(i => selectedParts.has(i.partNumber));
+  }, [currentItems, selectedParts]);
+
+  const toggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedParts(prev => {
+        const next = new Set(prev);
+        currentItems.forEach(i => next.delete(i.partNumber));
+        return next;
+      });
+    } else {
+      setSelectedParts(prev => {
+        const next = new Set(prev);
+        currentItems.forEach(i => next.add(i.partNumber));
+        return next;
+      });
+    }
+  };
+
   const handleExport = () => {
     const ws = XLSX.utils.json_to_sheet(filteredItems.map(i => ({ SKU: i.partNumber, Name: i.name, Stock: i.quantity, Price: i.price })));
     const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Inventory");
     XLSX.writeFile(wb, `Sparezy_Inventory.xlsx`);
+  };
+
+  const handleBulkArchive = async () => {
+    if (selectedParts.size === 0) return;
+    const action = showArchived ? 'unarchive' : 'archive';
+    if (!window.confirm(`Are you sure you want to ${action} ${selectedParts.size} selected items?`)) return;
+    
+    try {
+      await bulkArchiveItems(Array.from(selectedParts), !showArchived);
+      setSelectedParts(new Set());
+      // Parents should ideally handle reload, but for simplicity:
+      window.location.reload();
+    } catch (err: any) {
+      alert("Error: " + err.message);
+    }
   };
 
   return (
@@ -201,6 +237,15 @@ const StockTable: React.FC<any> = ({ items, title, userRole, enableActions = tru
                <span className="bg-slate-950 text-white px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest">{formatQty(filteredItems.length)} items</span>
             </div>
             <div className="flex items-center gap-3">
+                {selectedParts.size > 0 && isOwner && (
+                    <button 
+                      onClick={handleBulkArchive}
+                      className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-amber-600 text-white font-black text-[11px] uppercase tracking-widest shadow-lg shadow-amber-200 transition-all active:scale-95"
+                    >
+                      {showArchived ? <ArchiveRestore size={16}/> : <Archive size={16}/>}
+                      {showArchived ? 'Restore' : 'Archive'} ({fd(selectedParts.size)})
+                    </button>
+                )}
                 <button onClick={handleExport} className="p-3 rounded-2xl bg-white border-2 border-slate-200 text-slate-700 hover:text-blue-700 hover:border-blue-300 transition-all shadow-soft"><Download size={22} strokeWidth={2.5}/></button>
                 <div className="relative group hidden md:block">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} strokeWidth={3} />
@@ -219,7 +264,16 @@ const StockTable: React.FC<any> = ({ items, title, userRole, enableActions = tru
         <table className="w-full text-left border-collapse">
             <thead className="bg-slate-100 text-slate-900 sticky top-0 z-[100]">
                 <tr>
-                    {enableActions && isOwner && <th className="px-8 py-5 w-12 text-center"></th>}
+                    {enableActions && isOwner && (
+                        <th className="px-8 py-5 w-12 text-center">
+                            <input 
+                              type="checkbox" 
+                              checked={isAllSelected} 
+                              onChange={toggleSelectAll} 
+                              className="w-5 h-5 rounded border-2 border-slate-400 text-blue-700 focus:ring-slate-950 transition-all cursor-pointer" 
+                            />
+                        </th>
+                    )}
                     <th className="px-8 py-5 font-extrabold uppercase tracking-widest text-[11px] cursor-pointer" onClick={() => setSortConfig({key:'partNumber', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc'})}>Part Number</th>
                     <th className="px-8 py-5 font-extrabold uppercase tracking-widest text-[11px] cursor-pointer" onClick={() => setSortConfig({key:'name', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc'})}>Description</th>
                     <th className="px-8 py-5 font-extrabold uppercase tracking-widest text-[11px] text-center">Brand</th>
@@ -230,7 +284,7 @@ const StockTable: React.FC<any> = ({ items, title, userRole, enableActions = tru
             </thead>
             <tbody className="divide-y-2 divide-slate-50">
                 {currentItems.map((item) => (
-                    <tr key={item.id} className={`group hover:bg-slate-50 transition-colors ${selectedParts.has(item.partNumber) ? 'bg-blue-50' : ''}`}>
+                    <tr key={item.id} className={`group hover:bg-slate-50 transition-colors ${selectedParts.has(item.partNumber) ? 'bg-blue-50/60' : ''}`}>
                         {enableActions && isOwner && (
                             <td className="px-8 py-5 text-center">
                                 <input type="checkbox" checked={selectedParts.has(item.partNumber)} onChange={() => toggleSelect(item.partNumber)} className="w-5 h-5 rounded border-2 border-slate-300 text-blue-700" />
@@ -263,6 +317,27 @@ const StockTable: React.FC<any> = ({ items, title, userRole, enableActions = tru
       </div>
 
       <div className="md:hidden flex flex-col p-4 space-y-4">
+         {isOwner && currentItems.length > 0 && (
+           <div className="px-2 py-1 flex items-center justify-between bg-slate-100 rounded-xl border border-slate-200 mb-2">
+              <div className="flex items-center gap-3">
+                  <button 
+                    onClick={toggleSelectAll}
+                    className={`p-2.5 rounded-lg transition-all ${isAllSelected ? 'bg-blue-600 text-white' : 'bg-white text-slate-400 border border-slate-200'}`}
+                  >
+                    {isAllSelected ? <CheckSquare size={20} strokeWidth={3}/> : <Square size={20} strokeWidth={2}/>}
+                  </button>
+                  <span className="text-[11px] font-black text-slate-900 uppercase tracking-widest">Select All</span>
+              </div>
+              {selectedParts.size > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-100 uppercase tracking-widest">{fd(selectedParts.size)}</span>
+                  <button onClick={handleBulkArchive} className="p-2.5 text-amber-600 bg-white rounded-lg shadow-soft border border-slate-200 active:scale-90">
+                    {showArchived ? <ArchiveRestore size={18}/> : <Archive size={18}/>}
+                  </button>
+                </div>
+              )}
+           </div>
+         )}
          {currentItems.map(item => <SwipeableMobileItem key={item.id} item={item} userRole={userRole} toggleSelect={toggleSelect} isSelected={selectedParts.has(item.partNumber)} enableSelection={enableActions} onQuickRequest={() => {}} />)}
       </div>
     </div>
