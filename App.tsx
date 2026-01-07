@@ -5,7 +5,7 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { User, Role } from './types';
 import Login from './pages/Login';
 import Layout from './components/Layout';
-import { ShieldAlert, ShieldCheck, Loader2 } from 'lucide-react';
+import { ShieldAlert, Loader2 } from 'lucide-react';
 
 // Optimized Lazy Loading
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -37,11 +37,9 @@ const RouteLoader = () => (
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
-  const [isTabFocused, setIsTabFocused] = useState(true);
   const [showWarning, setShowWarning] = useState(false);
   const warningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const logoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const visibilityTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleLogin = (newUser: User) => {
     setUser(newUser);
@@ -82,32 +80,13 @@ const App: React.FC = () => {
     const resetHandler = () => resetTimers();
     
     events.forEach(event => window.addEventListener(event, resetHandler));
-    
-    const handleVisibilityChange = () => {
-      if (visibilityTimeoutRef.current) clearTimeout(visibilityTimeoutRef.current);
-      
-      const newState = document.visibilityState === 'visible';
-      
-      if (!newState) {
-        // Delay privacy shield slightly to prevent flashing on fast swaps
-        visibilityTimeoutRef.current = setTimeout(() => {
-          setIsTabFocused(false);
-        }, 500);
-      } else {
-        setIsTabFocused(true);
-      }
-    };
-    
-    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     resetTimers();
 
     return () => {
       events.forEach(event => window.removeEventListener(event, resetHandler));
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
       if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
-      if (visibilityTimeoutRef.current) clearTimeout(visibilityTimeoutRef.current);
     };
   }, [user, resetTimers]);
 
@@ -117,20 +96,6 @@ const App: React.FC = () => {
 
   return (
     <div className="relative h-screen w-full overflow-hidden">
-      {!isTabFocused && (
-        <div className="fixed inset-0 z-[9999] bg-slate-900/40 backdrop-blur-[40px] flex flex-col items-center justify-center animate-fade-in">
-           <div className="bg-white/10 p-8 rounded-[3rem] border border-white/20 shadow-2xl flex flex-col items-center gap-6">
-              <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center border border-white/20 animate-pulse">
-                 <ShieldCheck size={48} className="text-white" />
-              </div>
-              <div className="text-center">
-                 <h2 className="text-2xl font-black text-white uppercase tracking-widest">Privacy Shield Active</h2>
-                 <p className="text-white/60 text-xs font-bold uppercase mt-2 tracking-widest">Return to tab to resume session</p>
-              </div>
-           </div>
-        </div>
-      )}
-
       {showWarning && (
         <div className="fixed bottom-6 right-6 z-[1000] bg-slate-900 text-white p-6 rounded-[2rem] shadow-elevated border border-white/10 animate-slide-up max-w-sm ring-1 ring-amber-500/50">
            <div className="flex items-start gap-4">

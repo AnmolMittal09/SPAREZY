@@ -155,6 +155,17 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
     return Math.max(0, item.quantity - pending);
   };
 
+  // Rule: Hyundai 12%, Mahindra 19.36% for Purchase
+  const getInitialDiscount = (item: StockItem | { brand: Brand }) => {
+    if (mode !== 'PURCHASE') return 0;
+    
+    // Determine target brand: either explicit toggle or item's own brand
+    const brandContext = selectedBrand !== 'ALL' ? selectedBrand : item.brand;
+    
+    if (brandContext === Brand.MAHINDRA) return 19.36;
+    return 12; // Default for Hyundai or Unknown in this context
+  };
+
   const addToCart = (item: StockItem) => {
       const existing = cart.find(c => c.partNumber === item.partNumber);
       const available = getAvailableStock(item);
@@ -171,7 +182,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
 
       if (mode === 'SALES' && available === 0) return alert("Item out of stock!");
 
-      const initialDiscount = mode === 'PURCHASE' ? 12 : 0;
+      const initialDiscount = getInitialDiscount(item);
       const initialPrice = item.price * (1 - initialDiscount / 100);
 
       const newItem: CartItem = {
@@ -184,7 +195,8 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
           discount: initialDiscount,
           price: initialPrice,
           customerName: customerName,
-          stockError: false
+          stockError: false,
+          brand: item.brand
       };
       setCart(prev => [...prev, newItem]);
       resetSearch();
@@ -207,7 +219,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
       const mrpValue = parseFloat(newSkuForm.mrp);
       if (isNaN(mrpValue)) return alert("Invalid MRP amount.");
 
-      const initialDiscount = 12;
+      const initialDiscount = getInitialDiscount({ brand: newSkuForm.brand });
       const initialPrice = mrpValue * (1 - initialDiscount / 100);
 
       const newItem: CartItem = {
@@ -455,7 +467,22 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                </div>
             </div>
             
-            <div className="p-6">
+            <div className="p-6 space-y-4">
+                <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-2xl shadow-inner-soft">
+                    {(['ALL', Brand.HYUNDAI, Brand.MAHINDRA] as const).map(b => (
+                       <button 
+                         key={b}
+                         onClick={() => setSelectedBrand(b)}
+                         className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${
+                           selectedBrand === b 
+                             ? 'bg-white text-slate-900 shadow-sm border border-slate-200' 
+                             : 'text-slate-400'
+                         }`}
+                       >
+                         {b}
+                       </button>
+                    ))}
+                </div>
                 <div className="relative group">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-600 transition-colors" size={24} strokeWidth={2.5} />
                     <input 
@@ -519,7 +546,32 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
        {/* DESKTOP SPLIT UI */}
        <div className="hidden lg:grid grid-cols-12 gap-10 h-full p-2">
            <div className="col-span-7 bg-white rounded-[3rem] shadow-premium border border-slate-200/60 flex flex-col overflow-hidden">
-               <div className="p-8 border-b border-slate-50 bg-slate-50/20">
+               <div className="p-8 border-b border-slate-50 bg-slate-50/20 space-y-6">
+                   <div className="flex items-center justify-between">
+                      <div className="flex bg-slate-200/50 p-1 rounded-2xl border border-slate-200 shadow-inner-soft w-fit">
+                          {(['ALL', Brand.HYUNDAI, Brand.MAHINDRA] as const).map(b => (
+                             <button 
+                               key={b}
+                               onClick={() => setSelectedBrand(b)}
+                               className={`px-8 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-[0.98] ${
+                                 selectedBrand === b 
+                                   ? 'bg-white text-slate-900 shadow-soft border border-slate-200' 
+                                   : 'text-slate-400 hover:text-slate-600'
+                               }`}
+                             >
+                               {b}
+                             </button>
+                          ))}
+                      </div>
+                      {mode === 'PURCHASE' && (
+                         <div className="bg-indigo-50 border border-indigo-100 px-4 py-2.5 rounded-xl flex items-center gap-3">
+                            <Percent size={14} className="text-indigo-600" />
+                            <span className="text-[10px] font-black uppercase text-indigo-700 tracking-widest">
+                               Rule: {selectedBrand === Brand.MAHINDRA ? '19.36%' : '12%'} Def. Discount
+                            </span>
+                         </div>
+                      )}
+                   </div>
                    <div className="relative group">
                        <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-600 transition-colors" size={26} strokeWidth={2.5} />
                        <input 
@@ -651,6 +703,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                                         <div className="flex items-center gap-2 mb-1.5">
                                             <div className="font-black text-white text-lg tracking-tight uppercase leading-none">{item.partNumber}</div>
                                             {item.isNewSku && <span className="text-[8px] font-black bg-blue-600 px-1.5 py-0.5 rounded text-white uppercase tracking-widest">NEW SKU</span>}
+                                            {item.brand && <span className={`text-[8px] font-black px-1.5 py-0.5 rounded text-white uppercase tracking-widest ${item.brand === Brand.HYUNDAI ? 'bg-blue-600/50' : 'bg-red-600/50'}`}>{item.brand.slice(0,3)}</span>}
                                         </div>
                                         <div className="text-[12px] text-white font-bold truncate uppercase tracking-tight">{item.name}</div>
                                     </div>
@@ -739,17 +792,34 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
        <div className="lg:hidden flex flex-col h-full bg-slate-50">
           <div className="flex-1 overflow-y-auto px-4 pt-4 pb-80 no-scrollbar">
               <div className="space-y-4">
-                  <div className="flex items-center justify-between px-2 mb-4">
-                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Active Registry ({fd(cart.length)})</h4>
-                    {cart.length > 0 && (
-                      <input 
-                        type="text" 
-                        className="bg-white/60 border border-slate-200 px-4 py-2 rounded-xl text-xs font-black uppercase outline-none focus:bg-white transition-all w-40"
-                        placeholder="ENTITY NAME"
-                        value={customerName}
-                        onChange={e => handleCustomerType(e.target.value)}
-                      />
-                    )}
+                  <div className="flex flex-col gap-4 mb-4 px-2">
+                    <div className="flex items-center justify-between">
+                       <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Active Registry ({fd(cart.length)})</h4>
+                       {cart.length > 0 && (
+                         <input 
+                           type="text" 
+                           className="bg-white/60 border border-slate-200 px-4 py-2 rounded-xl text-xs font-black uppercase outline-none focus:bg-white transition-all w-32"
+                           placeholder="ENTITY"
+                           value={customerName}
+                           onChange={e => handleCustomerType(e.target.value)}
+                         />
+                       )}
+                    </div>
+                    <div className="flex bg-slate-200/50 p-1 rounded-2xl border border-slate-200 shadow-inner-soft">
+                        {(['ALL', Brand.HYUNDAI, Brand.MAHINDRA] as const).map(b => (
+                           <button 
+                             key={b}
+                             onClick={() => setSelectedBrand(b)}
+                             className={`flex-1 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${
+                               selectedBrand === b 
+                                 ? 'bg-white text-slate-900 shadow-sm border border-slate-200' 
+                                 : 'text-slate-400'
+                             }`}
+                           >
+                             {b}
+                           </button>
+                        ))}
+                    </div>
                   </div>
 
                   {cart.length === 0 ? (
@@ -770,6 +840,7 @@ const DailyTransactions: React.FC<Props> = ({ user, forcedMode, onSearchToggle }
                                      <div className="flex items-center gap-2 mb-1">
                                        <div className="font-black text-slate-900 text-lg tracking-tighter uppercase leading-none">{item.partNumber}</div>
                                        {item.isNewSku && <span className="text-[8px] font-black bg-indigo-600 px-1.5 py-0.5 rounded text-white uppercase tracking-widest">New</span>}
+                                       {item.brand && <span className={`text-[8px] font-black px-1.5 py-0.5 rounded text-white uppercase tracking-widest ${item.brand === Brand.HYUNDAI ? 'bg-blue-600/50' : 'bg-red-600/50'}`}>{item.brand.slice(0,3)}</span>}
                                      </div>
                                      <div className="text-[12px] text-slate-900 font-bold uppercase tracking-tight mb-1">{item.name}</div>
                                   </div>
