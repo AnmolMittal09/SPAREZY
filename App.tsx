@@ -24,8 +24,9 @@ const ItemDetail = lazy(() => import('./pages/ItemDetail'));
 const ProfitAnalysis = lazy(() => import('./pages/ProfitAnalysis'));
 const Tasks = lazy(() => import('./pages/Tasks'));
 
-const INACTIVITY_LIMIT_MS = 20 * 60 * 1000; // 20 Minutes
-const WARNING_THRESHOLD_MS = 60 * 1000; // 1 Minute warning
+// Updated to 30 Minutes as requested
+const INACTIVITY_LIMIT_MS = 30 * 60 * 1000; 
+const WARNING_THRESHOLD_MS = 60 * 1000; // 1 Minute warning before final logout
 
 // Simple skeleton for lazy loading fallback
 const RouteLoader = () => (
@@ -62,10 +63,12 @@ const App: React.FC = () => {
 
     setShowWarning(false);
 
+    // Set warning for 29 minutes
     warningTimerRef.current = setTimeout(() => {
       if (user.id !== 'dev-mode') setShowWarning(true);
     }, INACTIVITY_LIMIT_MS - WARNING_THRESHOLD_MS);
 
+    // Set logout for 30 minutes
     logoutTimerRef.current = setTimeout(() => {
       if (user.id !== 'dev-mode') handleLogout();
     }, INACTIVITY_LIMIT_MS);
@@ -74,6 +77,7 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!user) return;
 
+    // Detect user activity to keep session alive
     const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
     const resetHandler = () => resetTimers();
     
@@ -85,6 +89,7 @@ const App: React.FC = () => {
       const newState = document.visibilityState === 'visible';
       
       if (!newState) {
+        // Delay privacy shield slightly to prevent flashing on fast swaps
         visibilityTimeoutRef.current = setTimeout(() => {
           setIsTabFocused(false);
         }, 500);
@@ -135,7 +140,7 @@ const App: React.FC = () => {
               <div>
                  <h4 className="font-black text-sm uppercase tracking-widest">Session Expiring</h4>
                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1 leading-relaxed">
-                   You will be automatically logged out in less than 60 seconds due to inactivity.
+                   You will be automatically logged out in less than 60 seconds due to 30 minutes of inactivity.
                  </p>
                  <div className="flex gap-3 mt-4">
                     <button 
