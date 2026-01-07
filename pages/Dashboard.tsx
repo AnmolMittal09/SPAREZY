@@ -138,6 +138,7 @@ const Dashboard: React.FC<{ user: User }> = ({ user }) => {
                hideToolbar={true}
                externalSearch={searchQuery}
                hidePriceByDefault={true}
+               disableSelection={true}
             />
          </div>
       </div>

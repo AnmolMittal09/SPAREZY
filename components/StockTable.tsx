@@ -150,7 +150,7 @@ const SwipeableMobileItem: React.FC<any> = React.memo(({ item, userRole, toggleS
     );
 });
 
-const StockTable: React.FC<any> = ({ items, title, userRole, enableActions = true, externalSearch, hideToolbar = false, stockStatusFilter = 'ALL', hidePriceByDefault = false }) => {
+const StockTable: React.FC<any> = ({ items, title, userRole, enableActions = true, externalSearch, hideToolbar = false, stockStatusFilter = 'ALL', hidePriceByDefault = false, disableSelection = false, brandFilter }) => {
   const [internalSearch, setInternalSearch] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -163,6 +163,7 @@ const StockTable: React.FC<any> = ({ items, title, userRole, enableActions = tru
     let result = items.filter(item => {
         if (!showArchived && item.isArchived) return false;
         if (showArchived && !item.isArchived) return false;
+        if (brandFilter && item.brand !== brandFilter) return false;
         if (stockStatusFilter === 'LOW' && (item.quantity === 0 || item.quantity >= item.minStockThreshold)) return false;
         if (stockStatusFilter === 'OUT' && item.quantity > 0) return false;
         if (effectiveSearch) {
@@ -180,23 +181,27 @@ const StockTable: React.FC<any> = ({ items, title, userRole, enableActions = tru
         });
     }
     return result;
-  }, [items, effectiveSearch, showArchived, sortConfig, stockStatusFilter]);
+  }, [items, effectiveSearch, showArchived, sortConfig, stockStatusFilter, brandFilter]);
 
   const currentItems = filteredItems.slice((currentPage - 1) * 50, currentPage * 50);
 
   const toggleSelect = useCallback((pn: string) => {
+    if (disableSelection) return;
     setSelectedParts(prev => { const n = new Set(prev); if (n.has(pn)) n.delete(pn); else n.add(pn); return n; });
-  }, []);
+  }, [disableSelection]);
 
   const isAllOnPageSelected = useMemo(() => {
+    if (disableSelection) return false;
     return currentItems.length > 0 && currentItems.every(i => selectedParts.has(i.partNumber));
-  }, [currentItems, selectedParts]);
+  }, [currentItems, selectedParts, disableSelection]);
 
   const isTrulyAllSelected = useMemo(() => {
+    if (disableSelection) return false;
     return filteredItems.length > 0 && filteredItems.length === selectedParts.size;
-  }, [filteredItems, selectedParts]);
+  }, [filteredItems, selectedParts, disableSelection]);
 
   const toggleSelectPage = () => {
+    if (disableSelection) return;
     if (isAllOnPageSelected) {
       setSelectedParts(prev => {
         const next = new Set(prev);
@@ -213,6 +218,7 @@ const StockTable: React.FC<any> = ({ items, title, userRole, enableActions = tru
   };
 
   const selectTrulyAll = () => {
+    if (disableSelection) return;
     const next = new Set<string>();
     filteredItems.forEach(i => next.add(i.partNumber));
     setSelectedParts(next);
@@ -225,7 +231,7 @@ const StockTable: React.FC<any> = ({ items, title, userRole, enableActions = tru
   };
 
   const handleBulkArchive = async () => {
-    if (selectedParts.size === 0) return;
+    if (disableSelection || selectedParts.size === 0) return;
     const action = showArchived ? 'unarchive' : 'archive';
     if (!window.confirm(`Are you sure you want to ${action} ${selectedParts.size} selected items?`)) return;
     
@@ -247,7 +253,7 @@ const StockTable: React.FC<any> = ({ items, title, userRole, enableActions = tru
                <span className="bg-slate-950 text-white px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest">{formatQty(filteredItems.length)} items</span>
             </div>
             <div className="flex items-center gap-3">
-                {selectedParts.size > 0 && isOwner && (
+                {selectedParts.size > 0 && isOwner && !disableSelection && (
                     <button 
                       onClick={handleBulkArchive}
                       className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-amber-600 text-white font-black text-[11px] uppercase tracking-widest shadow-lg shadow-amber-200 transition-all active:scale-95"
@@ -271,7 +277,7 @@ const StockTable: React.FC<any> = ({ items, title, userRole, enableActions = tru
       )}
 
       {/* Bulk Select Feedback Banner */}
-      {isOwner && isAllOnPageSelected && !isTrulyAllSelected && filteredItems.length > currentItems.length && (
+      {isOwner && !disableSelection && isAllOnPageSelected && !isTrulyAllSelected && filteredItems.length > currentItems.length && (
         <div className="px-8 py-3 bg-blue-600 text-white flex items-center justify-between animate-fade-in border-b-2 border-blue-700">
            <div className="flex items-center gap-3">
               <CheckCircle2 size={18} />
@@ -291,7 +297,7 @@ const StockTable: React.FC<any> = ({ items, title, userRole, enableActions = tru
         <table className="w-full text-left border-collapse">
             <thead className="bg-slate-100 text-slate-900 sticky top-0 z-[100]">
                 <tr>
-                    {enableActions && isOwner && (
+                    {enableActions && isOwner && !disableSelection && (
                         <th className="px-8 py-5 w-12 text-center">
                             <input 
                               type="checkbox" 
@@ -311,8 +317,8 @@ const StockTable: React.FC<any> = ({ items, title, userRole, enableActions = tru
             </thead>
             <tbody className="divide-y-2 divide-slate-50">
                 {currentItems.map((item) => (
-                    <tr key={item.id} className={`group hover:bg-slate-50 transition-colors ${selectedParts.has(item.partNumber) ? 'bg-blue-50/60' : ''}`}>
-                        {enableActions && isOwner && (
+                    <tr key={item.id} className={`group hover:bg-slate-50 transition-colors ${!disableSelection && selectedParts.has(item.partNumber) ? 'bg-blue-50/60' : ''}`}>
+                        {enableActions && isOwner && !disableSelection && (
                             <td className="px-8 py-5 text-center">
                                 <input type="checkbox" checked={selectedParts.has(item.partNumber)} onChange={() => toggleSelect(item.partNumber)} className="w-5 h-5 rounded border-2 border-slate-300 text-blue-700" />
                             </td>
@@ -344,7 +350,7 @@ const StockTable: React.FC<any> = ({ items, title, userRole, enableActions = tru
       </div>
 
       <div className="md:hidden flex flex-col p-4 space-y-4">
-         {isOwner && currentItems.length > 0 && (
+         {isOwner && !disableSelection && currentItems.length > 0 && (
            <div className="flex flex-col gap-2 mb-2">
               <div className="px-2 py-1 flex items-center justify-between bg-slate-100 rounded-xl border border-slate-200">
                  <div className="flex items-center gap-3">
@@ -375,7 +381,7 @@ const StockTable: React.FC<any> = ({ items, title, userRole, enableActions = tru
               )}
            </div>
          )}
-         {currentItems.map(item => <SwipeableMobileItem key={item.id} item={item} userRole={userRole} toggleSelect={toggleSelect} isSelected={selectedParts.has(item.partNumber)} enableSelection={enableActions} onQuickRequest={() => {}} />)}
+         {currentItems.map(item => <SwipeableMobileItem key={item.id} item={item} userRole={userRole} toggleSelect={toggleSelect} isSelected={!disableSelection && selectedParts.has(item.partNumber)} enableSelection={enableActions && !disableSelection} onQuickRequest={() => {}} />)}
       </div>
     </div>
   );
