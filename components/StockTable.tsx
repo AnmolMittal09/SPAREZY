@@ -31,7 +31,8 @@ import {
   ChevronRight as ChevronRightIcon,
   X,
   Trash2,
-  CheckCircle2
+  CheckCircle2,
+  MousePointerClick
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -187,12 +188,16 @@ const StockTable: React.FC<any> = ({ items, title, userRole, enableActions = tru
     setSelectedParts(prev => { const n = new Set(prev); if (n.has(pn)) n.delete(pn); else n.add(pn); return n; });
   }, []);
 
-  const isAllSelected = useMemo(() => {
+  const isAllOnPageSelected = useMemo(() => {
     return currentItems.length > 0 && currentItems.every(i => selectedParts.has(i.partNumber));
   }, [currentItems, selectedParts]);
 
-  const toggleSelectAll = () => {
-    if (isAllSelected) {
+  const isTrulyAllSelected = useMemo(() => {
+    return filteredItems.length > 0 && filteredItems.length === selectedParts.size;
+  }, [filteredItems, selectedParts]);
+
+  const toggleSelectPage = () => {
+    if (isAllOnPageSelected) {
       setSelectedParts(prev => {
         const next = new Set(prev);
         currentItems.forEach(i => next.delete(i.partNumber));
@@ -205,6 +210,12 @@ const StockTable: React.FC<any> = ({ items, title, userRole, enableActions = tru
         return next;
       });
     }
+  };
+
+  const selectTrulyAll = () => {
+    const next = new Set<string>();
+    filteredItems.forEach(i => next.add(i.partNumber));
+    setSelectedParts(next);
   };
 
   const handleExport = () => {
@@ -221,7 +232,6 @@ const StockTable: React.FC<any> = ({ items, title, userRole, enableActions = tru
     try {
       await bulkArchiveItems(Array.from(selectedParts), !showArchived);
       setSelectedParts(new Set());
-      // Parents should ideally handle reload, but for simplicity:
       window.location.reload();
     } catch (err: any) {
       alert("Error: " + err.message);
@@ -260,6 +270,23 @@ const StockTable: React.FC<any> = ({ items, title, userRole, enableActions = tru
         </div>
       )}
 
+      {/* Bulk Select Feedback Banner */}
+      {isOwner && isAllOnPageSelected && !isTrulyAllSelected && filteredItems.length > currentItems.length && (
+        <div className="px-8 py-3 bg-blue-600 text-white flex items-center justify-between animate-fade-in border-b-2 border-blue-700">
+           <div className="flex items-center gap-3">
+              <CheckCircle2 size={18} />
+              <span className="text-[12px] font-bold uppercase tracking-wide">All {currentItems.length} parts on this page are selected.</span>
+           </div>
+           <button 
+             onClick={selectTrulyAll}
+             className="px-4 py-1.5 bg-white text-blue-700 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-blue-50 transition-all flex items-center gap-2 shadow-lg"
+           >
+             <MousePointerClick size={14} strokeWidth={3} />
+             Select all {filteredItems.length} parts in inventory
+           </button>
+        </div>
+      )}
+
       <div className="hidden md:block overflow-visible">
         <table className="w-full text-left border-collapse">
             <thead className="bg-slate-100 text-slate-900 sticky top-0 z-[100]">
@@ -268,8 +295,8 @@ const StockTable: React.FC<any> = ({ items, title, userRole, enableActions = tru
                         <th className="px-8 py-5 w-12 text-center">
                             <input 
                               type="checkbox" 
-                              checked={isAllSelected} 
-                              onChange={toggleSelectAll} 
+                              checked={isAllOnPageSelected} 
+                              onChange={toggleSelectPage} 
                               className="w-5 h-5 rounded border-2 border-slate-400 text-blue-700 focus:ring-slate-950 transition-all cursor-pointer" 
                             />
                         </th>
@@ -318,23 +345,33 @@ const StockTable: React.FC<any> = ({ items, title, userRole, enableActions = tru
 
       <div className="md:hidden flex flex-col p-4 space-y-4">
          {isOwner && currentItems.length > 0 && (
-           <div className="px-2 py-1 flex items-center justify-between bg-slate-100 rounded-xl border border-slate-200 mb-2">
-              <div className="flex items-center gap-3">
-                  <button 
-                    onClick={toggleSelectAll}
-                    className={`p-2.5 rounded-lg transition-all ${isAllSelected ? 'bg-blue-600 text-white' : 'bg-white text-slate-400 border border-slate-200'}`}
-                  >
-                    {isAllSelected ? <CheckSquare size={20} strokeWidth={3}/> : <Square size={20} strokeWidth={2}/>}
-                  </button>
-                  <span className="text-[11px] font-black text-slate-900 uppercase tracking-widest">Select All</span>
+           <div className="flex flex-col gap-2 mb-2">
+              <div className="px-2 py-1 flex items-center justify-between bg-slate-100 rounded-xl border border-slate-200">
+                 <div className="flex items-center gap-3">
+                     <button 
+                       onClick={toggleSelectPage}
+                       className={`p-2.5 rounded-lg transition-all ${isAllOnPageSelected ? 'bg-blue-600 text-white' : 'bg-white text-slate-400 border border-slate-200'}`}
+                     >
+                       {isAllOnPageSelected ? <CheckSquare size={20} strokeWidth={3}/> : <Square size={20} strokeWidth={2}/>}
+                     </button>
+                     <span className="text-[11px] font-black text-slate-900 uppercase tracking-widest">Select Page</span>
+                 </div>
+                 {selectedParts.size > 0 && (
+                   <div className="flex items-center gap-2">
+                     <span className="text-[10px] font-black text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-100 uppercase tracking-widest">{fd(selectedParts.size)}</span>
+                     <button onClick={handleBulkArchive} className="p-2.5 text-amber-600 bg-white rounded-lg shadow-soft border border-slate-200 active:scale-90">
+                       {showArchived ? <ArchiveRestore size={18}/> : <Archive size={18}/>}
+                     </button>
+                   </div>
+                 )}
               </div>
-              {selectedParts.size > 0 && (
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-100 uppercase tracking-widest">{fd(selectedParts.size)}</span>
-                  <button onClick={handleBulkArchive} className="p-2.5 text-amber-600 bg-white rounded-lg shadow-soft border border-slate-200 active:scale-90">
-                    {showArchived ? <ArchiveRestore size={18}/> : <Archive size={18}/>}
-                  </button>
-                </div>
+              {isAllOnPageSelected && !isTrulyAllSelected && filteredItems.length > currentItems.length && (
+                 <button 
+                   onClick={selectTrulyAll}
+                   className="w-full py-2 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest animate-fade-in shadow-md"
+                 >
+                   Select all {filteredItems.length} parts in filtered set
+                 </button>
               )}
            </div>
          )}

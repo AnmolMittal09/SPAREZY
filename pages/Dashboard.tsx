@@ -3,7 +3,7 @@ import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { User, StockItem, Brand } from '../types';
 import { fetchInventory } from '../services/inventoryService';
 import StockTable from '../components/StockTable';
-import { Search, RefreshCw, LayoutGrid, Activity, Layers } from 'lucide-react';
+import { Search, RefreshCw, LayoutGrid, Activity, Layers, Boxes } from 'lucide-react';
 import TharLoader from '../components/TharLoader';
 
 const fd = (n: number | string) => {
@@ -39,7 +39,8 @@ const Dashboard: React.FC<{ user: User }> = ({ user }) => {
   if (loading) return <TharLoader />;
 
   return (
-    <div className="space-y-10 animate-fade-in pb-32 max-w-7xl mx-auto">
+    <div className="space-y-8 animate-fade-in pb-32 max-w-7xl mx-auto">
+      {/* Page Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 px-2 pt-2">
          <div className="flex items-center gap-5">
             <div className="w-16 h-16 bg-slate-950 rounded-[2rem] flex items-center justify-center text-white shadow-elevated border-2 border-white/10">
@@ -63,9 +64,10 @@ const Dashboard: React.FC<{ user: User }> = ({ user }) => {
          </div>
       </div>
 
-      <div className="bg-white rounded-[3rem] p-6 md:p-10 shadow-elevated border-2 border-slate-200 group focus-within:border-slate-900 transition-all">
+      {/* Global Search Bar */}
+      <div className="bg-white rounded-[3rem] p-6 md:p-10 shadow-elevated border-2 border-slate-200 group focus-within:border-slate-950 transition-all">
          <div className="relative">
-             <Search className="absolute left-8 top-1/2 -translate-y-1/2 text-slate-900" size={36} strokeWidth={3.5} />
+             <Search className="absolute left-8 top-1/2 -translate-y-1/2 text-slate-950" size={36} strokeWidth={3.5} />
              <input 
                  ref={searchInputRef}
                  type="text" 
@@ -77,31 +79,46 @@ const Dashboard: React.FC<{ user: User }> = ({ user }) => {
          </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-1">
-         <div className="bg-white p-8 rounded-[2.5rem] border-2 border-slate-200 border-l-[12px] border-l-blue-700 shadow-soft flex flex-col justify-between">
-            <div>
-               <p className="text-[11px] font-black text-blue-800 uppercase tracking-[0.2em] mb-2">Hyundai Inventory Status</p>
-               <h3 className="text-4xl font-black text-slate-950 tracking-tighter tabular-nums">{brandSnapshots.hy.u.toLocaleString()} <span className="text-base text-slate-500 uppercase tracking-widest ml-1">Units</span></h3>
-            </div>
-            <p className="text-[12px] font-bold text-slate-600 uppercase tracking-wide mt-6">{fd(brandSnapshots.hy.p)} Global SKUs Registered</p>
-         </div>
-         <div className="bg-white p-8 rounded-[2.5rem] border-2 border-slate-200 border-l-[12px] border-l-red-700 shadow-soft flex flex-col justify-between">
-            <div>
-               <p className="text-[11px] font-black text-red-800 uppercase tracking-[0.2em] mb-2">Mahindra Inventory Status</p>
-               <h3 className="text-4xl font-black text-slate-950 tracking-tighter tabular-nums">{brandSnapshots.mh.u.toLocaleString()} <span className="text-base text-slate-500 uppercase tracking-widest ml-1">Units</span></h3>
-            </div>
-            <p className="text-[12px] font-bold text-slate-600 uppercase tracking-wide mt-6">{fd(brandSnapshots.mh.p)} Global SKUs Registered</p>
-         </div>
-      </div>
-
+      {/* Main Table Container */}
       <div className="bg-white rounded-[3rem] shadow-premium border-2 border-slate-200 overflow-hidden min-h-[600px] flex flex-col">
-         <div className="p-8 border-b-2 border-slate-100 bg-slate-50 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-               <div className="p-3 bg-white border-2 border-slate-200 rounded-2xl text-blue-700 shadow-inner"><LayoutGrid size={24} strokeWidth={3}/></div>
-               <h2 className="text-[13px] font-black text-slate-950 uppercase tracking-[0.25em]">Master Parts Database</h2>
+         {/* Integrated Header with Compact Status Boxes */}
+         <div className="p-6 md:p-10 border-b-2 border-slate-100 bg-slate-50 flex flex-col gap-8">
+            <div className="flex flex-wrap gap-4">
+                {/* Compact Hyundai Status */}
+                <div className="bg-white p-4 px-6 rounded-2xl border-2 border-slate-200 border-l-[10px] border-l-blue-700 shadow-soft flex flex-col justify-center min-w-[160px] group/status hover:border-slate-300 transition-all">
+                   <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[10px] font-black text-blue-800 uppercase tracking-[0.2em]">Hyundai Stock</span>
+                   </div>
+                   <div className="flex items-baseline gap-2">
+                      <span className="text-2xl font-black text-slate-950 tabular-nums">{brandSnapshots.hy.u.toLocaleString()}</span>
+                      <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Units</span>
+                   </div>
+                </div>
+
+                {/* Compact Mahindra Status */}
+                <div className="bg-white p-4 px-6 rounded-2xl border-2 border-slate-200 border-l-[10px] border-l-red-700 shadow-soft flex flex-col justify-center min-w-[160px] group/status hover:border-slate-300 transition-all">
+                   <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[10px] font-black text-red-800 uppercase tracking-[0.2em]">Mahindra Stock</span>
+                   </div>
+                   <div className="flex items-baseline gap-2">
+                      <span className="text-2xl font-black text-slate-950 tabular-nums">{brandSnapshots.mh.u.toLocaleString()}</span>
+                      <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Units</span>
+                   </div>
+                </div>
             </div>
-            <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-inner-soft">Real-time Catalog Scan</span>
+
+            <div className="flex items-center justify-between">
+               <div className="flex items-center gap-4">
+                  <div className="p-3 bg-white border-2 border-slate-200 rounded-2xl text-blue-700 shadow-inner"><LayoutGrid size={24} strokeWidth={3}/></div>
+                  <div>
+                     <h2 className="text-[13px] font-black text-slate-950 uppercase tracking-[0.25em]">Master Parts Database</h2>
+                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Real-time Catalog Registry</p>
+                  </div>
+               </div>
+               <span className="hidden md:inline-block text-[11px] font-black text-slate-500 uppercase tracking-widest bg-white px-5 py-2.5 rounded-xl border-2 border-slate-200 shadow-inner-soft">Scanner Live</span>
+            </div>
          </div>
+
          <div className="flex-1">
             <StockTable 
                items={inventory} 
