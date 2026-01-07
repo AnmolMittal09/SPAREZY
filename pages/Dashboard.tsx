@@ -134,6 +134,7 @@ const Dashboard: React.FC<{ user: User }> = ({ user }) => {
             <StockTable 
                items={inventory} 
                userRole={user.role}
+               userName={user.name}
                brandFilter={selectedBrand === 'ALL' ? undefined : selectedBrand}
                hideToolbar={true}
                externalSearch={searchQuery}

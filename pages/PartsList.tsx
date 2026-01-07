@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { User, Brand, StockItem } from '../types';
 import { fetchInventory } from '../services/inventoryService';
@@ -98,6 +99,7 @@ const PartsList: React.FC<Props> = ({ user }) => {
              items={inventory} 
              title="Full Inventory"
              userRole={user.role}
+             userName={user.name}
              brandFilter={brandFilter}
              enableActions={true}
              stockStatusFilter={statusFilter}

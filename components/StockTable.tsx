@@ -2,37 +2,26 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 // @ts-ignore
 import { Link, useNavigate } from 'react-router-dom';
-import { StockItem, Brand, Role, PriceHistoryEntry } from '../types';
-import { bulkArchiveItems, fetchPriceHistory, updateOrAddItems } from '../services/inventoryService';
+import { StockItem, Brand, Role, PriceHistoryEntry, RequestStatus } from '../types';
+import { bulkArchiveItems, fetchPriceHistory } from '../services/inventoryService';
 import { createStockRequests } from '../services/requestService';
 import { 
   Search, 
   ChevronLeft, 
   ChevronRight, 
-  ArrowUp, 
-  ArrowDown, 
-  ArrowUpDown, 
   Archive, 
   ArchiveRestore, 
-  Loader2, 
   Eye, 
   History, 
   Clock, 
-  ArrowRight, 
   CheckSquare, 
   Square, 
-  MinusSquare, 
-  Calendar,
-  ClipboardPlus,
-  Lock,
-  Edit3,
-  Check,
+  ClipboardPlus, 
   Download,
-  ChevronRight as ChevronRightIcon,
-  X,
-  Trash2,
   CheckCircle2,
-  MousePointerClick
+  MousePointerClick,
+  Loader2,
+  Check
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -150,12 +139,13 @@ const SwipeableMobileItem: React.FC<any> = React.memo(({ item, userRole, toggleS
     );
 });
 
-const StockTable: React.FC<any> = ({ items, title, userRole, enableActions = true, externalSearch, hideToolbar = false, stockStatusFilter = 'ALL', hidePriceByDefault = false, disableSelection = false, brandFilter }) => {
+const StockTable: React.FC<any> = ({ items, title, userRole, userName, enableActions = true, externalSearch, hideToolbar = false, stockStatusFilter = 'ALL', hidePriceByDefault = false, disableSelection = false, brandFilter }) => {
   const [internalSearch, setInternalSearch] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [sortConfig, setSortConfig] = useState<any>({ key: 'partNumber', direction: 'asc' });
   const [selectedParts, setSelectedParts] = useState<Set<string>>(new Set());
+  const [requestingId, setRequestingId] = useState<string | null>(null);
   const isOwner = userRole === Role.OWNER;
   const effectiveSearch = externalSearch !== undefined ? (externalSearch || internalSearch) : internalSearch;
 
@@ -184,6 +174,27 @@ const StockTable: React.FC<any> = ({ items, title, userRole, enableActions = tru
   }, [items, effectiveSearch, showArchived, sortConfig, stockStatusFilter, brandFilter]);
 
   const currentItems = filteredItems.slice((currentPage - 1) * 50, currentPage * 50);
+
+  const handleQuickRequest = async (partNumber: string) => {
+    setRequestingId(partNumber);
+    try {
+      const res = await createStockRequests([{
+        partNumber: partNumber,
+        quantity: 5, // Default reorder quantity
+        requesterName: userName || 'User'
+      }]);
+      if (res.success) {
+        // Show success briefly
+        setTimeout(() => setRequestingId(null), 1000);
+      } else {
+        alert("Failed to create request: " + res.message);
+        setRequestingId(null);
+      }
+    } catch (err) {
+      alert("Error processing request");
+      setRequestingId(null);
+    }
+  };
 
   const toggleSelect = useCallback((pn: string) => {
     if (disableSelection) return;
@@ -316,28 +327,47 @@ const StockTable: React.FC<any> = ({ items, title, userRole, enableActions = tru
                 </tr>
             </thead>
             <tbody className="divide-y-2 divide-slate-50">
-                {currentItems.map((item) => (
-                    <tr key={item.id} className={`group hover:bg-slate-50 transition-colors ${!disableSelection && selectedParts.has(item.partNumber) ? 'bg-blue-50/60' : ''}`}>
-                        {enableActions && isOwner && !disableSelection && (
-                            <td className="px-8 py-5 text-center">
-                                <input type="checkbox" checked={selectedParts.has(item.partNumber)} onChange={() => toggleSelect(item.partNumber)} className="w-5 h-5 rounded border-2 border-slate-300 text-blue-700" />
-                            </td>
-                        )}
-                        <td className="px-8 py-5"><Link to={`/item/${encodeURIComponent(item.partNumber)}`} className="font-black text-slate-950 hover:text-blue-700 transition-colors tracking-tight text-[16px] uppercase">{item.partNumber}</Link></td>
-                        <td className="px-8 py-5 text-slate-800 font-bold uppercase tracking-tight text-sm truncate max-w-xs">{item.name}</td>
-                        <td className="px-8 py-5 text-center"><span className={`px-2 py-0.5 rounded text-[10px] font-black text-white ${item.brand === Brand.HYUNDAI ? 'bg-blue-700' : 'bg-red-700'}`}>{item.brand.slice(0,3)}</span></td>
-                        <td className="px-8 py-5 text-center"><span className={`font-black text-[17px] tabular-nums ${item.quantity === 0 ? 'text-rose-700' : item.quantity <= item.minStockThreshold ? 'text-amber-700' : 'text-slate-950'}`}>{formatQty(item.quantity)}</span></td>
-                        <td className="px-8 py-5 text-right"><PriceCell price={item.price} partNumber={item.partNumber} userRole={userRole} /></td>
-                        {enableActions && (
-                            <td className="px-8 py-5 text-center">
-                                <div className="flex justify-center gap-2">
-                                    <button onClick={() => alert('Quick Req Logic...')} className="p-3 text-slate-600 hover:text-blue-700 hover:bg-blue-50 rounded-xl transition-all border-2 border-transparent hover:border-blue-100"><ClipboardPlus size={18} strokeWidth={2.5}/></button>
-                                    <Link to={`/item/${encodeURIComponent(item.partNumber)}`} className="p-3 text-slate-600 hover:text-slate-950 hover:bg-slate-100 rounded-xl transition-all border-2 border-transparent hover:border-slate-200"><Eye size={18} strokeWidth={2.5}/></Link>
-                                </div>
-                            </td>
-                        )}
-                    </tr>
-                ))}
+                {currentItems.map((item) => {
+                    const isRequesting = requestingId === item.partNumber;
+                    return (
+                      <tr key={item.id} className={`group hover:bg-slate-50 transition-colors ${!disableSelection && selectedParts.has(item.partNumber) ? 'bg-blue-50/60' : ''}`}>
+                          {enableActions && isOwner && !disableSelection && (
+                              <td className="px-8 py-5 text-center">
+                                  <input type="checkbox" checked={selectedParts.has(item.partNumber)} onChange={() => toggleSelect(item.partNumber)} className="w-5 h-5 rounded border-2 border-slate-300 text-blue-700" />
+                              </td>
+                          )}
+                          <td className="px-8 py-5"><Link to={`/item/${encodeURIComponent(item.partNumber)}`} className="font-black text-slate-950 hover:text-blue-700 transition-colors tracking-tight text-[16px] uppercase">{item.partNumber}</Link></td>
+                          <td className="px-8 py-5 text-slate-800 font-bold uppercase tracking-tight text-sm truncate max-w-xs">{item.name}</td>
+                          <td className="px-8 py-5 text-center"><span className={`px-2 py-0.5 rounded text-[10px] font-black text-white ${item.brand === Brand.HYUNDAI ? 'bg-blue-700' : 'bg-red-700'}`}>{item.brand.slice(0,3)}</span></td>
+                          <td className="px-8 py-5 text-center"><span className={`font-black text-[17px] tabular-nums ${item.quantity === 0 ? 'text-rose-700' : item.quantity <= item.minStockThreshold ? 'text-amber-700' : 'text-slate-950'}`}>{formatQty(item.quantity)}</span></td>
+                          <td className="px-8 py-5 text-right"><PriceCell price={item.price} partNumber={item.partNumber} userRole={userRole} /></td>
+                          {enableActions && (
+                              <td className="px-8 py-5 text-center">
+                                  <div className="flex justify-center gap-2">
+                                      <button 
+                                        onClick={() => handleQuickRequest(item.partNumber)} 
+                                        className={`p-3 rounded-xl transition-all border-2 active:scale-95 flex items-center justify-center ${
+                                          isRequesting 
+                                            ? 'bg-teal-500 text-white border-teal-500' 
+                                            : 'text-slate-600 hover:text-blue-700 hover:bg-blue-50 border-transparent hover:border-blue-100'
+                                        }`}
+                                        title="Add to Requisitions"
+                                      >
+                                          {isRequesting ? <Check size={18} strokeWidth={4}/> : <ClipboardPlus size={18} strokeWidth={2.5}/>}
+                                      </button>
+                                      <Link 
+                                        to={`/item/${encodeURIComponent(item.partNumber)}`} 
+                                        className="p-3 text-slate-600 hover:text-slate-950 hover:bg-slate-100 rounded-xl transition-all border-2 border-transparent hover:border-slate-200 flex items-center justify-center"
+                                        title="View Details"
+                                      >
+                                          <Eye size={18} strokeWidth={2.5}/>
+                                      </Link>
+                                  </div>
+                              </td>
+                          )}
+                      </tr>
+                    );
+                })}
             </tbody>
         </table>
         <div className="p-6 border-t-2 border-slate-100 flex justify-between items-center bg-slate-50">
@@ -381,7 +411,7 @@ const StockTable: React.FC<any> = ({ items, title, userRole, enableActions = tru
               )}
            </div>
          )}
-         {currentItems.map(item => <SwipeableMobileItem key={item.id} item={item} userRole={userRole} toggleSelect={toggleSelect} isSelected={!disableSelection && selectedParts.has(item.partNumber)} enableSelection={enableActions && !disableSelection} onQuickRequest={() => {}} />)}
+         {currentItems.map(item => <SwipeableMobileItem key={item.id} item={item} userRole={userRole} toggleSelect={toggleSelect} isSelected={!disableSelection && selectedParts.has(item.partNumber)} enableSelection={enableActions && !disableSelection} onQuickRequest={handleQuickRequest} />)}
       </div>
     </div>
   );
