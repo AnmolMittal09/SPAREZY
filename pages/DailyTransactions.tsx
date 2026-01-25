@@ -28,7 +28,8 @@ const fd = (n: number | string) => {
 };
 
 const DailyTransactions: React.FC<any> = ({ user, forcedMode }) => {
-  const [mode, setMode] = useState<'SALES' | 'PURCHASE' | 'RETURN'>(forcedMode || 'SALES');
+  // Fix: Standardized mode to match TransactionType.SALE ('SALE') instead of 'SALES'
+  const [mode, setMode] = useState<TransactionType>(forcedMode === 'SALES' ? TransactionType.SALE : (forcedMode || TransactionType.SALE));
   const [inventory, setInventory] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [cart, setCart] = useState<any[]>([]);
@@ -71,7 +72,7 @@ const DailyTransactions: React.FC<any> = ({ user, forcedMode }) => {
           return; 
       }
       
-      const initialDiscount = mode === 'PURCHASE' ? (item.brand === Brand.MAHINDRA ? 19.36 : 12) : 0;
+      const initialDiscount = mode === TransactionType.PURCHASE ? (item.brand === Brand.MAHINDRA ? 19.36 : 12) : 0;
       const newItem = {
           tempId: Math.random().toString(36).substring(2),
           partNumber: item.partNumber,
@@ -95,7 +96,7 @@ const DailyTransactions: React.FC<any> = ({ user, forcedMode }) => {
       setCart(prev => prev.map(item => {
           if (item.tempId === id) {
               let newQty = Math.max(1, item.quantity + delta);
-              if (mode === 'SALES' && newQty > item.stockLevel) newQty = item.stockLevel;
+              if (mode === TransactionType.SALE && newQty > item.stockLevel) newQty = item.stockLevel;
               return { ...item, quantity: newQty };
           }
           return item;
@@ -107,7 +108,7 @@ const DailyTransactions: React.FC<any> = ({ user, forcedMode }) => {
       setCart(prev => prev.map(item => {
           if (item.tempId === id) {
               let newQty = val;
-              if (mode === 'SALES' && newQty > item.stockLevel) newQty = item.stockLevel;
+              if (mode === TransactionType.SALE && newQty > item.stockLevel) newQty = item.stockLevel;
               return { ...item, quantity: newQty };
           }
           return item;
@@ -135,10 +136,10 @@ const DailyTransactions: React.FC<any> = ({ user, forcedMode }) => {
 
     const payload = cart.map(item => ({
        partNumber: item.partNumber,
-       type: mode as TransactionType,
+       type: mode,
        quantity: item.quantity,
        price: item.price,
-       paidAmount: mode === 'SALES' ? 0 : (item.price * item.quantity),
+       paidAmount: mode === TransactionType.SALE ? 0 : (item.price * item.quantity),
        customerName: customerName || 'Walk-in',
        createdByRole: user.role,
        createdByName: user.name,
@@ -157,7 +158,7 @@ const DailyTransactions: React.FC<any> = ({ user, forcedMode }) => {
   };
 
   const totalAmount = useMemo(() => cart.reduce((sum, item) => sum + (item.quantity * item.price), 0), [cart]);
-  const accentColor = mode === 'RETURN' ? 'bg-rose-600' : mode === 'PURCHASE' ? 'bg-slate-900' : 'bg-blue-600';
+  const accentColor = mode === TransactionType.RETURN ? 'bg-rose-600' : mode === TransactionType.PURCHASE ? 'bg-slate-900' : 'bg-blue-600';
 
   return (
     <div className="flex-1 h-full flex flex-col overflow-hidden bg-slate-50 font-['Plus_Jakarta_Sans']">
@@ -171,7 +172,7 @@ const DailyTransactions: React.FC<any> = ({ user, forcedMode }) => {
             </div>
             <div>
               <h1 className="text-xl md:text-2xl font-black text-slate-950 uppercase tracking-tighter leading-none">
-                {mode} Processing
+                {mode === TransactionType.SALE ? 'RETAIL SALE' : mode} Processing
               </h1>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">
                 Unified Terminal • {user.role} Authority
@@ -334,7 +335,7 @@ const DailyTransactions: React.FC<any> = ({ user, forcedMode }) => {
                         <div className="flex flex-col gap-2">
                           <div className="flex justify-between items-center px-1">
                             <span className="text-[9px] font-black text-white/30 uppercase tracking-widest">Quantity</span>
-                            {mode === 'SALES' && <span className="text-[8px] font-black text-teal-400 uppercase">Stock: {fd(item.stockLevel)}</span>}
+                            {mode === TransactionType.SALE && <span className="text-[8px] font-black text-teal-400 uppercase">Stock: {fd(item.stockLevel)}</span>}
                           </div>
                           <div className="flex items-center bg-white/5 p-1 rounded-2xl border border-white/10 shadow-inner">
                             <button onClick={() => updateQty(item.tempId, -1)} className="w-10 h-10 bg-white/10 text-white/40 rounded-xl flex items-center justify-center hover:bg-white/20 active:scale-90 transition-all"><Minus size={16} strokeWidth={4}/></button>

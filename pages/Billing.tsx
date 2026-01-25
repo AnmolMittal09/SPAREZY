@@ -491,7 +491,7 @@ const Billing: React.FC<Props> = ({ user }) => {
           {activeTab === 'NEW' && (
              <DailyTransactions 
                 user={user} 
-                forcedMode="SALES" 
+                forcedMode="SALE" 
                 onSearchToggle={setIsSearchingOnMobile} 
              />
           )}
@@ -976,7 +976,7 @@ const Billing: React.FC<Props> = ({ user }) => {
                                     </div>
                                 </div>
 
-                                {selectedBill.type !== 'RETURN' && (
+                                {selectedBill.type !== TransactionType.RETURN && (
                                     <div className="pt-6 border-t border-slate-50 flex flex-col gap-5">
                                         <div className="flex items-center justify-between px-1">
                                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">REVENUE REALIZED</p>
@@ -1023,7 +1023,7 @@ const Billing: React.FC<Props> = ({ user }) => {
                       <div className="flex justify-between items-center mb-8">
                           <div className="flex flex-col">
                               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">NET TRANSACTION</p>
-                              <p className={`text-4xl font-black tracking-tighter leading-none tabular-nums ${selectedBill.type === 'RETURN' ? 'text-rose-600' : 'text-slate-900'}`}>
+                              <p className={`text-4xl font-black tracking-tighter leading-none tabular-nums ${selectedBill.type === TransactionType.RETURN ? 'text-rose-600' : 'text-slate-900'}`}>
                                   ₹{selectedBill.totalAmount.toLocaleString()}
                               </p>
                           </div>
