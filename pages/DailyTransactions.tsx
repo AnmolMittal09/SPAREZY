@@ -19,7 +19,9 @@ import {
   ArrowRight,
   User as UserIcon,
   ShieldCheck,
-  Calendar
+  Calendar,
+  Banknote,
+  Wallet
 } from 'lucide-react';
 
 const fd = (n: number | string) => {
@@ -37,6 +39,7 @@ const DailyTransactions: React.FC<any> = ({ user, forcedMode }) => {
   const [suggestions, setSuggestions] = useState<StockItem[]>([]);
   const [customerName, setCustomerName] = useState('');
   const [selectedBrand, setSelectedBrand] = useState<Brand | 'ALL'>('ALL');
+  const [isPaid, setIsPaid] = useState(false); // Toggle for instant payment record
   
   // Backdating state: defaults to current date in ISO format for datetime-local
   const [transactionDate, setTransactionDate] = useState<string>(() => {
@@ -139,7 +142,11 @@ const DailyTransactions: React.FC<any> = ({ user, forcedMode }) => {
        type: mode,
        quantity: item.quantity,
        price: item.price,
-       paidAmount: mode === TransactionType.SALE ? 0 : (item.price * item.quantity),
+       // Rule: If SALE and isPaid toggle is on, record full price as paid. Otherwise 0 (Credit).
+       // Rule: For PURCHASE/RETURN, always record as paid/settled by default.
+       paidAmount: mode === TransactionType.SALE 
+          ? (isPaid ? item.price * item.quantity : 0) 
+          : (item.price * item.quantity),
        customerName: customerName || 'Walk-in',
        createdByRole: user.role,
        createdByName: user.name,
@@ -151,6 +158,7 @@ const DailyTransactions: React.FC<any> = ({ user, forcedMode }) => {
     if (res.success) {
       setCart([]);
       setCustomerName('');
+      setIsPaid(false); // Reset toggle after success
       alert("Session committed successfully with date: " + new Date(transactionDate).toLocaleString());
     } else {
       alert("Failed to commit: " + res.message);
@@ -383,6 +391,29 @@ const DailyTransactions: React.FC<any> = ({ user, forcedMode }) => {
 
             {/* Cart Settlement Footer */}
             <footer className="p-6 md:p-10 border-t border-white/10 bg-black/40 backdrop-blur-md">
+              {/* PAYMENT TOGGLE */}
+              {mode === TransactionType.SALE && cart.length > 0 && (
+                <div className="mb-6 flex items-center justify-between bg-white/5 p-4 rounded-[1.5rem] border border-white/10">
+                   <div className="flex items-center gap-3">
+                      <div className={`p-2.5 rounded-xl transition-all ${isPaid ? 'bg-teal-500 text-white shadow-lg shadow-teal-500/20' : 'bg-white/10 text-white/40'}`}>
+                         <Banknote size={18} />
+                      </div>
+                      <div>
+                         <p className="text-[11px] font-black text-white uppercase tracking-wider">Payment Record</p>
+                         <p className="text-[9px] font-bold text-white/30 uppercase tracking-widest">{isPaid ? 'Immediate Settlement' : 'Mark as Credit'}</p>
+                      </div>
+                   </div>
+                   <button 
+                     onClick={() => setIsPaid(!isPaid)}
+                     className={`relative w-14 h-8 rounded-full transition-all duration-300 ${isPaid ? 'bg-teal-600' : 'bg-white/10'}`}
+                   >
+                      <div className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full transition-transform duration-300 shadow-md flex items-center justify-center ${isPaid ? 'translate-x-6' : 'translate-x-0'}`}>
+                         {isPaid ? <Check size={12} className="text-teal-600" strokeWidth={4} /> : <X size={12} className="text-slate-400" strokeWidth={4} />}
+                      </div>
+                   </button>
+                </div>
+              )}
+
               <div className="flex justify-between items-end mb-8">
                 <div>
                   <span className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] mb-1.5 block">Aggregate Total</span>
@@ -391,9 +422,16 @@ const DailyTransactions: React.FC<any> = ({ user, forcedMode }) => {
                     <span className="text-[9px] font-black uppercase tracking-widest">Protocol Verified</span>
                   </div>
                 </div>
-                <p className="text-4xl md:text-6xl font-black text-white tracking-tighter tabular-nums drop-shadow-2xl">
-                  ₹{totalAmount.toLocaleString()}
-                </p>
+                <div className="text-right">
+                  <p className="text-4xl md:text-6xl font-black text-white tracking-tighter tabular-nums drop-shadow-2xl">
+                    ₹{totalAmount.toLocaleString()}
+                  </p>
+                  {isPaid && (
+                    <div className="inline-flex items-center gap-1 text-[9px] font-black text-teal-400 uppercase tracking-widest mt-2 animate-fade-in">
+                       <Wallet size={10} /> Paid In Full
+                    </div>
+                  )}
+                </div>
               </div>
 
               <button 
