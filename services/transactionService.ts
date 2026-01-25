@@ -35,7 +35,7 @@ const mapDBToTransaction = (item: any): Transaction => ({
 // --- CORE FUNCTIONS ---
 
 export const createTransaction = async (
-  transaction: Omit<Transaction, 'id' | 'status' | 'createdAt'>
+  transaction: Omit<Transaction, 'id' | 'status' | 'createdAt'> & { createdAt?: string }
 ): Promise<{ success: boolean; message?: string }> => {
   return createBulkTransactions([transaction]);
 };
@@ -58,7 +58,7 @@ export const updateTransactionPayment = async (id: string, amount: number): Prom
 };
 
 export const createBulkTransactions = async (
-  transactions: Omit<Transaction, 'id' | 'status' | 'createdAt'>[]
+  transactions: (Omit<Transaction, 'id' | 'status' | 'createdAt'> & { createdAt?: string })[]
 ): Promise<{ success: boolean; message?: string }> => {
   const createdByRole = transactions[0].createdByRole;
   const initialStatus = (createdByRole === Role.OWNER)
@@ -120,7 +120,8 @@ export const createBulkTransactions = async (
         status: initialStatus,
         created_by_role: t.createdByRole,
         created_by_name: t.createdByName,
-        related_transaction_id: t.relatedTransactionId
+        related_transaction_id: t.related_transaction_id,
+        created_at: t.createdAt || new Date().toISOString()
       }));
 
       const { error: insertError } = await supabase.from('transactions').insert(dbRows);
@@ -148,7 +149,7 @@ export const createBulkTransactions = async (
     ...t,
     id: crypto.randomUUID(),
     status: initialStatus,
-    createdAt: new Date().toISOString()
+    createdAt: t.createdAt || new Date().toISOString()
   }));
 
   const allTxs = [...newTxs, ...currentTxs];
@@ -463,6 +464,7 @@ export const fetchInvoices = async (): Promise<Invoice[]> => {
         customerGst: i.customer_gst,
         totalAmount: i.total_amount,
         taxAmount: i.tax_amount,
+        // Fix: Replace incorrect 'payment_mode' with 'paymentMode' to match Invoice interface
         paymentMode: i.payment_mode,
         itemsCount: i.items_count,
         generatedBy: i.generated_by
@@ -520,6 +522,7 @@ export const generateTaxInvoiceRecord = async (
           customerGst: invoiceData.customer_gst,
           totalAmount: invoiceData.total_amount,
           taxAmount: invoiceData.tax_amount,
+          // Fix: Replace incorrect 'payment_mode' with 'paymentMode' to match Invoice interface
           paymentMode: invoiceData.payment_mode as any,
           itemsCount: invoiceData.items_count,
           generatedBy: invoiceData.generated_by

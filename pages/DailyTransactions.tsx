@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useMemo } from 'react';
 import { TransactionType, StockItem, Brand, TransactionStatus } from '../types';
 import { createBulkTransactions, fetchTransactions } from '../services/transactionService';
@@ -19,7 +18,8 @@ import {
   Box,
   ArrowRight,
   User as UserIcon,
-  ShieldCheck
+  ShieldCheck,
+  Calendar
 } from 'lucide-react';
 
 const fd = (n: number | string) => {
@@ -36,6 +36,13 @@ const DailyTransactions: React.FC<any> = ({ user, forcedMode }) => {
   const [suggestions, setSuggestions] = useState<StockItem[]>([]);
   const [customerName, setCustomerName] = useState('');
   const [selectedBrand, setSelectedBrand] = useState<Brand | 'ALL'>('ALL');
+  
+  // Backdating state: defaults to current date in ISO format for datetime-local
+  const [transactionDate, setTransactionDate] = useState<string>(() => {
+    const now = new Date();
+    // Format to YYYY-MM-DDTHH:mm for datetime-local input
+    return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  });
 
   const loadBaseData = async () => {
     const [inv] = await Promise.all([fetchInventory()]);
@@ -122,6 +129,10 @@ const DailyTransactions: React.FC<any> = ({ user, forcedMode }) => {
   const handleSubmit = async () => {
     if (cart.length === 0) return;
     setLoading(true);
+    
+    // Create timestamp from selected date
+    const finalCreatedAt = new Date(transactionDate).toISOString();
+
     const payload = cart.map(item => ({
        partNumber: item.partNumber,
        type: mode as TransactionType,
@@ -130,7 +141,8 @@ const DailyTransactions: React.FC<any> = ({ user, forcedMode }) => {
        paidAmount: mode === 'SALES' ? 0 : (item.price * item.quantity),
        customerName: customerName || 'Walk-in',
        createdByRole: user.role,
-       createdByName: user.name
+       createdByName: user.name,
+       createdAt: finalCreatedAt
     }));
 
     const res = await createBulkTransactions(payload);
@@ -138,7 +150,7 @@ const DailyTransactions: React.FC<any> = ({ user, forcedMode }) => {
     if (res.success) {
       setCart([]);
       setCustomerName('');
-      alert("Session committed successfully.");
+      alert("Session committed successfully with date: " + new Date(transactionDate).toLocaleString());
     } else {
       alert("Failed to commit: " + res.message);
     }
@@ -189,7 +201,7 @@ const DailyTransactions: React.FC<any> = ({ user, forcedMode }) => {
           <section className="xl:col-span-7 bg-slate-50 flex flex-col h-full overflow-hidden min-w-0">
             <div className="p-4 md:p-8 bg-white border-b border-slate-200 space-y-6">
               <div className="relative group">
-                <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-blue-600" size={clamp(20, 32)} strokeWidth={3} />
+                <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-blue-600" size={32} strokeWidth={3} />
                 <input 
                   type="text" 
                   className="w-full pl-16 md:pl-20 pr-6 py-5 md:py-8 bg-slate-100 border-2 border-transparent rounded-[1.5rem] md:rounded-[2.5rem] text-xl md:text-3xl font-black text-slate-950 placeholder:text-slate-300 focus:bg-white focus:border-blue-600 outline-none transition-all uppercase tracking-tighter shadow-inner-soft"
@@ -258,16 +270,24 @@ const DailyTransactions: React.FC<any> = ({ user, forcedMode }) => {
           <section className="xl:col-span-5 bg-slate-950 flex flex-col h-full overflow-hidden border-t xl:border-t-0 border-slate-800 shadow-[0_-20px_50px_rgba(0,0,0,0.1)] xl:shadow-none">
             
             {/* Cart Header */}
-            <div className="p-6 md:p-10 border-b border-white/10 flex justify-between items-center bg-slate-900/50">
-              <div className="flex items-center gap-4">
+            <div className="p-6 md:p-10 border-b border-white/10 flex flex-col md:flex-row justify-between items-center bg-slate-900/50 gap-4">
+              <div className="flex items-center gap-4 w-full md:w-auto">
                 <div className="p-3 bg-blue-600 rounded-2xl shadow-lg">
                   <ShoppingCart size={22} className="text-white" />
                 </div>
                 <h2 className="text-xl font-black text-white uppercase tracking-tighter">Active Queue</h2>
               </div>
-              <span className="bg-white/10 text-white px-4 py-1.5 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] border border-white/10">
-                {fd(cart.length)} Assets Logged
-              </span>
+              
+              {/* BACKDATING UI */}
+              <div className="w-full md:w-auto flex items-center bg-white/5 border border-white/10 rounded-2xl px-4 py-2 hover:bg-white/10 transition-all group/date">
+                <Calendar size={16} className="text-white/40 mr-3 group-hover/date:text-blue-400 transition-colors" />
+                <input 
+                  type="datetime-local" 
+                  className="bg-transparent text-white font-black text-[11px] uppercase tracking-wider outline-none cursor-pointer w-full"
+                  value={transactionDate}
+                  onChange={e => setTransactionDate(e.target.value)}
+                />
+              </div>
             </div>
 
             {/* Cart Content */}
@@ -324,7 +344,7 @@ const DailyTransactions: React.FC<any> = ({ user, forcedMode }) => {
                               value={item.quantity}
                               onChange={(e) => updateQtyDirect(item.tempId, e.target.value)}
                             />
-                            <button onClick={() => updateQty(item.tempId, 1)} className="w-10 h-10 bg-blue-600 text-white rounded-xl flex items-center justify-center hover:bg-blue-500 active:scale-90 transition-all shadow-lg"><Plus size={16} strokeWidth={4}/></button>
+                            <button onClick={() => updateQty(item.tempId, 1)} className="w-10 h-10 bg-blue-600 text-white rounded-xl flex items-center justify-center hover:bg-blue-50 active:scale-90 transition-all shadow-lg"><Plus size={16} strokeWidth={4}/></button>
                           </div>
                         </div>
                         <div className="flex flex-col gap-2">
@@ -396,8 +416,5 @@ const DailyTransactions: React.FC<any> = ({ user, forcedMode }) => {
     </div>
   );
 };
-
-// CSS Clamp Helper for Runtime Injection if needed
-const clamp = (min: number, max: number) => `clamp(${min}px, 4vw, ${max}px)`;
 
 export default DailyTransactions;
