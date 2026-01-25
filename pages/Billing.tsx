@@ -25,7 +25,9 @@ import {
   FileDown,
   FileSpreadsheet,
   Check,
-  RefreshCw
+  RefreshCw,
+  Filter,
+  ArrowUpDown
 } from 'lucide-react';
 import { createBulkTransactions, fetchTransactions, updateTransactionPayment } from '../services/transactionService';
 import { fetchInventory } from '../services/inventoryService';
@@ -67,7 +69,7 @@ interface CustomerGroup {
 }
 
 const Billing: React.FC<Props> = ({ user }) => {
-  const [activeTab, setActiveTab] = useState<'NEW' | 'RETURN' | 'HISTORY'>('NEW');
+  const [activeTab, setActiveTab] = useState<'NEW' | 'RETURN' | 'SALES_HISTORY'>('NEW');
   const [viewMode, setViewMode] = useState<ViewMode>('STACKED');
   const [returnViewMode, setReturnViewMode] = useState<ReturnViewMode>('RECENT');
   const [history, setHistory] = useState<Transaction[]>([]);
@@ -90,6 +92,9 @@ const Billing: React.FC<Props> = ({ user }) => {
   const [historySearch, setHistorySearch] = useState('');
   const [sortBy, setSortBy] = useState<SortField>('date');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [showHistoryFilters, setShowHistoryFilters] = useState(false);
 
   // --- RETURN TAB STATE ---
   const [salesLog, setSalesLog] = useState<Transaction[]>([]);
@@ -104,7 +109,7 @@ const Billing: React.FC<Props> = ({ user }) => {
   }, []);
 
   useEffect(() => {
-    if (activeTab === 'HISTORY') {
+    if (activeTab === 'SALES_HISTORY') {
       loadHistory();
     }
     if (activeTab === 'RETURN') {
@@ -114,9 +119,10 @@ const Billing: React.FC<Props> = ({ user }) => {
 
   const loadHistory = async () => {
     setLoading(true);
+    // Fetch only APPROVED SALES for the Sales History tab
     const data = await fetchTransactions(
       TransactionStatus.APPROVED, 
-      [TransactionType.SALE, TransactionType.RETURN]
+      TransactionType.SALE
     );
     setHistory(data);
     setLoading(false);
@@ -189,8 +195,19 @@ const Billing: React.FC<Props> = ({ user }) => {
       );
     }
 
+    if (startDate) {
+      const start = new Date(startDate).getTime();
+      result = result.filter(tx => new Date(tx.createdAt).getTime() >= start);
+    }
+
+    if (endDate) {
+      // Add 24 hours to include the full end date
+      const end = new Date(endDate).getTime() + (24 * 60 * 60 * 1000);
+      result = result.filter(tx => new Date(tx.createdAt).getTime() <= end);
+    }
+
     return result;
-  }, [history, historySearch]);
+  }, [history, historySearch, startDate, endDate]);
 
   const stackedHistory = useMemo(() => {
     const groups: Record<string, GroupedBill> = {};
@@ -443,8 +460,8 @@ const Billing: React.FC<Props> = ({ user }) => {
                  Returns
                </button>
                <button 
-                 onClick={() => setActiveTab('HISTORY')}
-                 className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'HISTORY' ? 'bg-white text-slate-800 shadow-md ring-1 ring-slate-100' : 'text-slate-400'}`}
+                 onClick={() => setActiveTab('SALES_HISTORY')}
+                 className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'SALES_HISTORY' ? 'bg-white text-slate-800 shadow-md ring-1 ring-slate-100' : 'text-slate-400'}`}
                >
                  History
                </button>
@@ -464,8 +481,8 @@ const Billing: React.FC<Props> = ({ user }) => {
              <button onClick={() => setActiveTab('RETURN')} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === 'RETURN' ? 'bg-rose-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}>
                <Undo2 size={18} /> Process Return
              </button>
-             <button onClick={() => setActiveTab('HISTORY')} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === 'HISTORY' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}>
-               <History size={18} /> Recent History
+             <button onClick={() => setActiveTab('SALES_HISTORY')} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === 'SALES_HISTORY' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}>
+               <History size={18} /> Sales History
              </button>
           </div>
        </div>
@@ -673,13 +690,13 @@ const Billing: React.FC<Props> = ({ user }) => {
              </div>
           )}
 
-          {activeTab === 'HISTORY' && (
+          {activeTab === 'SALES_HISTORY' && (
              <div className="bg-[#F8FAFC] md:bg-white md:rounded-3xl shadow-soft border border-slate-100 flex flex-col h-full overflow-hidden no-scrollbar pb-32">
                 <div className="p-4 md:p-6 border-b border-slate-100 bg-white flex flex-col lg:flex-row justify-between items-center gap-4 sticky top-0 z-10">
                    <div className="flex items-center gap-4 w-full md:w-auto">
                       <div className="p-2.5 bg-slate-900 text-white rounded-xl shadow-lg"><History size={22} /></div>
                       <div className="flex flex-col">
-                        <span className="font-black text-slate-900 text-[13px] uppercase tracking-wider">Audit History</span>
+                        <span className="font-black text-slate-900 text-[13px] uppercase tracking-wider">Sales Ledger</span>
                         <div className="flex bg-slate-100 p-0.5 rounded-lg mt-1 w-fit">
                             <button onClick={() => setViewMode('STACKED')} className={`px-4 py-1 rounded-md text-[8px] font-black uppercase transition-all ${viewMode === 'STACKED' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}>Stacked</button>
                             <button onClick={() => setViewMode('LIST')} className={`px-4 py-1 rounded-md text-[8px] font-black uppercase transition-all ${viewMode === 'LIST' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}>List</button>
@@ -690,6 +707,14 @@ const Billing: React.FC<Props> = ({ user }) => {
                    
                    <div className="flex items-center gap-2 w-full md:w-auto px-1 overflow-x-auto no-scrollbar">
                       <button 
+                        onClick={() => setShowHistoryFilters(!showHistoryFilters)}
+                        className={`p-3 rounded-2xl border transition-all ${showHistoryFilters ? 'bg-slate-900 text-white shadow-lg' : 'bg-white text-slate-400 border-slate-200 shadow-soft'} flex items-center justify-center`}
+                        title="Search and Filter"
+                      >
+                        <Filter size={22} />
+                      </button>
+
+                      <button 
                         onClick={handleExportPendingPayments}
                         className="p-3 rounded-2xl bg-white border border-slate-200 text-amber-600 hover:bg-amber-50 transition-all shadow-soft active:scale-95 flex items-center justify-center"
                         title="Export All Pending Collections"
@@ -697,24 +722,60 @@ const Billing: React.FC<Props> = ({ user }) => {
                         <FileDown size={22} />
                       </button>
 
-                      <div className="relative flex-1 md:w-64">
-                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
-                         <input 
-                           type="text" 
-                           placeholder="Filter History..." 
-                           className="w-full pl-11 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-[13px] font-bold shadow-inner-soft focus:ring-8 focus:ring-slate-500/5 outline-none transition-all uppercase tracking-tight"
-                           value={historySearch}
-                           onChange={e => setHistorySearch(e.target.value)}
-                         />
-                      </div>
                       <button 
                         onClick={loadHistory}
                         className="p-3 bg-white text-slate-400 border border-slate-200 rounded-2xl hover:text-slate-900 transition-all shadow-soft active:rotate-90"
+                        title="Refresh"
                       >
                          <RefreshCw size={22} className={loading ? 'animate-spin' : ''} />
                       </button>
                    </div>
                 </div>
+
+                {showHistoryFilters && (
+                  <div className="p-4 md:p-6 bg-slate-50 border-b border-slate-200 animate-slide-up">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div className="relative group">
+                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+                         <input 
+                           type="text" 
+                           placeholder="Filter by Part or Client..." 
+                           className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-[13px] font-bold shadow-inner-soft focus:ring-8 focus:ring-slate-500/5 outline-none transition-all uppercase tracking-tight"
+                           value={historySearch}
+                           onChange={e => setHistorySearch(e.target.value)}
+                         />
+                      </div>
+                      <div className="relative">
+                        <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+                        <input 
+                          type="date" 
+                          className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-[13px] font-bold outline-none focus:ring-4 focus:ring-blue-500/5 transition-all"
+                          value={startDate}
+                          onChange={e => setStartDate(e.target.value)}
+                        />
+                      </div>
+                      <div className="relative">
+                        <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+                        <input 
+                          type="date" 
+                          className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-[13px] font-bold outline-none focus:ring-4 focus:ring-blue-500/5 transition-all"
+                          value={endDate}
+                          onChange={e => setEndDate(e.target.value)}
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <div className="flex-1 bg-white p-1 rounded-2xl border border-slate-200 shadow-inner flex">
+                          <button onClick={() => setSortOrder('desc')} className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${sortOrder === 'desc' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400'}`}>Desc</button>
+                          <button onClick={() => setSortOrder('asc')} className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${sortOrder === 'asc' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400'}`}>Asc</button>
+                        </div>
+                        <div className="flex-1 bg-white p-1 rounded-2xl border border-slate-200 shadow-inner flex">
+                          <button onClick={() => setSortBy('date')} className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${sortBy === 'date' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400'}`}>Date</button>
+                          <button onClick={() => setSortBy('amount')} className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${sortBy === 'amount' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400'}`}>Amt</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 
                 <div className="flex-1 overflow-y-auto p-3 space-y-4 no-scrollbar pb-32">
                   {loading ? (
@@ -975,7 +1036,7 @@ const Billing: React.FC<Props> = ({ user }) => {
 
        {selectedCustomer && (
           <div className="fixed inset-0 z-[200] bg-slate-900/70 backdrop-blur-md flex items-end md:items-center justify-center animate-fade-in md:p-10 no-scrollbar">
-              <div className="bg-white w-full max-w-5xl rounded-t-[3rem] md:rounded-[3rem] shadow-2xl flex flex-col h-[95vh] md:max-h-[90vh] overflow-hidden animate-slide-up pb-safe">
+              <div className="bg-white w-full max-w-5xl rounded-t-[3rem] md:rounded-[3rem] shadow-2xl flex flex-col h-[95vh] md:max-h-[90vh] overflow-hidden animate-slide-up pb-safe no-scrollbar">
                   <div className="p-6 md:p-10 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center bg-slate-50/40 gap-6">
                       <div className="flex items-center gap-5">
                           <button onClick={() => setSelectedCustomer(null)} className="p-3.5 bg-white text-slate-400 rounded-2xl shadow-soft border border-slate-100 active:scale-90 transition-all"><ArrowLeft size={24} strokeWidth={3}/></button>

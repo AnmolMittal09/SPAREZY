@@ -120,7 +120,8 @@ export const createBulkTransactions = async (
         status: initialStatus,
         created_by_role: t.createdByRole,
         created_by_name: t.createdByName,
-        related_transaction_id: t.related_transaction_id,
+        // FIX: Correct property access from snake_case related_transaction_id to camelCase relatedTransactionId
+        related_transaction_id: t.relatedTransactionId,
         created_at: t.createdAt || new Date().toISOString()
       }));
 
