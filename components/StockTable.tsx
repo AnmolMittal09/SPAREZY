@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 // @ts-ignore
 import { Link, useNavigate } from 'react-router-dom';
 import { StockItem, Brand, Role, PriceHistoryEntry, RequestStatus } from '../types';
-import { bulkArchiveItems, fetchPriceHistory } from '../services/inventoryService';
+import { bulkArchiveItems, fetchPriceHistory, updateOrAddItems } from '../services/inventoryService';
 import { createStockRequests } from '../services/requestService';
 import { 
   Search, 
@@ -21,7 +21,12 @@ import {
   CheckCircle2,
   MousePointerClick,
   Loader2,
-  Check
+  Check,
+  Edit3,
+  Lock,
+  Unlock,
+  Save,
+  AlertCircle
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -97,18 +102,18 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role; 
   );
 });
 
-const SwipeableMobileItem: React.FC<any> = React.memo(({ item, userRole, toggleSelect, isSelected, enableSelection, onQuickRequest }) => {
+const SwipeableMobileItem: React.FC<any> = React.memo(({ item, userRole, toggleSelect, isSelected, enableSelection, onQuickRequest, isEditMode, onDirectUpdate }) => {
     const navigate = useNavigate();
     const isZero = item.quantity === 0;
     const isLow = item.quantity > 0 && item.quantity <= item.minStockThreshold;
 
     return (
         <div 
-            onClick={() => { if(enableSelection && userRole === Role.OWNER) toggleSelect(item.partNumber); }}
+            onClick={() => { if(enableSelection && !isEditMode && userRole === Role.OWNER) toggleSelect(item.partNumber); }}
             className={`relative bg-white border-2 p-5 rounded-2xl shadow-soft transition-all duration-200 flex flex-col gap-4 ${isSelected ? 'border-blue-600 ring-4 ring-blue-50 bg-blue-50/20' : 'border-slate-200'} ${isZero ? 'bg-slate-50/50' : ''}`}
         >
             <div className="flex gap-4 items-start">
-                {enableSelection && userRole === Role.OWNER && (
+                {enableSelection && !isEditMode && userRole === Role.OWNER && (
                     <div className="flex-none pt-1">
                         {isSelected ? <CheckSquare className="text-blue-700" size={24} strokeWidth={3}/> : <Square className="text-slate-300" size={24} strokeWidth={2}/>}
                     </div>
@@ -120,9 +125,21 @@ const SwipeableMobileItem: React.FC<any> = React.memo(({ item, userRole, toggleS
                             <span className="font-black text-slate-950 text-lg uppercase tracking-tight truncate">{item.partNumber}</span>
                         </div>
                         <div className="text-right flex flex-col items-end">
-                            <span className={`text-xl font-black tabular-nums ${isZero ? 'text-rose-700' : isLow ? 'text-amber-700' : 'text-slate-950'}`}>
-                                {formatQty(item.quantity)} <span className="text-[10px] uppercase font-extrabold text-slate-500 ml-0.5">PCS</span>
-                            </span>
+                            {isEditMode ? (
+                                <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                                    <input 
+                                        type="number"
+                                        className="w-16 bg-white rounded-lg px-2 py-1 text-center font-black text-slate-900 outline-none focus:ring-2 focus:ring-blue-500"
+                                        defaultValue={item.quantity}
+                                        onBlur={(e) => onDirectUpdate(item.partNumber, parseInt(e.target.value) || 0)}
+                                    />
+                                    <Save size={14} className="text-slate-400 mr-1" />
+                                </div>
+                            ) : (
+                                <span className={`text-xl font-black tabular-nums ${isZero ? 'text-rose-700' : isLow ? 'text-amber-700' : 'text-slate-950'}`}>
+                                    {formatQty(item.quantity)} <span className="text-[10px] uppercase font-extrabold text-slate-500 ml-0.5">PCS</span>
+                                </span>
+                            )}
                         </div>
                     </div>
                     <p className="text-sm text-slate-700 font-bold uppercase tracking-tight leading-snug line-clamp-1">{item.name}</p>
@@ -132,7 +149,9 @@ const SwipeableMobileItem: React.FC<any> = React.memo(({ item, userRole, toggleS
                 <PriceCell price={item.price} partNumber={item.partNumber} userRole={userRole} align="left" />
                 <div className="flex gap-2">
                     <button onClick={(e) => { e.stopPropagation(); navigate(`/item/${encodeURIComponent(item.partNumber)}`); }} className="p-2.5 bg-slate-100 text-slate-900 rounded-xl active:scale-90 border border-slate-200"><Eye size={18} strokeWidth={2.5}/></button>
-                    <button onClick={(e) => { e.stopPropagation(); onQuickRequest(item.partNumber); }} className="p-2.5 bg-blue-700 text-white rounded-xl active:scale-90 shadow-lg"><ClipboardPlus size={18} strokeWidth={2.5}/></button>
+                    {!isEditMode && (
+                        <button onClick={(e) => { e.stopPropagation(); onQuickRequest(item.partNumber); }} className="p-2.5 bg-blue-700 text-white rounded-xl active:scale-90 shadow-lg"><ClipboardPlus size={18} strokeWidth={2.5}/></button>
+                    )}
                 </div>
             </div>
         </div>
@@ -146,11 +165,19 @@ const StockTable: React.FC<any> = ({ items, title, userRole, userName, enableAct
   const [sortConfig, setSortConfig] = useState<any>({ key: 'partNumber', direction: 'asc' });
   const [selectedParts, setSelectedParts] = useState<Set<string>>(new Set());
   const [requestingId, setRequestingId] = useState<string | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [localItems, setLocalItems] = useState<StockItem[]>(items);
+
   const isOwner = userRole === Role.OWNER;
   const effectiveSearch = externalSearch !== undefined ? (externalSearch || internalSearch) : internalSearch;
 
+  // Sync internal state when items prop changes
+  useEffect(() => {
+    setLocalItems(items);
+  }, [items]);
+
   const filteredItems = useMemo(() => {
-    let result = items.filter(item => {
+    let result = localItems.filter(item => {
         if (!showArchived && item.isArchived) return false;
         if (showArchived && !item.isArchived) return false;
         if (brandFilter && item.brand !== brandFilter) return false;
@@ -171,7 +198,7 @@ const StockTable: React.FC<any> = ({ items, title, userRole, userName, enableAct
         });
     }
     return result;
-  }, [items, effectiveSearch, showArchived, sortConfig, stockStatusFilter, brandFilter]);
+  }, [localItems, effectiveSearch, showArchived, sortConfig, stockStatusFilter, brandFilter]);
 
   const currentItems = filteredItems.slice((currentPage - 1) * 50, currentPage * 50);
 
@@ -184,7 +211,6 @@ const StockTable: React.FC<any> = ({ items, title, userRole, userName, enableAct
         requesterName: userName || 'User'
       }]);
       if (res.success) {
-        // Show success briefly
         setTimeout(() => setRequestingId(null), 1000);
       } else {
         alert("Failed to create request: " + res.message);
@@ -196,23 +222,34 @@ const StockTable: React.FC<any> = ({ items, title, userRole, userName, enableAct
     }
   };
 
+  const handleDirectUpdate = async (partNumber: string, newQty: number) => {
+    // Optimization: Update local state immediately for UI responsiveness
+    setLocalItems(prev => prev.map(item => item.partNumber === partNumber ? { ...item, quantity: newQty } : item));
+    
+    try {
+      await updateOrAddItems([{ partNumber, quantity: newQty }]);
+    } catch (err) {
+      console.error("Ledger Sync Failed", err);
+    }
+  };
+
   const toggleSelect = useCallback((pn: string) => {
-    if (disableSelection) return;
+    if (disableSelection || isEditMode) return;
     setSelectedParts(prev => { const n = new Set(prev); if (n.has(pn)) n.delete(pn); else n.add(pn); return n; });
-  }, [disableSelection]);
+  }, [disableSelection, isEditMode]);
 
   const isAllOnPageSelected = useMemo(() => {
-    if (disableSelection) return false;
+    if (disableSelection || isEditMode) return false;
     return currentItems.length > 0 && currentItems.every(i => selectedParts.has(i.partNumber));
-  }, [currentItems, selectedParts, disableSelection]);
+  }, [currentItems, selectedParts, disableSelection, isEditMode]);
 
   const isTrulyAllSelected = useMemo(() => {
-    if (disableSelection) return false;
+    if (disableSelection || isEditMode) return false;
     return filteredItems.length > 0 && filteredItems.length === selectedParts.size;
-  }, [filteredItems, selectedParts, disableSelection]);
+  }, [filteredItems, selectedParts, disableSelection, isEditMode]);
 
   const toggleSelectPage = () => {
-    if (disableSelection) return;
+    if (disableSelection || isEditMode) return;
     if (isAllOnPageSelected) {
       setSelectedParts(prev => {
         const next = new Set(prev);
@@ -229,7 +266,7 @@ const StockTable: React.FC<any> = ({ items, title, userRole, userName, enableAct
   };
 
   const selectTrulyAll = () => {
-    if (disableSelection) return;
+    if (disableSelection || isEditMode) return;
     const next = new Set<string>();
     filteredItems.forEach(i => next.add(i.partNumber));
     setSelectedParts(next);
@@ -264,7 +301,16 @@ const StockTable: React.FC<any> = ({ items, title, userRole, userName, enableAct
                <span className="bg-slate-950 text-white px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest">{formatQty(filteredItems.length)} items</span>
             </div>
             <div className="flex items-center gap-3">
-                {selectedParts.size > 0 && isOwner && !disableSelection && (
+                {isOwner && (
+                    <button 
+                        onClick={() => { setIsEditMode(!isEditMode); setSelectedParts(new Set()); }}
+                        className={`flex items-center gap-2 px-5 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 shadow-lg border-2 ${isEditMode ? 'bg-amber-100 text-amber-700 border-amber-300' : 'bg-white text-slate-600 border-slate-200'}`}
+                    >
+                        {isEditMode ? <Unlock size={16} /> : <Lock size={16} />}
+                        {isEditMode ? 'Edit Mode On' : 'Edit Mode'}
+                    </button>
+                )}
+                {selectedParts.size > 0 && isOwner && !disableSelection && !isEditMode && (
                     <button 
                       onClick={handleBulkArchive}
                       className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-amber-600 text-white font-black text-[11px] uppercase tracking-widest shadow-lg shadow-amber-200 transition-all active:scale-95"
@@ -287,8 +333,15 @@ const StockTable: React.FC<any> = ({ items, title, userRole, userName, enableAct
         </div>
       )}
 
+      {isOwner && isEditMode && (
+        <div className="px-8 py-3 bg-amber-50 text-amber-800 flex items-center gap-3 border-b-2 border-amber-100 animate-fade-in">
+            <AlertCircle size={18} />
+            <span className="text-[11px] font-black uppercase tracking-widest">Master Ledger Override Active: You can now directly adjust stock quantities.</span>
+        </div>
+      )}
+
       {/* Bulk Select Feedback Banner */}
-      {isOwner && !disableSelection && isAllOnPageSelected && !isTrulyAllSelected && filteredItems.length > currentItems.length && (
+      {isOwner && !disableSelection && !isEditMode && isAllOnPageSelected && !isTrulyAllSelected && filteredItems.length > currentItems.length && (
         <div className="px-8 py-3 bg-blue-600 text-white flex items-center justify-between animate-fade-in border-b-2 border-blue-700">
            <div className="flex items-center gap-3">
               <CheckCircle2 size={18} />
@@ -308,7 +361,7 @@ const StockTable: React.FC<any> = ({ items, title, userRole, userName, enableAct
         <table className="w-full text-left border-collapse">
             <thead className="bg-slate-100 text-slate-900 sticky top-0 z-[100]">
                 <tr>
-                    {enableActions && isOwner && !disableSelection && (
+                    {enableActions && isOwner && !disableSelection && !isEditMode && (
                         <th className="px-8 py-5 w-12 text-center">
                             <input 
                               type="checkbox" 
@@ -330,8 +383,8 @@ const StockTable: React.FC<any> = ({ items, title, userRole, userName, enableAct
                 {currentItems.map((item) => {
                     const isRequesting = requestingId === item.partNumber;
                     return (
-                      <tr key={item.id} className={`group hover:bg-slate-50 transition-colors ${!disableSelection && selectedParts.has(item.partNumber) ? 'bg-blue-50/60' : ''}`}>
-                          {enableActions && isOwner && !disableSelection && (
+                      <tr key={item.id} className={`group hover:bg-slate-50 transition-colors ${!disableSelection && !isEditMode && selectedParts.has(item.partNumber) ? 'bg-blue-50/60' : ''}`}>
+                          {enableActions && isOwner && !disableSelection && !isEditMode && (
                               <td className="px-8 py-5 text-center">
                                   <input type="checkbox" checked={selectedParts.has(item.partNumber)} onChange={() => toggleSelect(item.partNumber)} className="w-5 h-5 rounded border-2 border-slate-300 text-blue-700" />
                               </td>
@@ -339,22 +392,38 @@ const StockTable: React.FC<any> = ({ items, title, userRole, userName, enableAct
                           <td className="px-8 py-5"><Link to={`/item/${encodeURIComponent(item.partNumber)}`} className="font-black text-slate-950 hover:text-blue-700 transition-colors tracking-tight text-[16px] uppercase">{item.partNumber}</Link></td>
                           <td className="px-8 py-5 text-slate-800 font-bold uppercase tracking-tight text-sm truncate max-w-xs">{item.name}</td>
                           <td className="px-8 py-5 text-center"><span className={`px-2 py-0.5 rounded text-[10px] font-black text-white ${item.brand === Brand.HYUNDAI ? 'bg-blue-700' : 'bg-red-700'}`}>{item.brand.slice(0,3)}</span></td>
-                          <td className="px-8 py-5 text-center"><span className={`font-black text-[17px] tabular-nums ${item.quantity === 0 ? 'text-rose-700' : item.quantity <= item.minStockThreshold ? 'text-amber-700' : 'text-slate-950'}`}>{formatQty(item.quantity)}</span></td>
+                          <td className="px-8 py-5 text-center">
+                              {isEditMode ? (
+                                  <div className="flex items-center justify-center gap-2">
+                                      <input 
+                                        type="number"
+                                        className="w-20 px-2 py-1 bg-white border-2 border-slate-200 rounded-lg text-center font-black text-slate-950 focus:border-blue-500 outline-none shadow-inner-soft"
+                                        defaultValue={item.quantity}
+                                        onBlur={(e) => handleDirectUpdate(item.partNumber, parseInt(e.target.value) || 0)}
+                                      />
+                                      <Save size={16} className="text-slate-300" />
+                                  </div>
+                              ) : (
+                                  <span className={`font-black text-[17px] tabular-nums ${item.quantity === 0 ? 'text-rose-700' : item.quantity <= item.minStockThreshold ? 'text-amber-700' : 'text-slate-950'}`}>{formatQty(item.quantity)}</span>
+                              )}
+                          </td>
                           <td className="px-8 py-5 text-right"><PriceCell price={item.price} partNumber={item.partNumber} userRole={userRole} /></td>
                           {enableActions && (
                               <td className="px-8 py-5 text-center">
                                   <div className="flex justify-center gap-2">
-                                      <button 
-                                        onClick={() => handleQuickRequest(item.partNumber)} 
-                                        className={`p-3 rounded-xl transition-all border-2 active:scale-95 flex items-center justify-center ${
-                                          isRequesting 
-                                            ? 'bg-teal-500 text-white border-teal-500' 
-                                            : 'text-slate-600 hover:text-blue-700 hover:bg-blue-50 border-transparent hover:border-blue-100'
-                                        }`}
-                                        title="Add to Requisitions"
-                                      >
-                                          {isRequesting ? <Check size={18} strokeWidth={4}/> : <ClipboardPlus size={18} strokeWidth={2.5}/>}
-                                      </button>
+                                      {!isEditMode && (
+                                          <button 
+                                            onClick={() => handleQuickRequest(item.partNumber)} 
+                                            className={`p-3 rounded-xl transition-all border-2 active:scale-95 flex items-center justify-center ${
+                                              isRequesting 
+                                                ? 'bg-teal-500 text-white border-teal-500' 
+                                                : 'text-slate-600 hover:text-blue-700 hover:bg-blue-50 border-transparent hover:border-blue-100'
+                                            }`}
+                                            title="Add to Requisitions"
+                                          >
+                                              {isRequesting ? <Check size={18} strokeWidth={4}/> : <ClipboardPlus size={18} strokeWidth={2.5}/>}
+                                          </button>
+                                      )}
                                       <Link 
                                         to={`/item/${encodeURIComponent(item.partNumber)}`} 
                                         className="p-3 text-slate-600 hover:text-slate-950 hover:bg-slate-100 rounded-xl transition-all border-2 border-transparent hover:border-slate-200 flex items-center justify-center"
@@ -380,7 +449,7 @@ const StockTable: React.FC<any> = ({ items, title, userRole, userName, enableAct
       </div>
 
       <div className="md:hidden flex flex-col p-4 space-y-4">
-         {isOwner && !disableSelection && currentItems.length > 0 && (
+         {isOwner && !disableSelection && !isEditMode && currentItems.length > 0 && (
            <div className="flex flex-col gap-2 mb-2">
               <div className="px-2 py-1 flex items-center justify-between bg-slate-100 rounded-xl border border-slate-200">
                  <div className="flex items-center gap-3">
@@ -411,7 +480,7 @@ const StockTable: React.FC<any> = ({ items, title, userRole, userName, enableAct
               )}
            </div>
          )}
-         {currentItems.map(item => <SwipeableMobileItem key={item.id} item={item} userRole={userRole} toggleSelect={toggleSelect} isSelected={!disableSelection && selectedParts.has(item.partNumber)} enableSelection={enableActions && !disableSelection} onQuickRequest={handleQuickRequest} />)}
+         {currentItems.map(item => <SwipeableMobileItem key={item.id} item={item} userRole={userRole} toggleSelect={toggleSelect} isSelected={!disableSelection && !isEditMode && selectedParts.has(item.partNumber)} enableSelection={enableActions && !disableSelection} onQuickRequest={handleQuickRequest} isEditMode={isEditMode} onDirectUpdate={handleDirectUpdate} />)}
       </div>
     </div>
   );
