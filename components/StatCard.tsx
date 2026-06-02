@@ -29,15 +29,15 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, trend, co
       
       <div className="relative z-10 flex items-center justify-between mb-4">
         <span className="text-slate-400 font-bold text-[10px] uppercase tracking-widest">{title}</span>
-        <div className="p-2 bg-slate-50 rounded-lg group-hover:bg-brand-50 group-hover:text-brand-600 transition-all ring-1 ring-slate-100">
-          <Icon size={16} strokeWidth={2.5} className="text-slate-400 group-hover:text-brand-600" />
+        <div className="p-2 bg-slate-50 rounded-xl group-hover:bg-slate-100 transition-all ring-1 ring-slate-100">
+          <Icon size={16} strokeWidth={2} className="text-slate-500" />
         </div>
       </div>
       
       <div className="relative z-10 flex flex-col gap-1">
         <h4 className="text-2xl font-bold text-slate-900 tracking-tight">{displayValue}</h4>
         {trend && (
-          <p className="text-[9px] text-teal-600 font-bold uppercase tracking-wider flex items-center gap-1.5 mt-0.5 bg-teal-50 w-fit px-1.5 py-0.5 rounded shadow-inner">
+          <p className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1 mt-0.5 bg-emerald-50/60 w-fit px-2 py-0.5 rounded-lg border border-emerald-100/50">
             {trend}
           </p>
         )}

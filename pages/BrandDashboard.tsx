@@ -105,7 +105,7 @@ const BrandDashboard: React.FC<Props> = ({ user }) => {
       </div>
 
       {/* Main Table Container */}
-      <div className={`bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden`}>
+      <div className="flex flex-col">
          <StockTable 
             items={inventory} 
             title={`${targetBrand} Inventory List`} 
