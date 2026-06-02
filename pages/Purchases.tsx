@@ -40,10 +40,11 @@ import {
   Sparkles,
   Percent
 } from 'lucide-react';
-import { fetchTransactions, createBulkTransactions } from '../services/transactionService';
+import { fetchTransactions, createBulkTransactions, deletePurchaseBatch } from '../services/transactionService';
 import { fetchInventory, updateOrAddItems } from '../services/inventoryService';
 import { extractInvoiceData, InvoiceFile } from '../services/geminiService';
 import TharLoader from '../components/TharLoader';
+import ConfirmModal from '../components/ConfirmModal';
 import * as XLSX from 'xlsx';
 
 const fd = (n: number | string) => {
@@ -98,6 +99,8 @@ const Purchases: React.FC<Props> = ({ user }) => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [historySearch, setHistorySearch] = useState('');
   const [selectedBrand, setSelectedBrand] = useState<Brand>(Brand.HYUNDAI);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletingBatch, setDeletingBatch] = useState(false);
 
   const currentDiscountRate = selectedBrand === Brand.MAHINDRA ? 19.36 : 12;
 
@@ -111,6 +114,31 @@ const Purchases: React.FC<Props> = ({ user }) => {
     const data = await fetchTransactions(TransactionStatus.APPROVED, TransactionType.PURCHASE);
     setHistory(data);
     setLoading(false);
+  };
+
+  const handleDeleteBatch = async () => {
+    if (!selectedInbound) return;
+    setDeletingBatch(true);
+    try {
+      const txIds = selectedInbound.items.map(i => i.id);
+      const itemsToReduce = selectedInbound.items.map(i => ({
+        partNumber: i.partNumber,
+        quantity: i.quantity
+      }));
+      const res = await deletePurchaseBatch(txIds, itemsToReduce);
+      if (res.success) {
+        setSelectedInbound(null);
+        setShowDeleteConfirm(false);
+        loadHistory();
+        fetchInventory().then(setInventory);
+      } else {
+        setErrorMsg(res.message || "Failed to remove purchase batch.");
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || "An error occurred.");
+    } finally {
+      setDeletingBatch(false);
+    }
   };
 
   const filteredHistory = useMemo(() => {
@@ -607,17 +635,37 @@ const Purchases: React.FC<Props> = ({ user }) => {
                       ))}
                   </div>
                   <div className="p-8 border-t border-slate-100 bg-white">
-                      <div className="flex justify-between items-center mb-8">
+                      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-6 mb-8">
                           <div className="flex flex-col">
                               <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] mb-1">AGGREGATE ACQUISITION</span>
                               <span className="text-4xl font-black text-slate-900 tracking-tighter leading-none tabular-nums">₹{selectedInbound.totalValue.toLocaleString()}</span>
                           </div>
-                          <button onClick={() => setSelectedInbound(null)} className="px-12 py-5 bg-slate-900 text-white font-black rounded-2xl active:scale-95 transition-all text-[12px] uppercase tracking-widest shadow-xl border border-white/10">Terminate Log</button>
+                          <div className="flex gap-4">
+                              <button 
+                                 onClick={() => setShowDeleteConfirm(true)} 
+                                 className="px-8 py-5 bg-rose-50 hover:bg-rose-100 text-rose-600 font-black rounded-2xl active:scale-95 transition-all text-[12px] uppercase tracking-widest shadow-sm border border-rose-200 flex items-center justify-center gap-2"
+                              >
+                                 <Trash2 size={16} /> Delete Bill
+                              </button>
+                              <button onClick={() => setSelectedInbound(null)} className="px-12 py-5 bg-slate-900 text-white font-black rounded-2xl active:scale-95 transition-all text-[12px] uppercase tracking-widest shadow-xl border border-white/10">Terminate Log</button>
+                          </div>
                       </div>
                   </div>
               </div>
           </div>
-       )}
+        )}
+
+        <ConfirmModal
+          isOpen={showDeleteConfirm}
+          onClose={() => setShowDeleteConfirm(false)}
+          onConfirm={handleDeleteBatch}
+          title="Delete Purchase Bill?"
+          message={`Are you sure you want to delete this bill from ${selectedInbound ? parseSupplier(selectedInbound.customerName).supplier : ''}? All parts listed in this bill will be reduced from the master part list (inventory). This action cannot be undone.`}
+          confirmLabel="Delete & Reduce Stock"
+          cancelLabel="Keep Bill"
+          variant="danger"
+          loading={deletingBatch}
+        />
     </div>
   );
 };
