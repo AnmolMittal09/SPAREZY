@@ -1,38 +1,25 @@
-import { GoogleGenAI, Type } from "@google/genai";
 import { StockItem } from "../types";
 
 export const generateInventoryInsights = async (inventory: StockItem[]): Promise<string> => {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const summary = inventory.map(i => 
-      `- ${i.partNumber} (${i.brand}): ${i.quantity} units (Threshold: ${i.minStockThreshold})`
-    ).join('\n');
-
-    const prompt = `
-      You are an inventory analyst for a car spare parts shop named "Sparezy".
-      We stock Hyundai and Mahindra parts.
-      
-      Here is the current stock list status:
-      ${summary}
-
-      Please provide a concise strategic summary for the Business Owner.
-      1. Identify critical shortages (Zero stock).
-      2. Highlight low stock risks.
-      3. Suggest which brand needs more immediate attention.
-      4. Provide a short "Health Score" of the inventory out of 10.
-      
-      Keep it professional, actionable, and under 200 words.
-    `;
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: prompt,
+    const response = await fetch("/api/gemini/insights", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ inventory }),
     });
 
-    return response.text || "No insights generated.";
-  } catch (error) {
-    console.error("Gemini API Error:", error);
-    return "Failed to generate AI insights. Please try again later.";
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.error || `HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.text || "No insights generated.";
+  } catch (error: any) {
+    console.error("AI Insights Error:", error);
+    return `Failed to generate AI insights: ${error.message || error}`;
   }
 };
 
@@ -43,77 +30,22 @@ export interface InvoiceFile {
 
 export const extractInvoiceData = async (files: InvoiceFile[]) => {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    
-    // Convert multiple files into inlineData parts
-    const fileParts = files.map(f => ({
-      inlineData: {
-        data: f.data,
-        mimeType: f.mimeType,
+    const response = await fetch("/api/gemini/extract-invoice", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
-    }));
-
-    const prompt = `
-      Analyze these car spare parts invoice pages. 
-      
-      IMPORTANT FILTERING RULES:
-      1. ONLY PROCESS THE ORIGINAL COPY: Invoices often contain 'Original', 'Duplicate', 'Triplicate', and 'Quadruplicate' pages. 
-      2. You MUST ONLY extract data from the page(s) explicitly marked as "ORIGINAL" or "ORIGINAL FOR RECIPIENT/BUYER".
-      3. IGNORE ALL OTHER COPIES: Do not process or extract items from pages marked as 'DUPLICATE', 'TRIPLICATE', 'QUADRUPLICATE', 'EXTRA COPY', 'TRANSPORT COPY', or 'OFFICE COPY'.
-      4. CONSOLIDATE: If the "Original" invoice itself spans multiple pages (e.g. Page 1 of 2, Page 2 of 2), extract and combine all items from those original pages.
-      5. DE-DUPLICATION: If the user provides multiple images of the same "Original" page, only extract those items once.
-
-      DATA TO EXTRACT:
-      1. Identify the Dealer/Vendor Name (The company selling the parts).
-      2. Identify the Invoice Date.
-      3. Identify the Invoice Number / Bill Number (The invoice reference e.g., INV-1234, etc.).
-      4. Extract line items strictly from the ORIGINAL pages with these fields:
-         - Part Number (alphanumeric SKU)
-         - Part Name/Description (the full descriptive name of the part)
-         - Quantity (Qty)
-         - MRP (Maximum Retail Price before discount)
-         - B.DC % (Basic Discount percentage, typically around 12%)
-         - Printed Net Unit Price (Final price for one unit shown on the bill)
-
-      Ensure numerical values are clean numbers. 
-      Return the data strictly as a JSON object.
-    `;
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: { parts: [...fileParts, { text: prompt }] },
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            dealerName: { type: Type.STRING, description: "Name of the supplier/dealer" },
-            invoiceDate: { type: Type.STRING, description: "Date on the invoice" },
-            invoiceNumber: { type: Type.STRING, description: "Invoice number or Bill reference number" },
-            items: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  partNumber: { type: Type.STRING },
-                  name: { type: Type.STRING, description: "Descriptive name of the part" },
-                  quantity: { type: Type.NUMBER },
-                  mrp: { type: Type.NUMBER },
-                  discountPercent: { type: Type.NUMBER, description: "B.DC percentage" },
-                  printedUnitPrice: { type: Type.NUMBER, description: "The unit price shown on the bill after discount" }
-                },
-                required: ["partNumber", "name", "quantity", "mrp", "discountPercent", "printedUnitPrice"]
-              }
-            }
-          },
-          required: ["dealerName", "items"]
-        }
-      }
+      body: JSON.stringify({ files }),
     });
 
-    return JSON.parse(response.text || "{}");
-  } catch (error) {
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.error || `HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error: any) {
     console.error("Invoice Extraction Error:", error);
-    throw new Error("Failed to read the invoice. Please ensure the 'Original' copy is clear and included.");
+    throw new Error(error.message || "Failed to read the invoice. Please ensure the 'Original' copy is clear and included.");
   }
 };
