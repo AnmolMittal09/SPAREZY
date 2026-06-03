@@ -516,6 +516,10 @@ const Purchases: React.FC<Props> = ({ user }) => {
                                      )}
                                      <div className="flex items-center gap-1.5 bg-white/5 sm:bg-transparent px-2 py-0.5 sm:px-0 sm:py-0 rounded-lg"><Calendar size={12} className="sm:size-[14px]" /> {extractedMetadata.invoiceDate || 'No Date'}</div>
                                      <div className="flex items-center gap-1.5 bg-white/5 sm:bg-transparent px-2 py-0.5 sm:px-0 sm:py-0 rounded-lg"><Layers size={12} className="sm:size-[14px]" /> {fd(previewData.length)} Assets Logged</div>
+                                     <div className="flex items-center gap-1.5 bg-blue-500/20 text-blue-300 px-3 py-1 rounded-lg ring-1 ring-blue-500/35 font-black text-[9px] uppercase tracking-widest leading-none shrink-0">
+                                        <Calculator size={11} />
+                                        <span>Total: ₹{previewData.reduce((s, i) => s + (i.printedUnitPrice * i.quantity), 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                     </div>
                                   </div>
                                 </div>
                             </div>
@@ -529,7 +533,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
                          </div>
 
                          {/* EDITABLE BILL METADATA OVERRIDES */}
-                         <div className="bg-white/5 p-4 sm:p-6 rounded-2xl border border-white/10 grid grid-cols-1 md:grid-cols-3 gap-4 relative z-10">
+                         <div className="bg-white/5 p-4 sm:p-6 rounded-2xl border border-white/10 grid grid-cols-1 md:grid-cols-4 gap-4 relative z-10">
                             <div>
                                <label className="text-[9px] font-black uppercase tracking-[0.15em] text-blue-300 block mb-1.5">Verify Dealer / Vendor Name</label>
                                <input 
@@ -560,6 +564,15 @@ const Purchases: React.FC<Props> = ({ user }) => {
                                  value={extractedMetadata.invoiceDate || ''}
                                  onChange={e => setExtractedMetadata(prev => ({ ...prev, invoiceDate: e.target.value }))}
                                />
+                            </div>
+                            <div className="bg-white/10 border border-white/15 p-4 rounded-xl flex flex-col justify-center min-w-0">
+                               <span className="text-[8px] font-black uppercase tracking-[0.2em] text-blue-300 mb-1.5">TOTAL AUDITED AMOUNT</span>
+                               <span className="text-xl sm:text-2xl font-black text-white tracking-tighter tabular-nums truncate">
+                                  ₹{previewData.reduce((s, i) => s + (i.printedUnitPrice * i.quantity), 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                               </span>
+                               <span className="text-[8px] font-bold text-slate-300 uppercase tracking-wide mt-1">
+                                  {fd(previewData.reduce((s, i) => s + i.quantity, 0))} Total spare pieces
+                               </span>
                             </div>
                          </div>
                       </div>
@@ -660,6 +673,23 @@ const Purchases: React.FC<Props> = ({ user }) => {
                                  </tr>
                               ))}
                            </tbody>
+                           <tfoot className="border-t-2 border-slate-200 bg-slate-50 font-black text-slate-800 uppercase text-xs">
+                              <tr>
+                                 <td className="px-8 py-6 text-[10px] text-slate-500 tracking-wider">
+                                    Total Bill Ingest Summary
+                                 </td>
+                                 <td className="px-8 py-6 text-center text-slate-900 text-[17px] tabular-nums">
+                                    #{fd(previewData.reduce((s, i) => s + i.quantity, 0))} Pcs
+                                 </td>
+                                 <td className="px-8 py-6"></td>
+                                 <td className="px-8 py-6 text-right text-blue-600 text-[20px] tabular-nums">
+                                    ₹{previewData.reduce((s, i) => s + (i.printedUnitPrice * i.quantity), 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                 </td>
+                                 <td className="px-8 py-6 pr-12 text-right text-[10px] text-slate-400 tracking-widest" colSpan={2}>
+                                    Net Verified Bill Total
+                                 </td>
+                              </tr>
+                           </tfoot>
                         </table>
                      </div>
 
