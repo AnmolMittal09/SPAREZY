@@ -66,7 +66,8 @@ export const extractInvoiceData = async (files: InvoiceFile[]) => {
       DATA TO EXTRACT:
       1. Identify the Dealer/Vendor Name (The company selling the parts).
       2. Identify the Invoice Date.
-      3. Extract line items strictly from the ORIGINAL pages with these fields:
+      3. Identify the Invoice Number/Bill Number.
+      4. Extract line items strictly from the ORIGINAL pages with these fields:
          - Part Number (alphanumeric SKU)
          - Part Name/Description (the full descriptive name of the part)
          - Quantity (Qty)
@@ -88,6 +89,7 @@ export const extractInvoiceData = async (files: InvoiceFile[]) => {
           properties: {
             dealerName: { type: Type.STRING, description: "Name of the supplier/dealer" },
             invoiceDate: { type: Type.STRING, description: "Date on the invoice" },
+            invoiceNumber: { type: Type.STRING, description: "The invoice number or bill number (e.g. GST-1293)" },
             items: {
               type: Type.ARRAY,
               items: {

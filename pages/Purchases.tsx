@@ -40,10 +40,11 @@ import {
   Sparkles,
   Percent
 } from 'lucide-react';
-import { fetchTransactions, createBulkTransactions } from '../services/transactionService';
+import { fetchTransactions, createBulkTransactions, deleteGroupedTransactions } from '../services/transactionService';
 import { fetchInventory, updateOrAddItems } from '../services/inventoryService';
 import { extractInvoiceData, InvoiceFile } from '../services/geminiService';
 import TharLoader from '../components/TharLoader';
+import ConfirmModal from '../components/ConfirmModal';
 import * as XLSX from 'xlsx';
 
 const fd = (n: number | string) => {
@@ -94,10 +95,13 @@ const Purchases: React.FC<Props> = ({ user }) => {
   const [importing, setImporting] = useState(false);
   const [importLog, setImportLog] = useState<{ success: boolean; message: string; count: number; totalValue: number; errorCount: number; addedCount?: number; updatedCount?: number; dealer?: string } | null>(null);
   const [previewData, setPreviewData] = useState<ExtractedItem[]>([]);
-  const [extractedMetadata, setExtractedMetadata] = useState<{ dealerName?: string; invoiceDate?: string }>({});
+  const [extractedMetadata, setExtractedMetadata] = useState<{ dealerName?: string; invoiceDate?: string; invoiceNumber?: string }>({});
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [historySearch, setHistorySearch] = useState('');
   const [selectedBrand, setSelectedBrand] = useState<Brand>(Brand.HYUNDAI);
+  const [billToDelete, setBillToDelete] = useState<GroupedInbound | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletingBill, setDeletingBill] = useState(false);
 
   const currentDiscountRate = selectedBrand === Brand.MAHINDRA ? 19.36 : 12;
 
@@ -148,15 +152,35 @@ const Purchases: React.FC<Props> = ({ user }) => {
   }, [filteredHistory, sortOrder]);
 
   const parseSupplier = (name: string) => {
-    if (!name) return { supplier: 'Main Provider', invDate: null };
+    if (!name) return { supplier: 'Main Provider', invNo: null, invDate: null };
+    // Try structured format first: "NAME (INV: NO, DATE: DATE)" or "NAME (INV: NO, DATE: DATE)"
+    const structuredMatch = name.match(/^(.+?)\s*\(INV:\s*(.*?),\s*DATE:\s*(.*?)\)$/i);
+    if (structuredMatch) {
+      return {
+        supplier: structuredMatch[1].trim(),
+        invNo: structuredMatch[2].trim() === 'N/A' || !structuredMatch[2].trim() ? null : structuredMatch[2].trim(),
+        invDate: structuredMatch[3].trim() === 'N/A' || !structuredMatch[3].trim() ? null : structuredMatch[3].trim()
+      };
+    }
+    // Alternatively, if it has just "INV: NO"
+    const onlyInvMatch = name.match(/^(.+?)\s*\(INV:\s*(.*?)\)$/i);
+    if (onlyInvMatch) {
+      return {
+        supplier: onlyInvMatch[1].trim(),
+        invNo: onlyInvMatch[2].trim() === 'N/A' || !onlyInvMatch[2].trim() ? null : onlyInvMatch[2].trim(),
+        invDate: null
+      };
+    }
+    // Fallback for previous style: "NAME (INV: DATE)"
     const parts = name.split(' (INV: ');
     if (parts.length > 1) {
       return { 
         supplier: parts[0].trim(), 
+        invNo: null,
         invDate: parts[1].replace(')', '').trim() 
       };
     }
-    return { supplier: name, invDate: null };
+    return { supplier: name, invNo: null, invDate: null };
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -222,7 +246,11 @@ const Purchases: React.FC<Props> = ({ user }) => {
         }
         const result = await extractInvoiceData(payload);
         if (result && result.items && result.items.length > 0) {
-          setExtractedMetadata({ dealerName: result.dealerName, invoiceDate: result.invoiceDate });
+          setExtractedMetadata({ 
+            dealerName: result.dealerName, 
+            invoiceDate: result.invoiceDate, 
+            invoiceNumber: result.invoiceNumber 
+          });
           const verifiedItems = result.items.map((item: any) => {
             const expected = item.mrp * (1 - currentDiscountRate / 100);
             const diff = item.printedUnitPrice - expected;
@@ -245,7 +273,15 @@ const Purchases: React.FC<Props> = ({ user }) => {
   const confirmBulkImport = async () => {
     if (previewData.length === 0) return;
     setImporting(true);
-    const sourceName = (extractedMetadata.dealerName ? `${extractedMetadata.dealerName} (Inv: ${extractedMetadata.invoiceDate})` : `AI Audit (${new Date().toLocaleDateString()})`).toUpperCase().trim();
+    
+    let metadataParts = [];
+    metadataParts.push(`INV: ${extractedMetadata.invoiceNumber || 'N/A'}`);
+    metadataParts.push(`DATE: ${extractedMetadata.invoiceDate || 'N/A'}`);
+    const metadataStr = metadataParts.join(', ');
+    
+    const sourceName = (extractedMetadata.dealerName 
+      ? `${extractedMetadata.dealerName} (${metadataStr})` 
+      : `AI Audit (${new Date().toLocaleDateString()})`).toUpperCase().trim();
     
     try {
         // FIX: We do NOT calculate the new quantity manually here. 
@@ -283,6 +319,33 @@ const Purchases: React.FC<Props> = ({ user }) => {
         setPreviewData([]); setQueuedFiles([]);
     } catch (err: any) { setImportLog({ success: false, message: err.message, count: 0, totalValue: 0, errorCount: 0 }); }
     finally { setImporting(false); loadHistory(); }
+  };
+
+  const triggerDeleteBill = (stack: GroupedInbound) => {
+    setBillToDelete(stack);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeleteBill = async () => {
+    if (!billToDelete) return;
+    setDeletingBill(true);
+    try {
+      const txIds = billToDelete.items.map(i => i.id);
+      const res = await deleteGroupedTransactions(txIds, billToDelete.items);
+      if (res.success) {
+        setShowDeleteConfirm(false);
+        setBillToDelete(null);
+        setSelectedInbound(null);
+        await loadHistory();
+        await fetchInventory().then(setInventory);
+      } else {
+        alert("Error deleting bill: " + (res.message || "Unknown error"));
+      }
+    } catch (e: any) {
+      alert("Error: " + e.message);
+    } finally {
+      setDeletingBill(false);
+    }
   };
 
   return (
@@ -399,6 +462,12 @@ const Purchases: React.FC<Props> = ({ user }) => {
                               <h3 className="text-2xl font-black tracking-tight uppercase leading-none mb-2">{extractedMetadata.dealerName || 'Extracted Dealer'}</h3>
                               <div className="flex flex-wrap items-center gap-4 text-[10px] font-black uppercase tracking-widest text-blue-400">
                                  <span className="bg-white/10 text-white px-3 py-1 rounded-lg ring-1 ring-white/20">{selectedBrand}</span>
+                                 {extractedMetadata.invoiceNumber && (
+                                    <div className="flex items-center gap-1.5 bg-white/10 text-white px-2.5 py-1 rounded-lg ring-1 ring-white/10">
+                                       <FileText size={12} strokeWidth={2.5} />
+                                       <span>Inv No: {extractedMetadata.invoiceNumber}</span>
+                                    </div>
+                                 )}
                                  <div className="flex items-center gap-1.5"><Calendar size={14} /> {extractedMetadata.invoiceDate || 'No Date'}</div>
                                  <div className="flex items-center gap-1.5"><Layers size={14} /> {fd(previewData.length)} Assets Logged</div>
                               </div>
@@ -517,7 +586,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
                              </div>
                            ) : (
                              stackedHistory.map(stack => {
-                                const { supplier, invDate } = parseSupplier(stack.customerName);
+                                const { supplier, invNo, invDate } = parseSupplier(stack.customerName);
                                 return (
                                   <div 
                                     key={stack.id} 
@@ -537,7 +606,13 @@ const Purchases: React.FC<Props> = ({ user }) => {
                                          <div className="flex flex-col gap-1 mt-2">
                                             <div className="flex items-center gap-1.5 text-[10px] font-black text-slate-700 uppercase tracking-widest">
                                                <Calendar size={12} className="text-blue-600" />
-                                               <span>Invoice Date: {invDate || new Date(stack.createdAt).toLocaleDateString()}</span>
+                                               <span>Date: {invDate || new Date(stack.createdAt).toLocaleDateString()}</span>
+                                                {invNo && (
+                                                   <span className="flex items-center gap-1 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-lg text-indigo-600 text-[9px] font-black tracking-widest shadow-soft ml-2">
+                                                      <FileText size={10} strokeWidth={2.5} />
+                                                      No: {invNo}
+                                                   </span>
+                                                )}
                                             </div>
                                             <div className="flex items-center gap-1.5 text-[9px] font-black text-slate-400 uppercase tracking-[0.15em] opacity-80 pl-0.5">
                                                <Clock size={10} />
@@ -559,8 +634,20 @@ const Purchases: React.FC<Props> = ({ user }) => {
                                          <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-1 block">BATCH VALUE</span>
                                          <p className="font-black text-xl md:text-2xl text-slate-900 tracking-tighter tabular-nums leading-none">₹{stack.totalValue.toLocaleString()}</p>
                                       </div>
-                                      <div className="hidden md:block">
-                                         <ChevronRight size={20} className="text-slate-200 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
+                                      <div className="flex items-center gap-3">
+                                         <button 
+                                            onClick={(e) => {
+                                               e.stopPropagation();
+                                               triggerDeleteBill(stack);
+                                            }}
+                                            className="p-3 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-xl transition-all border border-rose-100 flex items-center justify-center shadow-soft"
+                                            title="Delete Bill"
+                                         >
+                                            <Trash2 size={16} />
+                                         </button>
+                                         <div className="hidden md:block">
+                                            <ChevronRight size={20} className="text-slate-200 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
+                                         </div>
                                       </div>
                                     </div>
                                   </div>
@@ -580,9 +667,25 @@ const Purchases: React.FC<Props> = ({ user }) => {
                   <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                       <div className="flex items-center gap-4">
                           <button onClick={() => setSelectedInbound(null)} className="p-3 bg-white text-slate-400 rounded-2xl shadow-soft border border-slate-100 active:scale-90 transition-all"><ArrowLeft size={22} strokeWidth={3}/></button>
-                          <div className="min-w-0">
-                              <h3 className="font-black text-slate-900 text-lg uppercase leading-tight truncate max-w-[250px] tracking-tight">{parseSupplier(selectedInbound.customerName).supplier}</h3>
-                              <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">{new Date(selectedInbound.createdAt).toLocaleDateString()} • {new Date(selectedInbound.createdAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</p>
+                          <div className="min-w-0 flex-1">
+                              <h3 className="font-black text-slate-900 text-lg uppercase leading-tight truncate max-w-[250px] tracking-tight">
+                                  {parseSupplier(selectedInbound.customerName).supplier}
+                              </h3>
+                              <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                                  {parseSupplier(selectedInbound.customerName).invNo && (
+                                     <span className="bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded text-indigo-600 font-black text-[9px] tracking-wider uppercase">
+                                        INV NO: {parseSupplier(selectedInbound.customerName).invNo}
+                                     </span>
+                                  )}
+                                  {parseSupplier(selectedInbound.customerName).invDate && (
+                                     <span className="bg-slate-100 border border-slate-200 px-2 py-0.5 rounded text-slate-600 font-black text-[9px] tracking-wider uppercase">
+                                        DATE: {parseSupplier(selectedInbound.customerName).invDate}
+                                     </span>
+                                  )}
+                                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.1em]">
+                                     Registered: {new Date(selectedInbound.createdAt).toLocaleDateString()}
+                                  </span>
+                              </div>
                           </div>
                       </div>
                   </div>
@@ -612,12 +715,36 @@ const Purchases: React.FC<Props> = ({ user }) => {
                               <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] mb-1">AGGREGATE ACQUISITION</span>
                               <span className="text-4xl font-black text-slate-900 tracking-tighter leading-none tabular-nums">₹{selectedInbound.totalValue.toLocaleString()}</span>
                           </div>
-                          <button onClick={() => setSelectedInbound(null)} className="px-12 py-5 bg-slate-900 text-white font-black rounded-2xl active:scale-95 transition-all text-[12px] uppercase tracking-widest shadow-xl border border-white/10">Terminate Log</button>
+                          <div className="flex gap-4">
+                              <button 
+                                 onClick={() => triggerDeleteBill(selectedInbound)} 
+                                 className="px-8 py-5 bg-rose-600 hover:bg-rose-700 text-white font-black rounded-2xl active:scale-95 transition-all text-[12px] uppercase tracking-widest shadow-xl flex items-center gap-2"
+                              >
+                                 <Trash2 size={16} /> Delete Bill
+                              </button>
+                              <button 
+                                 onClick={() => setSelectedInbound(null)} 
+                                 className="px-12 py-5 bg-slate-900 text-white font-black rounded-2xl active:scale-95 transition-all text-[12px] uppercase tracking-widest shadow-xl border border-white/10"
+                              >
+                                 Terminate Log
+                              </button>
+                          </div>
                       </div>
                   </div>
               </div>
           </div>
        )}
+
+       <ConfirmModal
+          isOpen={showDeleteConfirm}
+          onClose={() => { if (!deletingBill) setShowDeleteConfirm(false); }}
+          onConfirm={confirmDeleteBill}
+          title="Deduct Stock & Delete Bill"
+          message={`Are you sure you want to delete this bill? Deleting this bill will permanently deduct all listed parts (${billToDelete?.items.length || 0} unique SKUs) and their respective quantities from the master stock list.`}
+          confirmLabel={deletingBill ? "Deleting..." : "Delete and Update Stock"}
+          variant="danger"
+          loading={deletingBill}
+       />
     </div>
   );
 };

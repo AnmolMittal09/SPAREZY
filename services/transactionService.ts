@@ -547,3 +547,95 @@ export const generateTaxInvoiceRecord = async (
 
   return { success: true };
 };
+
+export const deleteGroupedTransactions = async (
+  transactionIds: string[],
+  transactions: Transaction[]
+): Promise<{ success: boolean; message?: string }> => {
+  if (supabase) {
+    try {
+      // 1. Update stock of parts listed in these transactions
+      for (const tx of transactions) {
+        if (tx.status === TransactionStatus.APPROVED) {
+          const { data: items } = await supabase
+            .from('inventory')
+            .select('quantity, part_number')
+            .ilike('part_number', tx.partNumber)
+            .limit(1);
+
+          if (items && items.length > 0) {
+            const dbItem = items[0];
+            const currentQty = dbItem.quantity;
+            let newQty = currentQty;
+
+            // Since we are DELETING/REVERTING the transaction, we reverse the effect on stock:
+            // - For PURCHASE or RETURN (which added stock), we subtract.
+            // - For SALE (which reduced stock), we add.
+            if (tx.type === TransactionType.PURCHASE || tx.type === TransactionType.RETURN) {
+              newQty = currentQty - tx.quantity;
+            } else if (tx.type === TransactionType.SALE) {
+              newQty = currentQty + tx.quantity;
+            }
+
+            if (newQty < 0) newQty = 0;
+
+            await supabase
+              .from('inventory')
+              .update({
+                quantity: newQty,
+                last_updated: new Date().toISOString()
+              })
+              .eq('part_number', dbItem.part_number);
+          }
+        }
+      }
+
+      // 2. Delete the transactions from DB
+      const { error: deleteError } = await supabase
+        .from('transactions')
+        .delete()
+        .in('id', transactionIds);
+
+      if (deleteError) throw new Error(deleteError.message);
+
+      return { success: true };
+    } catch (error: any) {
+      console.error("Delete Grouped Transactions Error:", error);
+      return { success: false, message: error.message };
+    }
+  }
+
+  // --- LOCAL STORAGE FALLBACK ---
+  try {
+    const txs = getTransactionsFromLS();
+    const updatedTxs = txs.filter(t => !transactionIds.includes(t.id));
+    saveTransactionsToLS(updatedTxs);
+
+    // Update stock of parts locally
+    const storedInv = localStorage.getItem(INV_STORAGE_KEY);
+    if (storedInv) {
+      const inventory: any[] = JSON.parse(storedInv);
+
+      for (const tx of transactions) {
+        if (tx.status === TransactionStatus.APPROVED) {
+          const index = inventory.findIndex(i => i.partNumber.toLowerCase() === tx.partNumber.toLowerCase());
+          if (index > -1) {
+            const item = inventory[index];
+            if (tx.type === TransactionType.PURCHASE || tx.type === TransactionType.RETURN) {
+              item.quantity -= tx.quantity;
+            } else if (tx.type === TransactionType.SALE) {
+              item.quantity += tx.quantity;
+            }
+            if (item.quantity < 0) item.quantity = 0;
+            item.lastUpdated = new Date().toISOString();
+          }
+        }
+      }
+      localStorage.setItem(INV_STORAGE_KEY, JSON.stringify(inventory));
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, message: error.message };
+  }
+};
