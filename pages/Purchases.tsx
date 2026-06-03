@@ -307,7 +307,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
             const hasError = item.discountPercent < currentDiscountRate || Math.abs(diff) > 0.5;
             return {
               ...item,
-              partNumber: item.partNumber.toUpperCase().trim(),
+              partNumber: (item.partNumber || '').toUpperCase().trim(),
               calculatedPrice: parseFloat(expected.toFixed(2)),
               hasError, errorType: item.discountPercent < currentDiscountRate ? 'DISCOUNT_LOW' : (Math.abs(diff) > 0.5 ? 'CALC_MISMATCH' : 'NONE'),
               diff: parseFloat(diff.toFixed(2))
@@ -451,6 +451,17 @@ const Purchases: React.FC<Props> = ({ user }) => {
                             ))}
                         </div>
                      </div>
+
+                     {errorMsg && (
+                        <div className="bg-rose-50 border border-rose-200 text-rose-850 p-5 rounded-[2rem] flex items-start gap-3 text-xs font-bold uppercase tracking-wider animate-bounce-short">
+                           <AlertCircle className="text-rose-600 shrink-0 mt-0.5" size={18} />
+                           <div className="flex-1">
+                              <p className="font-black text-rose-950 mb-0.5">Audit Failed</p>
+                              <p className="text-[10px] text-rose-700 font-bold normal-case leading-normal">{errorMsg}</p>
+                           </div>
+                           <button onClick={() => setErrorMsg(null)} className="text-rose-400 hover:text-rose-600 font-black text-lg leading-none">&times;</button>
+                        </div>
+                     )}
 
                      <div className="bg-blue-50/50 border-2 border-dashed border-blue-200 rounded-[2.5rem] p-12 text-center group hover:bg-blue-50 transition-all cursor-pointer relative overflow-hidden">
                         <input type="file" multiple accept="image/*, application/pdf, .xlsx, .csv" onChange={handleFileSelect} className="absolute inset-0 opacity-0 cursor-pointer z-10" />
@@ -605,7 +616,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
                                                    const val = e.target.value.toUpperCase();
                                                    setPreviewData(prev => prev.map((p, pIdx) => {
                                                       if (pIdx === idx) {
-                                                         const matchedStock = inventory.find(stock => stock.partNumber.toUpperCase().trim() === val.trim());
+                                                         const matchedStock = inventory.find(stock => stock && stock.partNumber && stock.partNumber.toUpperCase().trim() === val.trim());
                                                          return {
                                                             ...p,
                                                             partNumber: val,
@@ -622,7 +633,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
                                                 {item.name}
                                              </div>
                                              {(() => {
-                                                const exists = inventory.some(stock => stock.partNumber.toUpperCase().trim() === item.partNumber.toUpperCase().trim());
+                                                const exists = inventory.some(stock => stock && stock.partNumber && stock.partNumber.toUpperCase().trim() === (item.partNumber || '').toUpperCase().trim());
                                                 return exists ? (
                                                    <span className="text-[8px] font-black text-blue-600 bg-blue-50/80 border border-blue-100/50 px-2 py-0.5 rounded-md uppercase tracking-widest leading-none shrink-0">
                                                       Catalogued
