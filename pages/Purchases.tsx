@@ -307,7 +307,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
             const hasError = item.discountPercent < currentDiscountRate || Math.abs(diff) > 0.5;
             return {
               ...item,
-              partNumber: (item.partNumber || '').toUpperCase().trim(),
+              partNumber: item.partNumber.toUpperCase().trim(),
               calculatedPrice: parseFloat(expected.toFixed(2)),
               hasError, errorType: item.discountPercent < currentDiscountRate ? 'DISCOUNT_LOW' : (Math.abs(diff) > 0.5 ? 'CALC_MISMATCH' : 'NONE'),
               diff: parseFloat(diff.toFixed(2))
@@ -453,13 +453,31 @@ const Purchases: React.FC<Props> = ({ user }) => {
                      </div>
 
                      {errorMsg && (
-                        <div className="bg-rose-50 border border-rose-200 text-rose-850 p-5 rounded-[2rem] flex items-start gap-3 text-xs font-bold uppercase tracking-wider animate-bounce-short">
-                           <AlertCircle className="text-rose-600 shrink-0 mt-0.5" size={18} />
-                           <div className="flex-1">
-                              <p className="font-black text-rose-950 mb-0.5">Audit Failed</p>
-                              <p className="text-[10px] text-rose-700 font-bold normal-case leading-normal">{errorMsg}</p>
+                        <div className="bg-rose-50 border border-rose-200 rounded-[2rem] p-6 flex items-start gap-4 text-rose-900 shadow-soft animate-fade-in relative z-10 mb-6">
+                           <div className="p-2.5 bg-rose-100 rounded-xl text-rose-600 shrink-0">
+                              <AlertCircle size={20} className="stroke-[2.5]" strokeWidth={2.5} />
                            </div>
-                           <button onClick={() => setErrorMsg(null)} className="text-rose-400 hover:text-rose-600 font-black text-lg leading-none">&times;</button>
+                           <div className="flex-1 min-w-0">
+                              <h4 className="text-xs font-black uppercase tracking-wider text-rose-800 mb-1 animate-pulse">Scanning Issue Detected</h4>
+                              <p className="text-xs text-rose-700/95 leading-relaxed font-semibold">
+                                 {errorMsg}
+                              </p>
+                              <div className="mt-3 flex items-center gap-3">
+                                 <button 
+                                   onClick={() => setErrorMsg(null)}
+                                   className="text-[9px] font-black uppercase tracking-wider bg-rose-100 hover:bg-rose-200 text-rose-800 px-3 py-2 rounded-lg transition-all"
+                                 >
+                                    Dismiss Error
+                                 </button>
+                                 <button 
+                                   onClick={startAiAudit}
+                                   disabled={importing}
+                                   className="text-[9px] font-black uppercase tracking-wider bg-slate-900 hover:bg-slate-800 text-white px-3 py-2 rounded-lg shadow-sm transition-all disabled:opacity-50"
+                                 >
+                                    Force Retry
+                                 </button>
+                              </div>
+                           </div>
                         </div>
                      )}
 
@@ -616,7 +634,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
                                                    const val = e.target.value.toUpperCase();
                                                    setPreviewData(prev => prev.map((p, pIdx) => {
                                                       if (pIdx === idx) {
-                                                         const matchedStock = inventory.find(stock => stock && stock.partNumber && stock.partNumber.toUpperCase().trim() === val.trim());
+                                                         const matchedStock = inventory.find(stock => stock.partNumber.toUpperCase().trim() === val.trim());
                                                          return {
                                                             ...p,
                                                             partNumber: val,
@@ -633,7 +651,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
                                                 {item.name}
                                              </div>
                                              {(() => {
-                                                const exists = inventory.some(stock => stock && stock.partNumber && stock.partNumber.toUpperCase().trim() === (item.partNumber || '').toUpperCase().trim());
+                                                const exists = inventory.some(stock => stock.partNumber.toUpperCase().trim() === item.partNumber.toUpperCase().trim());
                                                 return exists ? (
                                                    <span className="text-[8px] font-black text-blue-600 bg-blue-50/80 border border-blue-100/50 px-2 py-0.5 rounded-md uppercase tracking-widest leading-none shrink-0">
                                                       Catalogued
