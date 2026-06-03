@@ -25,7 +25,7 @@ export const generateInventoryInsights = async (inventory: StockItem[]): Promise
     `;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3.5-flash',
       contents: prompt,
     });
 
@@ -84,7 +84,7 @@ export const extractInvoiceData = async (files: InvoiceFile[]) => {
     `;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3.5-flash',
       contents: { parts: [...fileParts, { text: prompt }] },
       config: {
         responseMimeType: "application/json",
