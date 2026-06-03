@@ -452,35 +452,6 @@ const Purchases: React.FC<Props> = ({ user }) => {
                         </div>
                      </div>
 
-                     {errorMsg && (
-                        <div className="bg-rose-50 border border-rose-200 rounded-[2rem] p-6 flex items-start gap-4 text-rose-900 shadow-soft animate-fade-in relative z-10 mb-6">
-                           <div className="p-2.5 bg-rose-100 rounded-xl text-rose-600 shrink-0">
-                              <AlertCircle size={20} className="stroke-[2.5]" strokeWidth={2.5} />
-                           </div>
-                           <div className="flex-1 min-w-0">
-                              <h4 className="text-xs font-black uppercase tracking-wider text-rose-800 mb-1 animate-pulse">Scanning Issue Detected</h4>
-                              <p className="text-xs text-rose-700/95 leading-relaxed font-semibold">
-                                 {errorMsg}
-                              </p>
-                              <div className="mt-3 flex items-center gap-3">
-                                 <button 
-                                   onClick={() => setErrorMsg(null)}
-                                   className="text-[9px] font-black uppercase tracking-wider bg-rose-100 hover:bg-rose-200 text-rose-800 px-3 py-2 rounded-lg transition-all"
-                                 >
-                                    Dismiss Error
-                                 </button>
-                                 <button 
-                                   onClick={startAiAudit}
-                                   disabled={importing}
-                                   className="text-[9px] font-black uppercase tracking-wider bg-slate-900 hover:bg-slate-800 text-white px-3 py-2 rounded-lg shadow-sm transition-all disabled:opacity-50"
-                                 >
-                                    Force Retry
-                                 </button>
-                              </div>
-                           </div>
-                        </div>
-                     )}
-
                      <div className="bg-blue-50/50 border-2 border-dashed border-blue-200 rounded-[2.5rem] p-12 text-center group hover:bg-blue-50 transition-all cursor-pointer relative overflow-hidden">
                         <input type="file" multiple accept="image/*, application/pdf, .xlsx, .csv" onChange={handleFileSelect} className="absolute inset-0 opacity-0 cursor-pointer z-10" />
                         <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center text-blue-600 shadow-xl shadow-blue-100 mx-auto mb-6 group-hover:scale-110 transition-transform">

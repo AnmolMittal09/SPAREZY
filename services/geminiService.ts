@@ -1,57 +1,123 @@
+import { GoogleGenAI, Type } from "@google/genai";
 import { StockItem } from "../types";
+
+export const generateInventoryInsights = async (inventory: StockItem[]): Promise<string> => {
+  try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const summary = inventory.map(i => 
+      `- ${i.partNumber} (${i.brand}): ${i.quantity} units (Threshold: ${i.minStockThreshold})`
+    ).join('\n');
+
+    const prompt = `
+      You are an inventory analyst for a car spare parts shop named "Sparezy".
+      We stock Hyundai and Mahindra parts.
+      
+      Here is the current stock list status:
+      ${summary}
+
+      Please provide a concise strategic summary for the Business Owner.
+      1. Identify critical shortages (Zero stock).
+      2. Highlight low stock risks.
+      3. Suggest which brand needs more immediate attention.
+      4. Provide a short "Health Score" of the inventory out of 10.
+      
+      Keep it professional, actionable, and under 200 words.
+    `;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.5-flash',
+      contents: prompt,
+    });
+
+    return response.text || "No insights generated.";
+  } catch (error) {
+    console.error("Gemini API Error:", error);
+    return "Failed to generate AI insights. Please try again later.";
+  }
+};
 
 export interface InvoiceFile {
   data: string;
   mimeType: string;
 }
 
-/**
- * Sends current inventory status to our backend service to fetch strategic AI recommendations.
- */
-export const generateInventoryInsights = async (inventory: StockItem[]): Promise<string> => {
-  try {
-    const response = await fetch("/api/gemini/insights", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ inventory }),
-    });
-
-    const result = await response.json();
-    if (!response.ok || !result.success) {
-      throw new Error(result.error || "Server returned an error status.");
-    }
-
-    return result.text || "No insights generated.";
-  } catch (error: any) {
-    console.error("Client generateInventoryInsights Error:", error);
-    return `AI Insights currently unavailable: ${error.message || "Please check your system connection."}`;
-  }
-};
-
-/**
- * Sends base64 formatted invoice image/pdf fragments to our backend service for OCR and structuring.
- */
 export const extractInvoiceData = async (files: InvoiceFile[]) => {
   try {
-    console.log("[Gemini Client Service] Dispatching extraction payload to backend proxy...");
-    const response = await fetch("/api/gemini/extract-invoice", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    
+    // Convert multiple files into inlineData parts
+    const fileParts = files.map(f => ({
+      inlineData: {
+        data: f.data,
+        mimeType: f.mimeType,
       },
-      body: JSON.stringify({ files }),
+    }));
+
+    const prompt = `
+      Analyze these car spare parts invoice pages. 
+      
+      IMPORTANT FILTERING RULES:
+      1. ONLY PROCESS THE ORIGINAL COPY: Invoices often contain 'Original', 'Duplicate', 'Triplicate', and 'Quadruplicate' pages. 
+      2. You MUST ONLY extract data from the page(s) explicitly marked as "ORIGINAL" or "ORIGINAL FOR RECIPIENT/BUYER".
+      3. IGNORE ALL OTHER COPIES: Do not process or extract items from pages marked as 'DUPLICATE', 'TRIPLICATE', 'QUADRUPLICATE', 'EXTRA COPY', 'TRANSPORT COPY', or 'OFFICE COPY'.
+      4. CONSOLIDATE: If the "Original" invoice itself spans multiple pages (e.g. Page 1 of 2, Page 2 of 2), extract and combine all items from those original pages.
+      5. DE-DUPLICATION: If the user provides multiple images of the same "Original" page, only extract those items once.
+
+      CRITICAL VALIDATION RULES FOR METADATA:
+      - INVOICE DATE VS INVOICE NUMBER: Do NOT mistake the Invoice Date for the Invoice Number. The Invoice/Bill Number MUST NOT be a date (e.g., if you extract a date value like "29/01/2026", that is NOT the invoice number).
+      - If the invoice number cannot be confidently found, set it to null or empty string, but NEVER populate it with the invoice date or invoice timestamp.
+
+      DATA TO EXTRACT:
+      1. Identify the Dealer/Vendor Name (The company selling the parts).
+      2. Identify the Invoice Date.
+      3. Identify the Invoice Number/Bill Number (This is usually labeled 'Invoice No.', 'Inv No.', 'Bill No.', 'Tax Invoice No.' etc., e.g. "INV-2024-001" or "GST/1293").
+      4. Extract line items strictly from the ORIGINAL pages with these fields:
+         - Part Number (alphanumeric SKU)
+         - Part Name/Description (the full descriptive name of the part)
+         - Quantity (Qty)
+         - MRP (Maximum Retail Price before discount)
+         - B.DC % (Basic Discount percentage, typically around 12%)
+         - Printed Net Unit Price (Final price for one unit shown on the bill)
+
+      Ensure numerical values are clean numbers. 
+      Return the data strictly as a JSON object.
+    `;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.5-flash',
+      contents: { parts: [...fileParts, { text: prompt }] },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            dealerName: { type: Type.STRING, description: "Name of the supplier/dealer" },
+            invoiceDate: { type: Type.STRING, description: "Date on the invoice" },
+            invoiceNumber: { type: Type.STRING, description: "The unique invoice number or bill number (e.g. GST-1293). This MUST NOT be a date format like 'DD/MM/YYYY'." },
+            items: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  partNumber: { type: Type.STRING },
+                  name: { type: Type.STRING, description: "Descriptive name of the part" },
+                  quantity: { type: Type.NUMBER },
+                  mrp: { type: Type.NUMBER },
+                  discountPercent: { type: Type.NUMBER, description: "B.DC percentage" },
+                  printedUnitPrice: { type: Type.NUMBER, description: "The unit price shown on the bill after discount" }
+                },
+                required: ["partNumber", "name", "quantity", "mrp", "discountPercent", "printedUnitPrice"]
+              }
+            }
+          },
+          required: ["dealerName", "items"]
+        }
+      }
     });
 
-    const result = await response.json();
-    if (!response.ok || !result.success) {
-      throw new Error(result.error || "Failed to read the invoice successfully.");
-    }
-
-    return result.data || {};
-  } catch (error: any) {
-    console.error("Client extractInvoiceData Error:", error);
-    throw new Error(error.message || "Failed to scan the invoice. Make sure files are clear and API credentials are set.");
+    return JSON.parse(response.text || "{}");
+  } catch (error) {
+    console.error("Invoice Extraction Error:", error);
+    throw new Error("Failed to read the invoice. Please ensure the 'Original' copy is clear and included.");
   }
 };
