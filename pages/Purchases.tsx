@@ -38,9 +38,10 @@ import {
   RotateCcw,
   FileSpreadsheet,
   Sparkles,
-  Percent
+  Percent,
+  Edit2
 } from 'lucide-react';
-import { fetchTransactions, createBulkTransactions, deleteGroupedTransactions } from '../services/transactionService';
+import { fetchTransactions, createBulkTransactions, deleteGroupedTransactions, updateGroupedInvoiceDetails } from '../services/transactionService';
 import { fetchInventory, updateOrAddItems } from '../services/inventoryService';
 import { extractInvoiceData, InvoiceFile } from '../services/geminiService';
 import TharLoader from '../components/TharLoader';
@@ -102,6 +103,21 @@ const Purchases: React.FC<Props> = ({ user }) => {
   const [billToDelete, setBillToDelete] = useState<GroupedInbound | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingBill, setDeletingBill] = useState(false);
+
+  const [isEditingInboundInfo, setIsEditingInboundInfo] = useState(false);
+  const [editSupplierName, setEditSupplierName] = useState('');
+  const [editInvoiceNo, setEditInvoiceNo] = useState('');
+  const [editInvoiceDate, setEditInvoiceDate] = useState('');
+
+  useEffect(() => {
+    if (selectedInbound) {
+      const { supplier, invNo, invDate } = parseSupplier(selectedInbound.customerName);
+      setEditSupplierName(supplier || '');
+      setEditInvoiceNo(invNo || '');
+      setEditInvoiceDate(invDate || '');
+      setIsEditingInboundInfo(false);
+    }
+  }, [selectedInbound]);
 
   const currentDiscountRate = selectedBrand === Brand.MAHINDRA ? 19.36 : 12;
 
@@ -348,10 +364,10 @@ const Purchases: React.FC<Props> = ({ user }) => {
     }
   };
 
-  return (
+   return (
     <div className="h-full flex flex-col bg-slate-50 md:bg-transparent">
        {!isSearchingOnMobile && (
-         <div className="md:hidden bg-white p-3 border-b border-slate-100 z-20 sticky top-0 shadow-sm animate-fade-in">
+         <div className="md:hidden bg-white p-3 border-b border-slate-100 z-20 sticky top-[96px] shadow-sm animate-fade-in mb-4">
             <div className="flex bg-slate-100 p-1 rounded-2xl">
                <button onClick={() => setActiveTab('NEW')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'NEW' ? 'bg-white text-slate-900 shadow-md ring-1 ring-slate-100' : 'text-slate-400'}`}>Manual</button>
                <button onClick={() => setActiveTab('IMPORT')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'IMPORT' ? 'bg-blue-600 text-white shadow-md ring-1 ring-blue-100' : 'text-slate-400'}`}>AI Scan</button>
@@ -379,7 +395,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
           {activeTab === 'NEW' && <DailyTransactions user={user} forcedMode="PURCHASE" onSearchToggle={setIsSearchingOnMobile} />}
 
           {activeTab === 'IMPORT' && (
-             <div className="flex-1 overflow-y-auto p-4 md:p-10 space-y-8 no-scrollbar bg-white md:rounded-[2.5rem] shadow-soft border border-slate-100">
+             <div className="flex-1 md:overflow-y-auto p-4 md:p-10 space-y-8 no-scrollbar bg-white md:rounded-[2.5rem] shadow-soft border border-slate-100">
                 {!previewData.length && !importLog && (
                   <div className="max-w-2xl mx-auto space-y-8">
                      
@@ -452,38 +468,77 @@ const Purchases: React.FC<Props> = ({ user }) => {
                   </div>
                 )}
 
-                {previewData.length > 0 && (
-                  <div className="animate-fade-in space-y-6">
-                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-900 p-8 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/10 rounded-full -mr-24 -mt-24 blur-3xl"></div>
-                        <div className="flex items-center gap-6 relative z-10">
-                           <div className="w-16 h-16 bg-blue-600 rounded-3xl flex items-center justify-center shadow-xl shadow-blue-500/20"><Sparkles size={28} strokeWidth={2.5} /></div>
-                           <div>
-                              <h3 className="text-2xl font-black tracking-tight uppercase leading-none mb-2">{extractedMetadata.dealerName || 'Extracted Dealer'}</h3>
-                              <div className="flex flex-wrap items-center gap-4 text-[10px] font-black uppercase tracking-widest text-blue-400">
-                                 <span className="bg-white/10 text-white px-3 py-1 rounded-lg ring-1 ring-white/20">{selectedBrand}</span>
-                                 {extractedMetadata.invoiceNumber && (
-                                    <div className="flex items-center gap-1.5 bg-white/10 text-white px-2.5 py-1 rounded-lg ring-1 ring-white/10">
-                                       <FileText size={12} strokeWidth={2.5} />
-                                       <span>Inv No: {extractedMetadata.invoiceNumber}</span>
-                                    </div>
-                                 )}
-                                 <div className="flex items-center gap-1.5"><Calendar size={14} /> {extractedMetadata.invoiceDate || 'No Date'}</div>
-                                 <div className="flex items-center gap-1.5"><Layers size={14} /> {fd(previewData.length)} Assets Logged</div>
-                              </div>
-                           </div>
-                        </div>
-                        <div className="flex gap-3 relative z-10 w-full md:w-auto">
-                           <button onClick={() => { setPreviewData([]); setQueuedFiles([]); }} className="flex-1 md:flex-none px-8 py-4 bg-white/10 hover:bg-white/20 rounded-2xl font-black text-xs uppercase tracking-widest transition-all">Cancel</button>
-                           <button onClick={confirmBulkImport} disabled={importing} className="flex-1 md:flex-none px-12 py-4 bg-blue-600 hover:bg-blue-50 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3">
-                              {importing ? <Loader2 className="animate-spin" size={18} /> : <CheckCircle2 size={18} />}
-                              {importing ? 'Synchronizing...' : 'Sync to Ledger'}
-                           </button>
-                        </div>
-                     </div>
+                  {previewData.length > 0 && (
+                   <div className="animate-fade-in space-y-6">
+                      <div className="flex flex-col gap-5 sm:gap-6 bg-slate-900 p-5 sm:p-8 rounded-3xl sm:rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden">
+                         <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/10 rounded-full -mr-24 -mt-24 blur-3xl"></div>
+                         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-5 relative z-10">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
+                               <div className="w-12 h-12 sm:w-16 sm:h-16 bg-blue-600 rounded-2xl sm:rounded-3xl flex items-center justify-center shrink-0 shadow-xl shadow-blue-500/20">
+                                  <Sparkles size={24} className="sm:size-[28px]" strokeWidth={2.5} />
+                               </div>
+                               <div className="min-w-0">
+                                  <h3 className="text-lg sm:text-2xl font-black tracking-tight uppercase leading-snug sm:leading-none mb-1.5 sm:mb-2 break-words">{extractedMetadata.dealerName || 'Extracted Dealer'}</h3>
+                                  <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-[8px] sm:text-[10px] font-black uppercase tracking-widest text-blue-400">
+                                     <span className="bg-white/10 text-white px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-lg ring-1 ring-white/20">{selectedBrand}</span>
+                                     {extractedMetadata.invoiceNumber && (
+                                        <div className="flex items-center gap-1.5 bg-white/10 text-white px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg ring-1 ring-white/10">
+                                           <FileText size={10} className="sm:size-[12px]" strokeWidth={2.5} />
+                                           <span>Inv No: {extractedMetadata.invoiceNumber}</span>
+                                        </div>
+                                     )}
+                                     <div className="flex items-center gap-1.5 bg-white/5 sm:bg-transparent px-2 py-0.5 sm:px-0 sm:py-0 rounded-lg"><Calendar size={12} className="sm:size-[14px]" /> {extractedMetadata.invoiceDate || 'No Date'}</div>
+                                     <div className="flex items-center gap-1.5 bg-white/5 sm:bg-transparent px-2 py-0.5 sm:px-0 sm:py-0 rounded-lg"><Layers size={12} className="sm:size-[14px]" /> {fd(previewData.length)} Assets Logged</div>
+                                  </div>
+                                </div>
+                            </div>
+                            <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+                               <button onClick={() => { setPreviewData([]); setQueuedFiles([]); }} className="w-full sm:w-auto px-6 py-3.5 bg-white/10 hover:bg-white/20 rounded-2xl font-black text-xs uppercase tracking-widest transition-all">Cancel</button>
+                               <button onClick={confirmBulkImport} disabled={importing} className="w-full sm:w-auto px-6 sm:px-10 py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2.5 min-w-[140px]">
+                                  {importing ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} />}
+                                  <span>{importing ? 'Syncing...' : 'Sync to Ledger'}</span>
+                               </button>
+                            </div>
+                         </div>
 
-                     <div className="bg-white border border-slate-200 rounded-[2.5rem] overflow-hidden shadow-soft">
-                        <table className="w-full text-left text-sm border-collapse">
+                         {/* EDITABLE BILL METADATA OVERRIDES */}
+                         <div className="bg-white/5 p-4 sm:p-6 rounded-2xl border border-white/10 grid grid-cols-1 md:grid-cols-3 gap-4 relative z-10">
+                            <div>
+                               <label className="text-[9px] font-black uppercase tracking-[0.15em] text-blue-300 block mb-1.5">Verify Dealer / Vendor Name</label>
+                               <input 
+                                 type="text" 
+                                 className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-xs font-black text-white uppercase outline-none focus:border-blue-400 focus:bg-white/20 transition-all placeholder-white/30"
+                                 placeholder="Dealer Name"
+                                 value={extractedMetadata.dealerName || ''}
+                                 onChange={e => setExtractedMetadata(prev => ({ ...prev, dealerName: e.target.value }))}
+                               />
+                            </div>
+                            <div>
+                               <label className="text-[9px] font-black uppercase tracking-[0.15em] text-blue-300 block mb-1.5">Invoice/Bill No. (Type Manually if Wrong)</label>
+                               <input 
+                                 type="text" 
+                                 className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-xs font-black text-white uppercase outline-none focus:border-blue-400 focus:bg-white/20 transition-all placeholder-white/30 text-yellow-300"
+                                 placeholder="Type Invoice Number (e.g. GST-1293)"
+                                 value={extractedMetadata.invoiceNumber || ''}
+                                 onChange={e => setExtractedMetadata(prev => ({ ...prev, invoiceNumber: e.target.value }))}
+                               />
+                               <span className="text-[8px] font-black text-slate-400 mt-1 block uppercase tracking-wider">AI may misdetect — review and correct here.</span>
+                            </div>
+                            <div>
+                               <label className="text-[9px] font-black uppercase tracking-[0.15em] text-blue-300 block mb-1.5">Verify Invoice Date</label>
+                               <input 
+                                 type="text" 
+                                 className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-xs font-black text-white uppercase outline-none focus:border-blue-400 focus:bg-white/20 transition-all placeholder-white/30"
+                                 placeholder="Invoice Date"
+                                 value={extractedMetadata.invoiceDate || ''}
+                                 onChange={e => setExtractedMetadata(prev => ({ ...prev, invoiceDate: e.target.value }))}
+                               />
+                            </div>
+                         </div>
+                      </div>
+
+                      <div className="bg-white border border-slate-200 rounded-3xl sm:rounded-[2.5rem] overflow-x-auto no-scrollbar shadow-soft">
+                        <table className="w-full text-left text-sm border-collapse min-w-[700px] md:min-w-0">
                            <thead className="bg-slate-50 text-slate-400 font-black uppercase text-[9px] tracking-[0.2em] border-b border-slate-100">
                               <tr>
                                  <th className="px-8 py-6">Identity / Part</th>
@@ -665,28 +720,108 @@ const Purchases: React.FC<Props> = ({ user }) => {
           <div className="fixed inset-0 z-[200] bg-slate-900/60 backdrop-blur-md flex items-end justify-center animate-fade-in no-scrollbar">
               <div className="bg-white w-full rounded-t-[3rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-slide-up pb-safe no-scrollbar">
                   <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-4 w-full">
                           <button onClick={() => setSelectedInbound(null)} className="p-3 bg-white text-slate-400 rounded-2xl shadow-soft border border-slate-100 active:scale-90 transition-all"><ArrowLeft size={22} strokeWidth={3}/></button>
                           <div className="min-w-0 flex-1">
-                              <h3 className="font-black text-slate-900 text-lg uppercase leading-tight truncate max-w-[250px] tracking-tight">
-                                  {parseSupplier(selectedInbound.customerName).supplier}
-                              </h3>
-                              <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                                  {parseSupplier(selectedInbound.customerName).invNo && (
-                                     <span className="bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded text-indigo-600 font-black text-[9px] tracking-wider uppercase">
-                                        INV NO: {parseSupplier(selectedInbound.customerName).invNo}
-                                     </span>
-                                  )}
-                                  {parseSupplier(selectedInbound.customerName).invDate && (
-                                     <span className="bg-slate-100 border border-slate-200 px-2 py-0.5 rounded text-slate-600 font-black text-[9px] tracking-wider uppercase">
-                                        DATE: {parseSupplier(selectedInbound.customerName).invDate}
-                                     </span>
-                                  )}
-                                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.1em]">
-                                     Registered: {new Date(selectedInbound.createdAt).toLocaleDateString()}
-                                  </span>
-                              </div>
-                          </div>
+                              {isEditingInboundInfo ? (
+                                  <div className="flex flex-col gap-3 p-4 bg-slate-100/80 border border-slate-200 rounded-2xl w-full max-w-xl shadow-inner-soft mt-1">
+                                      <span className="text-[9px] font-black uppercase text-indigo-600 tracking-[0.15em] mb-1">Correct Invoice/Supplier Metadata</span>
+                                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                          <div>
+                                              <label className="text-[8px] font-black uppercase text-slate-500 block mb-1">Supplier Name</label>
+                                              <input
+                                                  type="text"
+                                                  className="w-full text-xs font-bold px-3 py-2 bg-white border border-slate-205 rounded-xl outline-none uppercase focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                                  value={editSupplierName}
+                                                  onChange={e => setEditSupplierName(e.target.value)}
+                                              />
+                                          </div>
+                                          <div>
+                                              <label className="text-[8px] font-black uppercase text-slate-500 block mb-1">Invoice/Bill Number</label>
+                                              <input
+                                                  type="text"
+                                                  className="w-full text-xs font-bold px-3 py-2 bg-white border border-slate-205 rounded-xl outline-none uppercase focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-indigo-600"
+                                                  value={editInvoiceNo}
+                                                  placeholder="Type Invoice No."
+                                                  onChange={e => setEditInvoiceNo(e.target.value)}
+                                              />
+                                          </div>
+                                          <div>
+                                              <label className="text-[8px] font-black uppercase text-slate-500 block mb-1">Invoice Date</label>
+                                              <input
+                                                  type="text"
+                                                  className="w-full text-xs font-bold px-3 py-2 bg-white border border-slate-205 rounded-xl outline-none uppercase focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                                  value={editInvoiceDate}
+                                                  placeholder="DD-MM-YYYY"
+                                                  onChange={e => setEditInvoiceDate(e.target.value)}
+                                              />
+                                          </div>
+                                      </div>
+                                      <div className="flex gap-2 justify-end mt-1">
+                                          <button 
+                                              onClick={() => setIsEditingInboundInfo(false)} 
+                                              className="px-3 py-1.5 bg-white border border-slate-200 text-slate-400 rounded-lg text-[10px] font-black uppercase tracking-wider hover:bg-slate-50 transition-colors"
+                                          >
+                                              Cancel
+                                          </button>
+                                          <button 
+                                              onClick={async () => {
+                                                  const metadataParts = [];
+                                                  metadataParts.push(`INV: ${editInvoiceNo || 'N/A'}`);
+                                                  metadataParts.push(`DATE: ${editInvoiceDate || 'N/A'}`);
+                                                  const formattedSourceName = `${editSupplierName} (${metadataParts.join(', ')})`.toUpperCase().trim();
+
+                                                  setLoading(true);
+                                                  const txIds = selectedInbound.items.map(i => i.id);
+                                                  const res = await updateGroupedInvoiceDetails(txIds, formattedSourceName);
+                                                  setLoading(false);
+
+                                                  if (res.success) {
+                                                      setSelectedInbound(prev => prev ? { ...prev, customerName: formattedSourceName } : null);
+                                                      setIsEditingInboundInfo(false);
+                                                      loadHistory();
+                                                  } else {
+                                                      alert("Error correcting details: " + res.message);
+                                                  }
+                                              }} 
+                                              className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors shadow-soft"
+                                          >
+                                              Save Corrections
+                                          </button>
+                                      </div>
+                                  </div>
+                              ) : (
+                                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+                                      <div className="min-w-0 pr-4">
+                                          <h3 className="font-black text-slate-900 text-lg uppercase leading-tight truncate max-w-[250px] md:max-w-md tracking-tight">
+                                              {parseSupplier(selectedInbound.customerName).supplier}
+                                          </h3>
+                                          <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                                              {parseSupplier(selectedInbound.customerName).invNo && (
+                                                 <span className="bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded text-indigo-600 font-black text-[9px] tracking-wider uppercase flex items-center gap-1">
+                                                    <FileText size={10} /> INV NO: {parseSupplier(selectedInbound.customerName).invNo}
+                                                 </span>
+                                              )}
+                                              {parseSupplier(selectedInbound.customerName).invDate && (
+                                                 <span className="bg-slate-100 border border-slate-200 px-2 py-0.5 rounded text-slate-600 font-black text-[9px] tracking-wider uppercase">
+                                                    DATE: {parseSupplier(selectedInbound.customerName).invDate}
+                                                 </span>
+                                              )}
+                                              <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.1em]">
+                                                 Registered: {new Date(selectedInbound.createdAt).toLocaleDateString()}
+                                              </span>
+                                          </div>
+                                      </div>
+                                      <button
+                                          onClick={() => setIsEditingInboundInfo(true)}
+                                          className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 rounded-xl font-black text-[10px] uppercase tracking-wider transition-all shadow-soft active:scale-95"
+                                      >
+                                          <Edit2 size={12} strokeWidth={2.5} className="text-indigo-600" />
+                                          Edit Bill Info
+                                      </button>
+                                  </div>
+                              )}
+                           </div>
                       </div>
                   </div>
                   <div className="flex-1 overflow-y-auto p-4 no-scrollbar space-y-4 bg-slate-50/30 pb-24">

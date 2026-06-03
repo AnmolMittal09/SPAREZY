@@ -639,3 +639,37 @@ export const deleteGroupedTransactions = async (
     return { success: false, message: error.message };
   }
 };
+
+export const updateGroupedInvoiceDetails = async (
+  transactionIds: string[],
+  newCustomerName: string
+): Promise<{ success: boolean; message?: string }> => {
+  if (supabase) {
+    try {
+      const { error } = await supabase
+        .from('transactions')
+        .update({ customer_name: newCustomerName.toUpperCase().trim() })
+        .in('id', transactionIds);
+
+      if (error) throw new Error(error.message);
+      return { success: true };
+    } catch (error: any) {
+      console.error("Update Grouped Invoice Details Error:", error);
+      return { success: false, message: error.message };
+    }
+  }
+
+  // --- LOCAL STORAGE FALLBACK ---
+  try {
+    const txs = getTransactionsFromLS();
+    txs.forEach(t => {
+      if (transactionIds.includes(t.id)) {
+        t.customerName = newCustomerName.toUpperCase().trim();
+      }
+    });
+    saveTransactionsToLS(txs);
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, message: error.message };
+  }
+};
