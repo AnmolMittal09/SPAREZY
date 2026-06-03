@@ -95,7 +95,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
   const [importing, setImporting] = useState(false);
   const [importLog, setImportLog] = useState<{ success: boolean; message: string; count: number; totalValue: number; errorCount: number; addedCount?: number; updatedCount?: number; dealer?: string } | null>(null);
   const [previewData, setPreviewData] = useState<ExtractedItem[]>([]);
-  const [extractedMetadata, setExtractedMetadata] = useState<{ dealerName?: string; invoiceDate?: string; invoiceNumber?: string }>({});
+  const [extractedMetadata, setExtractedMetadata] = useState<{ dealerName?: string; invoiceDate?: string }>({});
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [historySearch, setHistorySearch] = useState('');
   const [selectedBrand, setSelectedBrand] = useState<Brand>(Brand.HYUNDAI);
@@ -176,25 +176,15 @@ const Purchases: React.FC<Props> = ({ user }) => {
   }, [filteredHistory, sortOrder]);
 
   const parseSupplier = (name: string) => {
-    if (!name) return { supplier: 'Main Provider', invDate: null, invoiceNumber: null };
+    if (!name) return { supplier: 'Main Provider', invDate: null };
     const parts = name.split(' (INV: ');
     if (parts.length > 1) {
-      const rest = parts[1].replace(')', '').trim();
-      if (rest.includes(' | DATE: ')) {
-        const subparts = rest.split(' | DATE: ');
-        return {
-          supplier: parts[0].trim(),
-          invoiceNumber: subparts[0].trim(),
-          invDate: subparts[1].trim()
-        };
-      }
       return { 
         supplier: parts[0].trim(), 
-        invDate: rest,
-        invoiceNumber: null
+        invDate: parts[1].replace(')', '').trim() 
       };
     }
-    return { supplier: name, invDate: null, invoiceNumber: null };
+    return { supplier: name, invDate: null };
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -260,7 +250,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
         }
         const result = await extractInvoiceData(payload);
         if (result && result.items && result.items.length > 0) {
-          setExtractedMetadata({ dealerName: result.dealerName, invoiceDate: result.invoiceDate, invoiceNumber: result.invoiceNumber });
+          setExtractedMetadata({ dealerName: result.dealerName, invoiceDate: result.invoiceDate });
           const verifiedItems = result.items.map((item: any) => {
             const expected = item.mrp * (1 - currentDiscountRate / 100);
             const diff = item.printedUnitPrice - expected;
@@ -283,10 +273,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
   const confirmBulkImport = async () => {
     if (previewData.length === 0) return;
     setImporting(true);
-    const sourceName = (extractedMetadata.dealerName 
-      ? `${extractedMetadata.dealerName} (INV: ${extractedMetadata.invoiceNumber || 'N/A'} | DATE: ${extractedMetadata.invoiceDate || 'N/A'})` 
-      : `AI Audit (${new Date().toLocaleDateString()})`
-    ).toUpperCase().trim();
+    const sourceName = (extractedMetadata.dealerName ? `${extractedMetadata.dealerName} (Inv: ${extractedMetadata.invoiceDate})` : `AI Audit (${new Date().toLocaleDateString()})`).toUpperCase().trim();
     
     try {
         // FIX: We do NOT calculate the new quantity manually here. 
@@ -440,8 +427,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
                               <h3 className="text-2xl font-black tracking-tight uppercase leading-none mb-2">{extractedMetadata.dealerName || 'Extracted Dealer'}</h3>
                               <div className="flex flex-wrap items-center gap-4 text-[10px] font-black uppercase tracking-widest text-blue-400">
                                  <span className="bg-white/10 text-white px-3 py-1 rounded-lg ring-1 ring-white/20">{selectedBrand}</span>
-                                  {extractedMetadata.invoiceNumber && <div className="flex items-center gap-1.5"><FileText size={14} /> # {extractedMetadata.invoiceNumber}</div>}
-                                  <div className="flex items-center gap-1.5"><Calendar size={14} /> {extractedMetadata.invoiceDate || 'No Date'}</div>
+                                 <div className="flex items-center gap-1.5"><Calendar size={14} /> {extractedMetadata.invoiceDate || 'No Date'}</div>
                                  <div className="flex items-center gap-1.5"><Layers size={14} /> {fd(previewData.length)} Assets Logged</div>
                               </div>
                            </div>
@@ -559,7 +545,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
                              </div>
                            ) : (
                              stackedHistory.map(stack => {
-                                const { supplier, invDate, invoiceNumber } = parseSupplier(stack.customerName);
+                                const { supplier, invDate } = parseSupplier(stack.customerName);
                                 return (
                                   <div 
                                     key={stack.id} 
@@ -572,17 +558,10 @@ const Purchases: React.FC<Props> = ({ user }) => {
                                       <div className="p-3 bg-slate-50 text-slate-400 rounded-xl group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors border border-slate-100">
                                          <Truck size={20} strokeWidth={2.5}/>
                                       </div>
-                                     <div className="min-w-0">
-                                         <div className="flex flex-wrap items-center gap-2 mb-2">
-                                            <h3 className="font-black text-[16px] md:text-lg text-slate-900 uppercase tracking-tight truncate leading-none group-hover:text-blue-600 transition-colors">
-                                               {supplier}
-                                            </h3>
-                                            {invoiceNumber && (
-                                               <span className="bg-slate-100 text-slate-700 text-[10px] font-black px-2 py-0.5 rounded-lg border border-slate-200">
-                                                  #{invoiceNumber}
-                                               </span>
-                                            )}
-                                         </div>
+                                      <div className="min-w-0">
+                                         <h3 className="font-black text-[16px] md:text-lg text-slate-900 uppercase tracking-tight truncate leading-none group-hover:text-blue-600 transition-colors">
+                                            {supplier}
+                                         </h3>
                                          <div className="flex flex-col gap-1 mt-2">
                                             <div className="flex items-center gap-1.5 text-[10px] font-black text-slate-700 uppercase tracking-widest">
                                                <Calendar size={12} className="text-blue-600" />
@@ -630,24 +609,8 @@ const Purchases: React.FC<Props> = ({ user }) => {
                       <div className="flex items-center gap-4">
                           <button onClick={() => setSelectedInbound(null)} className="p-3 bg-white text-slate-400 rounded-2xl shadow-soft border border-slate-100 active:scale-90 transition-all"><ArrowLeft size={22} strokeWidth={3}/></button>
                           <div className="min-w-0">
-                              <h3 className="font-black text-slate-900 text-lg uppercase leading-tight truncate max-w-[250px] tracking-tight">
-                                  {(() => {
-                                      const parsed = parseSupplier(selectedInbound.customerName);
-                                      return (
-                                          <span className="flex items-center gap-2 flex-wrap">
-                                              <span>{parsed.supplier}</span>
-                                              {parsed.invoiceNumber && (
-                                                  <span className="bg-blue-50 text-blue-600 text-[10px] font-black px-2 py-0.5 rounded-lg border border-blue-100 normal-case">
-                                                      #{parsed.invoiceNumber}
-                                                  </span>
-                                              )}
-                                          </span>
-                                      );
-                                  })()}
-                              </h3>
-                              <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">
-                                  Invoice Date: {parseSupplier(selectedInbound.customerName).invDate || new Date(selectedInbound.createdAt).toLocaleDateString()} • Scanned: {new Date(selectedInbound.createdAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
-                              </p>
+                              <h3 className="font-black text-slate-900 text-lg uppercase leading-tight truncate max-w-[250px] tracking-tight">{parseSupplier(selectedInbound.customerName).supplier}</h3>
+                              <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">{new Date(selectedInbound.createdAt).toLocaleDateString()} • {new Date(selectedInbound.createdAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</p>
                           </div>
                       </div>
                   </div>

@@ -320,9 +320,9 @@ const StockTable: React.FC<any> = ({ items, title, userRole, userName, enableAct
                     </button>
                 )}
                 <button onClick={handleExport} className="p-2.5 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 transition-all shadow-sm"><Download size={18} strokeWidth={2}/></button>
-                <div className="relative group w-full md:w-auto flex-2 md:max-w-xs">
+                <div className="relative group hidden md:block">
                     <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} strokeWidth={2} />
-                    <input type="text" placeholder="SKU Search..." className="pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm font-semibold w-full md:w-64 focus:border-slate-950 outline-none transition-all shadow-sm" value={internalSearch} onChange={e => setInternalSearch(e.target.value)}/>
+                    <input type="text" placeholder="Direct SKU Filter..." className="pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium w-72 focus:border-slate-950 outline-none transition-all shadow-sm" value={internalSearch} onChange={e => setInternalSearch(e.target.value)}/>
                 </div>
                 {isOwner && (
                     <button onClick={() => setShowArchived(!showArchived)} className={`hidden md:flex p-2.5 rounded-xl border transition-all ${showArchived ? 'bg-amber-50 border-amber-200 text-amber-900' : 'bg-white border-slate-200 text-slate-550 hover:border-slate-300 hover:bg-slate-50'}`}>
