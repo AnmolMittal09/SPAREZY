@@ -114,7 +114,12 @@ export const extractInvoiceData = async (files: InvoiceFile[]) => {
       2. Identify the Invoice Date.
       3. Identify the Invoice Number/Bill Number (This is usually labeled 'Invoice No.', 'Inv No.', 'Bill No.', 'Tax Invoice No.' etc., e.g. "INV-2024-001" or "GST/1293").
       4. Extract line items strictly from the ORIGINAL pages with these fields:
-         - Part Number (alphanumeric SKU)
+         - Part Number: The actual manufacturer alphanumeric spare part number/SKU.
+           * CRITICAL: Do NOT extract S.No/Sl.No (like 1, 2, 3...) which represent row numbers.
+           * CRITICAL: Do NOT extract HSN / SAC Codes (like 8708, 4016, 87089900, 87082990) which represent GST tax classification categories.
+           * Hyundai part numbers are typically alphanumeric strings often formatted with hyphens (e.g. "95430-1W000", "58101-1RA00", "28510-2B000", "551001RA00"). Mahindra part numbers are typically multi-character alphanumeric sequences, often without standard hyphens or with slash indicators (e.g. "0305AP0071N", "0114CD0021N", "0313AP0120N").
+           * Look for columns titled "Part No", "Part Number", "Item Code", "Catalog No", or "Item ID".
+           * If the Part Number is joined inside the description or part name field (e.g., "95430-1W000 CHASSIS BUSH"), parse and separate them so that the Part Number field receives only the clean alphanumeric code ("95430-1W000") and the Name field receives the text ("CHASSIS BUSH").
          - Part Name/Description (the full descriptive name of the part)
          - Quantity (Qty)
          - MRP (Maximum Retail Price before discount)
@@ -138,7 +143,7 @@ export const extractInvoiceData = async (files: InvoiceFile[]) => {
             items: {
               type: Type.OBJECT,
               properties: {
-                partNumber: { type: Type.STRING },
+                partNumber: { type: Type.STRING, description: "The true manufacturer alphanumeric part number (SKU/Catalog ID). DO NOT use HSN/SAC codes or row Sl. No. numbers here." },
                 name: { type: Type.STRING, description: "Descriptive name of the part" },
                 quantity: { type: Type.NUMBER },
                 mrp: { type: Type.NUMBER },

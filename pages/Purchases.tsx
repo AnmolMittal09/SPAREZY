@@ -125,6 +125,17 @@ const Purchases: React.FC<Props> = ({ user }) => {
     excludedList?: { partNumber: string; reason: string; quantity: number }[];
   } | null>(null);
   const [previewData, setPreviewData] = useState<ExtractedItem[]>([]);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editingPartNo, setEditingPartNo] = useState<string>('');
+
+  const getInventoryMatch = useCallback((partNo: string) => {
+    if (!partNo) return null;
+    const norm = partNo.replace(/[-\s]/g, '').toUpperCase().trim();
+    return inventory.find(inv => {
+      const invNorm = inv.partNumber.replace(/[-\s]/g, '').toUpperCase().trim();
+      return invNorm === norm;
+    });
+  }, [inventory]);
   const [removedItems, setRemovedItems] = useState<{ partNumber: string; name: string; quantity: number; reason: string; mrp: number; printedUnitPrice: number; discountPercent: number; diff: number }[]>([]);
   const [itemToRemove, setItemToRemove] = useState<ExtractedItem | null>(null);
   const [removalReason, setRemovalReason] = useState('');
@@ -266,10 +277,57 @@ const Purchases: React.FC<Props> = ({ user }) => {
         const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
         if (!jsonData || jsonData.length < 1) throw new Error("Spreadsheet is empty.");
 
-        const parsed = jsonData.slice(1).map(row => {
-          const mrp = Number(row[2] || 0);
-          const disc = Number(row[3] || 0);
-          const printed = Number(row[4] || mrp * (1 - disc/100));
+        // Locate the header row by searching for keywords representing common inventory columns
+        let headerRowIndex = 0;
+        for (let i = 0; i < Math.min(jsonData.length, 12); i++) {
+          const row = jsonData[i] || [];
+          const rowStr = row.map(cell => String(cell || '').toLowerCase()).join(' ');
+          if (rowStr.includes('part') || rowStr.includes('description') || rowStr.includes('mrp') || rowStr.includes('qty')) {
+            headerRowIndex = i;
+            break;
+          }
+        }
+
+        const headers = (jsonData[headerRowIndex] || []).map(h => String(h || '').toLowerCase().trim());
+        
+        let partNoIdx = headers.findIndex(h => h.includes('part no') || h.includes('part number') || h.includes('part_no') || h.includes('item code') || h.includes('sku') || h.includes('partcode') || h.includes('part code') || h.includes('catalog id') || h === 'parts');
+        let nameIdx = headers.findIndex(h => h.includes('name') || h.includes('description') || h.includes('desc') || h.includes('nomenclature') || h.includes('item'));
+        let mrpIdx = headers.findIndex(h => h.includes('mrp') || h.includes('list price') || h.includes('price') || h.includes('basic price') || h.includes('unit price') || h === 'rate');
+        let discIdx = headers.findIndex(h => h.includes('disc') || h.includes('b.dc') || h.includes('bdc') || h.includes('discount'));
+        let netPriceIdx = headers.findIndex(h => h.includes('net rate') || h.includes('net price') || h.includes('printed') || h.includes('billing rate') || h.includes('actual price') || h.includes('after discount') || h.includes('purchase rate'));
+        let qtyIdx = headers.findIndex(h => h.includes('qty') || h.includes('quantity') || h.includes('pieces') || h.includes('pcs') || h.includes('rec qty') || h.includes('billed qty'));
+
+        // Fallbacks if not found by header text
+        if (partNoIdx === -1) {
+          // If first column looks like serial count (1, 2, 3) or row label, assume column 1 is part number, otherwise 0
+          const firstCell = String(jsonData[headerRowIndex + 1]?.[0] || '');
+          const isSerial = !isNaN(Number(firstCell)) && Number(firstCell) < 100;
+          partNoIdx = isSerial ? 1 : 0;
+        }
+        if (nameIdx === -1) nameIdx = partNoIdx === 0 ? 1 : 2;
+        if (mrpIdx === -1) mrpIdx = 2;
+        if (discIdx === -1) discIdx = 3;
+        if (netPriceIdx === -1) netPriceIdx = 4;
+        if (qtyIdx === -1) qtyIdx = 5;
+
+        const parsed = jsonData.slice(headerRowIndex + 1).map(row => {
+          if (!row || row.length === 0) return null;
+          
+          const partNumberRaw = String(row[partNoIdx] || '').toUpperCase().trim();
+          
+          // Skip if the row contains header names or empty data
+          if (!partNumberRaw || partNumberRaw === 'PART NO' || partNumberRaw === 'PART NUMBER' || partNumberRaw === 'SL. NO' || partNumberRaw === 'S.NO' || partNumberRaw === 'N/A') {
+            return null;
+          }
+
+          // Also avoid interpreting simple sequential line numbers (e.g. "1", "2") as valid part numbers
+          if (!isNaN(Number(partNumberRaw)) && Number(partNumberRaw) < 100) {
+            return null;
+          }
+
+          const mrp = Number(row[mrpIdx] || 0);
+          const disc = Number(row[discIdx] || 0);
+          const printed = Number(row[netPriceIdx] || mrp * (1 - disc/100));
           const calculatedAtRate = mrp * (1 - (currentDiscountRate/100));
           let hasError = disc < currentDiscountRate || Math.abs(printed - calculatedAtRate) > 0.5;
           let errorType: 'DISCOUNT_LOW' | 'CALC_MISMATCH' | 'NONE' = 'NONE';
@@ -277,12 +335,12 @@ const Purchases: React.FC<Props> = ({ user }) => {
           else if (Math.abs(printed - calculatedAtRate) > 0.5) errorType = 'CALC_MISMATCH';
 
           return {
-            partNumber: String(row[0] || '').toUpperCase().trim(),
-            name: String(row[1] || 'Excel Row'),
-            quantity: Number(row[5] || 1),
+            partNumber: partNumberRaw,
+            name: String(row[nameIdx] || 'Excel Row'),
+            quantity: Number(row[qtyIdx] || 1),
             mrp, discountPercent: disc, printedUnitPrice: printed, calculatedPrice: calculatedAtRate, hasError, errorType, diff: printed - calculatedAtRate
           };
-        }).filter(i => i.partNumber && i.quantity > 0);
+        }).filter(i => i !== null && i.partNumber && i.quantity > 0);
         setPreviewData(parsed as any);
       } else {
         const payload: InvoiceFile[] = [];
@@ -591,8 +649,107 @@ const Purchases: React.FC<Props> = ({ user }) => {
                               {previewData.map((item, idx) => (
                                  <tr key={idx} className={`hover:bg-slate-50/50 transition-colors ${item.hasError ? 'bg-rose-50/20' : ''}`}>
                                     <td className="px-8 py-6">
-                                       <div className="font-black text-slate-900 text-base uppercase tracking-tight mb-1">{item.partNumber}</div>
-                                       <div className="text-[11px] text-slate-400 font-bold uppercase truncate max-w-xs">{item.name}</div>
+                                       {editingIndex === idx ? (
+                                          <div className="space-y-2 max-w-sm text-left">
+                                             <div className="flex items-center gap-2">
+                                                <input
+                                                   type="text"
+                                                   className="uppercase bg-white border border-blue-400 rounded-xl px-3 py-1.5 text-xs font-black text-slate-900 outline-none w-full shadow-inner"
+                                                   value={editingPartNo}
+                                                   onChange={e => setEditingPartNo(e.target.value)}
+                                                   placeholder="Part Number"
+                                                   autoFocus
+                                                   onKeyDown={e => {
+                                                      if (e.key === 'Enter') {
+                                                         const updated = [...previewData];
+                                                         const val = editingPartNo.toUpperCase().trim();
+                                                         if (val) {
+                                                            updated[idx].partNumber = val;
+                                                         }
+                                                         setPreviewData(updated);
+                                                         setEditingIndex(null);
+                                                      } else if (e.key === 'Escape') {
+                                                         setEditingIndex(null);
+                                                      }
+                                                   }}
+                                                />
+                                                <button 
+                                                   onClick={() => {
+                                                      const updated = [...previewData];
+                                                      const val = editingPartNo.toUpperCase().trim();
+                                                      if (val) {
+                                                         updated[idx].partNumber = val;
+                                                      }
+                                                      setPreviewData(updated);
+                                                      setEditingIndex(null);
+                                                   }}
+                                                   className="p-1.5 bg-teal-500 hover:bg-teal-600 text-white rounded-lg transition-all shadow-md active:scale-95"
+                                                   title="Save"
+                                                >
+                                                   <Check size={14} />
+                                                </button>
+                                                <button 
+                                                   onClick={() => setEditingIndex(null)}
+                                                   className="px-2 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-all text-xs font-bold"
+                                                   title="Cancel"
+                                                >
+                                                   Cancel
+                                                </button>
+                                             </div>
+                                             <div>
+                                                {(() => {
+                                                   const match = getInventoryMatch(editingPartNo);
+                                                   if (match) {
+                                                      return (
+                                                         <div className="text-[10px] text-teal-600 font-extrabold uppercase tracking-wider flex items-center gap-1 bg-teal-50 px-2 py-1 rounded-md border border-teal-100 mt-1">
+                                                            <span>✔ Registered:</span> {match.name} {match.rackLocation ? `(Rack: ${match.rackLocation})` : ''}
+                                                         </div>
+                                                      );
+                                                   } else if (editingPartNo.trim().length > 0) {
+                                                      return (
+                                                         <div className="text-[10px] text-amber-600 font-extrabold uppercase tracking-wider flex items-center gap-1 bg-amber-50 px-2 py-1 rounded-md border border-amber-100 mt-1">
+                                                            <span>⚠️ NEW SKU:</span> Creates a new part upon syncing.
+                                                         </div>
+                                                      );
+                                                   }
+                                                   return null;
+                                                })()}
+                                             </div>
+                                          </div>
+                                       ) : (
+                                          <div className="space-y-1.5 text-left">
+                                             <div className="flex items-center gap-2 flex-wrap">
+                                                <span className="font-black text-slate-900 text-base uppercase tracking-tight">{item.partNumber}</span>
+                                                <button 
+                                                   onClick={() => {
+                                                      setEditingIndex(idx);
+                                                      setEditingPartNo(item.partNumber);
+                                                   }}
+                                                   className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-all"
+                                                   title="Edit Part Number"
+                                                >
+                                                   <Edit2 size={13} />
+                                                </button>
+                                                {(() => {
+                                                   const match = getInventoryMatch(item.partNumber);
+                                                   if (match) {
+                                                      return (
+                                                         <span className="inline-flex items-center gap-1 text-[9px] bg-teal-50 text-teal-700 px-2 py-0.5 rounded-lg border border-teal-100 font-black uppercase tracking-widest shadow-sm">
+                                                            <Check size={10} strokeWidth={3} /> Registered {match.rackLocation ? `[Rack: ${match.rackLocation}]` : ''}
+                                                         </span>
+                                                      );
+                                                   } else {
+                                                      return (
+                                                         <span className="inline-flex items-center gap-1 text-[9px] bg-amber-50 text-amber-700 px-2 py-0.5 rounded-lg border border-amber-100 font-black uppercase tracking-widest shadow-sm animate-pulse">
+                                                            ⚠️ Unmatched in Inventory
+                                                         </span>
+                                                      );
+                                                   }
+                                                })()}
+                                             </div>
+                                             <div className="text-[11px] text-slate-400 font-bold uppercase truncate max-w-xs">{item.name}</div>
+                                          </div>
+                                       )}
                                     </td>
                                     <td className="px-8 py-6 text-center font-black text-slate-900 text-lg tabular-nums">#{fd(item.quantity)}</td>
                                     <td className="px-8 py-6 text-right">
