@@ -461,6 +461,17 @@ const Purchases: React.FC<Props> = ({ user }) => {
                         <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Images, PDFs or Vendor Excel Spreadsheets</p>
                      </div>
 
+                     {errorMsg && (
+                        <div className="bg-rose-50 border border-slate-200 text-rose-800 p-5 rounded-2xl flex items-start gap-3 animate-fade-in text-xs font-bold uppercase tracking-wider mb-6">
+                           <AlertCircle className="text-rose-600 shrink-0 mt-0.5" size={18} />
+                           <div className="flex-1">
+                              <p className="font-black text-rose-950 mb-0.5">Scanning Error</p>
+                              <span className="text-[10px] text-rose-700 leading-relaxed font-bold lowercase normal-case first-letter:uppercase">{errorMsg}</span>
+                           </div>
+                           <button onClick={() => setErrorMsg(null)} className="text-rose-450 hover:text-rose-600 font-black px-1.5 py-0.5 rounded-lg">Dismiss</button>
+                        </div>
+                     )}
+
                      {queuedFiles.length > 0 && (
                         <div className="space-y-4 animate-fade-in">
                            <div className="flex items-center justify-between px-2">
