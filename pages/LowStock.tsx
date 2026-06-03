@@ -31,7 +31,7 @@ const LowStock: React.FC<Props> = ({ user }) => {
          <p className="text-slate-500">Items below minimum threshold requiring reorder.</p>
       </div>
 
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
           <StockTable 
              items={inventory} 
              title="Critical Inventory"

@@ -64,8 +64,8 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role; 
     <div className={`relative flex ${align === 'right' ? 'justify-end' : 'justify-start'} items-center`}>
       <div 
         onClick={visible ? (isMobile ? undefined : handleToggleHistory) : handleReveal}
-        className={`group/price flex items-center gap-2 p-1.5 rounded-lg border transition-all cursor-pointer ${
-          visible ? 'bg-slate-950 text-white border-slate-900 shadow-md' : 'bg-white text-slate-300 border-slate-200/80 hover:border-slate-300'
+        className={`group/price flex items-center gap-2 p-1.5 rounded-lg border-2 transition-all cursor-pointer ${
+          visible ? 'bg-slate-950 text-white border-slate-900 shadow-md' : 'bg-white text-slate-300 border-slate-200 hover:border-slate-400'
         }`}
       >
         {!visible ? (
@@ -82,7 +82,7 @@ const PriceCell: React.FC<{ price: number; partNumber: string; userRole?: Role; 
       </div>
 
       {showHistory && isOwner && !isMobile && (
-        <div ref={popoverRef} className="absolute bottom-full mb-3 right-0 z-[600] w-64 bg-white rounded-xl shadow-md border border-slate-200/80 p-4 animate-slide-up">
+        <div ref={popoverRef} className="absolute bottom-full mb-3 right-0 z-[600] w-64 bg-white rounded-2xl shadow-elevated border-2 border-slate-200 p-5 animate-slide-up">
            <div className="flex items-center gap-2 mb-4">
               <Clock size={16} className="text-slate-900" />
               <h4 className="text-[11px] font-black text-slate-900 uppercase">Price Audit Trail</h4>
@@ -110,7 +110,7 @@ const SwipeableMobileItem: React.FC<any> = React.memo(({ item, userRole, toggleS
     return (
         <div 
             onClick={() => { if(enableSelection && !isEditMode && userRole === Role.OWNER) toggleSelect(item.partNumber); }}
-            className={`relative bg-white border p-4 rounded-xl shadow-sm transition-all duration-150 flex flex-col gap-3.5 ${isSelected ? 'border-blue-500 ring-2 ring-blue-50 bg-blue-50/10' : 'border-slate-200/80'} ${isZero ? 'bg-slate-50/50' : ''}`}
+            className={`relative bg-white border-2 p-5 rounded-2xl shadow-soft transition-all duration-200 flex flex-col gap-4 ${isSelected ? 'border-blue-600 ring-4 ring-blue-50 bg-blue-50/20' : 'border-slate-200'} ${isZero ? 'bg-slate-50/50' : ''}`}
         >
             <div className="flex gap-4 items-start">
                 {enableSelection && !isEditMode && userRole === Role.OWNER && (
@@ -293,18 +293,18 @@ const StockTable: React.FC<any> = ({ items, title, userRole, userName, enableAct
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 flex flex-col overflow-visible">
+    <div className="bg-white rounded-3xl shadow-premium border-2 border-slate-200 flex flex-col overflow-visible">
       {!hideToolbar && (
-        <div className="px-6 py-4.5 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/40">
+        <div className="px-8 py-6 border-b-2 border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50">
             <div className="flex items-center gap-4">
-               <h2 className="font-bold text-slate-800 text-lg tracking-tight uppercase">{title || 'Registry Control'}</h2>
-                <span className="bg-slate-900 text-white px-2.5 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-wider">{formatQty(filteredItems.length)} items</span>
+               <h2 className="font-extrabold text-slate-950 text-xl tracking-tight uppercase">{title || 'Registry Control'}</h2>
+               <span className="bg-slate-950 text-white px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest">{formatQty(filteredItems.length)} items</span>
             </div>
             <div className="flex items-center gap-3">
                 {isOwner && (
                     <button 
                         onClick={() => { setIsEditMode(!isEditMode); setSelectedParts(new Set()); }}
-                        className={`flex items-center gap-2 px-5 py-3 rounded-xl font-bold text-[10px] uppercase tracking-wider transition-all active:scale-95 shadow-sm border ${isEditMode ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}
+                        className={`flex items-center gap-2 px-5 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 shadow-lg border-2 ${isEditMode ? 'bg-amber-100 text-amber-700 border-amber-300' : 'bg-white text-slate-600 border-slate-200'}`}
                     >
                         {isEditMode ? <Unlock size={16} /> : <Lock size={16} />}
                         {isEditMode ? 'Edit Mode On' : 'Edit Mode'}
@@ -319,14 +319,14 @@ const StockTable: React.FC<any> = ({ items, title, userRole, userName, enableAct
                       {showArchived ? 'Restore' : 'Archive'} ({fd(selectedParts.size)})
                     </button>
                 )}
-                <button onClick={handleExport} className="p-2.5 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 transition-all shadow-sm"><Download size={18} strokeWidth={2}/></button>
+                <button onClick={handleExport} className="p-3 rounded-2xl bg-white border-2 border-slate-200 text-slate-700 hover:text-blue-700 hover:border-blue-300 transition-all shadow-soft"><Download size={22} strokeWidth={2.5}/></button>
                 <div className="relative group hidden md:block">
-                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} strokeWidth={2} />
-                    <input type="text" placeholder="Direct SKU Filter..." className="pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium w-72 focus:border-slate-950 outline-none transition-all shadow-sm" value={internalSearch} onChange={e => setInternalSearch(e.target.value)}/>
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} strokeWidth={3} />
+                    <input type="text" placeholder="Direct SKU Filter..." className="pl-12 pr-6 py-3 bg-white border-2 border-slate-200 rounded-2xl text-sm font-bold w-72 focus:border-slate-900 outline-none transition-all shadow-inner-soft" value={internalSearch} onChange={e => setInternalSearch(e.target.value)}/>
                 </div>
                 {isOwner && (
-                    <button onClick={() => setShowArchived(!showArchived)} className={`hidden md:flex p-2.5 rounded-xl border transition-all ${showArchived ? 'bg-amber-50 border-amber-200 text-amber-900' : 'bg-white border-slate-200 text-slate-550 hover:border-slate-300 hover:bg-slate-50'}`}>
-                        {showArchived ? <ArchiveRestore size={18} /> : <Archive size={18} />}
+                    <button onClick={() => setShowArchived(!showArchived)} className={`hidden md:flex p-3 rounded-2xl border-2 transition-all ${showArchived ? 'bg-amber-100 border-amber-400 text-amber-900' : 'bg-white border-slate-200 text-slate-500'}`}>
+                        {showArchived ? <ArchiveRestore size={22} /> : <Archive size={22} />}
                     </button>
                 )}
             </div>
@@ -367,7 +367,7 @@ const StockTable: React.FC<any> = ({ items, title, userRole, userName, enableAct
                               type="checkbox" 
                               checked={isAllOnPageSelected} 
                               onChange={toggleSelectPage} 
-                              className="w-5 h-5 rounded border border-slate-350 text-blue-600 focus:ring-slate-950 transition-all cursor-pointer" 
+                              className="w-5 h-5 rounded border-2 border-slate-400 text-blue-700 focus:ring-slate-950 transition-all cursor-pointer" 
                             />
                         </th>
                     )}
@@ -386,7 +386,7 @@ const StockTable: React.FC<any> = ({ items, title, userRole, userName, enableAct
                       <tr key={item.id} className={`group hover:bg-slate-50 transition-colors ${!disableSelection && !isEditMode && selectedParts.has(item.partNumber) ? 'bg-blue-50/60' : ''}`}>
                           {enableActions && isOwner && !disableSelection && !isEditMode && (
                               <td className="px-8 py-5 text-center">
-                                  <input type="checkbox" checked={selectedParts.has(item.partNumber)} onChange={() => toggleSelect(item.partNumber)} className="w-5 h-5 rounded border border-slate-300 text-blue-600" />
+                                  <input type="checkbox" checked={selectedParts.has(item.partNumber)} onChange={() => toggleSelect(item.partNumber)} className="w-5 h-5 rounded border-2 border-slate-300 text-blue-700" />
                               </td>
                           )}
                           <td className="px-8 py-5"><Link to={`/item/${encodeURIComponent(item.partNumber)}`} className="font-black text-slate-950 hover:text-blue-700 transition-colors tracking-tight text-[16px] uppercase">{item.partNumber}</Link></td>
@@ -397,7 +397,7 @@ const StockTable: React.FC<any> = ({ items, title, userRole, userName, enableAct
                                   <div className="flex items-center justify-center gap-2">
                                       <input 
                                         type="number"
-                                        className="w-20 px-2 py-1 bg-white border border-slate-300 rounded-lg text-center font-bold text-slate-950 focus:border-blue-500 outline-none shadow-sm"
+                                        className="w-20 px-2 py-1 bg-white border-2 border-slate-200 rounded-lg text-center font-black text-slate-950 focus:border-blue-500 outline-none shadow-inner-soft"
                                         defaultValue={item.quantity}
                                         onBlur={(e) => handleDirectUpdate(item.partNumber, parseInt(e.target.value) || 0)}
                                       />
@@ -414,22 +414,22 @@ const StockTable: React.FC<any> = ({ items, title, userRole, userName, enableAct
                                       {!isEditMode && (
                                           <button 
                                             onClick={() => handleQuickRequest(item.partNumber)} 
-                                            className={`p-2.5 rounded-lg transition-all border active:scale-95 flex items-center justify-center ${
+                                            className={`p-3 rounded-xl transition-all border-2 active:scale-95 flex items-center justify-center ${
                                               isRequesting 
-                                                ? 'bg-indigo-600 text-white border-indigo-600' 
-                                                : 'text-slate-500 hover:text-blue-600 hover:bg-slate-50 border-transparent hover:border-slate-200'
+                                                ? 'bg-teal-500 text-white border-teal-500' 
+                                                : 'text-slate-600 hover:text-blue-700 hover:bg-blue-50 border-transparent hover:border-blue-100'
                                             }`}
                                             title="Add to Requisitions"
                                           >
-                                              {isRequesting ? <Check size={16} strokeWidth={3}/> : <ClipboardPlus size={16} strokeWidth={2.2}/>}
+                                              {isRequesting ? <Check size={18} strokeWidth={4}/> : <ClipboardPlus size={18} strokeWidth={2.5}/>}
                                           </button>
                                       )}
                                       <Link 
                                         to={`/item/${encodeURIComponent(item.partNumber)}`} 
-                                        className="p-2.5 text-slate-500 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-all border border-transparent hover:border-slate-200 flex items-center justify-center"
+                                        className="p-3 text-slate-600 hover:text-slate-950 hover:bg-slate-100 rounded-xl transition-all border-2 border-transparent hover:border-slate-200 flex items-center justify-center"
                                         title="View Details"
                                       >
-                                          <Eye size={16} strokeWidth={2}/>
+                                          <Eye size={18} strokeWidth={2.5}/>
                                       </Link>
                                   </div>
                               </td>
@@ -439,11 +439,11 @@ const StockTable: React.FC<any> = ({ items, title, userRole, userName, enableAct
                 })}
             </tbody>
         </table>
-        <div className="p-4 border-t border-slate-100 flex justify-between items-center bg-[#FAFBFD]/30">
-           <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Page {fd(currentPage)} Ledger</span>
-           <div className="flex gap-2">
-              <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} className="px-4 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:border-slate-400 transition-all shadow-sm"><ChevronLeft size={14}/></button>
-              <button onClick={() => setCurrentPage(p => p + 1)} className="px-4 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:border-slate-400 transition-all shadow-sm"><ChevronRight size={14}/></button>
+        <div className="p-6 border-t-2 border-slate-100 flex justify-between items-center bg-slate-50">
+           <span className="text-[11px] font-extrabold text-slate-900 uppercase tracking-widest">Page {fd(currentPage)} Ledger</span>
+           <div className="flex gap-4">
+              <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} className="px-6 py-2.5 rounded-xl bg-white border-2 border-slate-300 text-slate-900 font-black text-xs uppercase tracking-widest hover:border-slate-900 transition-all shadow-soft"><ChevronLeft size={16}/></button>
+              <button onClick={() => setCurrentPage(p => p + 1)} className="px-6 py-2.5 rounded-xl bg-white border-2 border-slate-300 text-slate-900 font-black text-xs uppercase tracking-widest hover:border-slate-900 transition-all shadow-soft"><ChevronRight size={16}/></button>
            </div>
         </div>
       </div>

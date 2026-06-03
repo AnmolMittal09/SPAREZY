@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { User, Transaction, ShopSettings, TransactionStatus, TransactionType } from '../types';
-import { fetchUninvoicedSales, generateTaxInvoiceRecord, fetchInvoices, deleteInvoice } from '../services/transactionService';
+import { fetchUninvoicedSales, generateTaxInvoiceRecord, fetchInvoices } from '../services/transactionService';
 import { fetchInventory } from '../services/inventoryService';
 import { getShopSettings } from '../services/masterService';
 import { numberToWords } from '../services/invoiceService'; 
@@ -16,12 +16,10 @@ import {
   ChevronLeft, 
   Scale, 
   Calendar,
-  Check,
-  Trash2
+  Check
 } from 'lucide-react';
 import TharLoader from '../components/TharLoader';
 import Logo from '../components/Logo';
-import ConfirmModal from '../components/ConfirmModal';
 
 const fd = (n: number | string) => {
   const num = parseInt(n.toString()) || 0;
@@ -39,40 +37,12 @@ const Invoices: React.FC<any> = ({ user }) => {
   const [filter, setFilter] = useState('');
   const [ledgerHistory, setLedgerHistory] = useState<any[]>([]);
   const [customerDetails, setCustomerDetails] = useState({ name: '', phone: '', address: '', gst: '', paymentMode: 'CASH' });
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deletingInvoice, setDeletingInvoice] = useState(false);
-  const [invoiceToDelete, setInvoiceToDelete] = useState<any | null>(null);
 
   useEffect(() => { fetchInventory().then(setInventory); getShopSettings().then(setShopSettings); }, []);
   useEffect(() => { if (activeTab === 'PENDING') loadPending(); else loadHistory(); }, [activeTab]);
 
   const loadPending = async () => { setLoading(true); try { const data = await fetchUninvoicedSales(); setSales(data); } catch (e) { setSales([]); } finally { setLoading(false); } };
   const loadHistory = async () => { setLoading(true); try { const data = await fetchInvoices(); setLedgerHistory(data); } catch (e) { setLedgerHistory([]); } finally { setLoading(false); } };
-  
-  const handleTriggerDeleteInvoice = (inv: any) => {
-    setInvoiceToDelete(inv);
-    setShowDeleteConfirm(true);
-  };
-
-  const handleDeleteInvoice = async () => {
-    if (!invoiceToDelete) return;
-    setDeletingInvoice(true);
-    try {
-      const res = await deleteInvoice(invoiceToDelete.id);
-      if (res.success) {
-        setShowDeleteConfirm(false);
-        setInvoiceToDelete(null);
-        loadHistory();
-      } else {
-        alert(res.message || "Failed to delete invoice");
-      }
-    } catch (err: any) {
-      alert(err.message || "An error occurred");
-    } finally {
-      setDeletingInvoice(false);
-    }
-  };
-
   const toggleSelect = (id: string) => { const n = new Set(selectedIds); if (n.has(id)) n.delete(id); else n.add(id); setSelectedIds(n); };
 
   const selectedItems = useMemo(() => sales.filter(s => selectedIds.has(s.id)).map(sale => ({
@@ -161,57 +131,8 @@ const Invoices: React.FC<any> = ({ user }) => {
        )}
 
        {activeTab === 'HISTORY' && (
-          <div className="bg-white rounded-[3rem] shadow-premium border-2 border-slate-200 flex flex-col overflow-hidden m-2">
-             <div className="p-10 border-b-2 border-slate-100 bg-slate-50 flex justify-between items-center">
-                <h2 className="font-black text-slate-950 text-xl tracking-tighter uppercase">Archived Ledger Logs</h2>
-                <button onClick={loadHistory} className="p-3 bg-white border-2 border-slate-200 rounded-2xl text-slate-500 hover:text-blue-700 transition-all"><RefreshCw size={24} strokeWidth={3}/></button>
-             </div>
-             <div className="flex-1 overflow-auto">
-                <table className="w-full text-left border-collapse">
-                   <thead className="bg-slate-100 text-slate-900 border-b-2 border-slate-200">
-                      <tr>
-                         <th className="px-10 py-6 font-black uppercase text-[11px] tracking-[0.2em]">Statement ID</th>
-                         <th className="px-10 py-6 font-black uppercase text-[11px] tracking-[0.2em]">Timestamp</th>
-                         <th className="px-10 py-6 font-black uppercase text-[11px] tracking-[0.2em]">Entity Station</th>
-                         <th className="px-10 py-6 font-black uppercase text-[11px] tracking-[0.2em] text-right">Settlement Value</th>
-                         <th className="px-10 py-6 font-black uppercase text-[11px] tracking-[0.2em] text-center">Actions</th>
-                      </tr>
-                   </thead>
-                   <tbody className="divide-y-2 divide-slate-50">
-                      {ledgerHistory.map(inv => (
-                         <tr key={inv.id} className="hover:bg-slate-50 transition-colors">
-                            <td className="px-10 py-6 font-black text-slate-950 text-base">{inv.invoiceNumber}</td>
-                            <td className="px-10 py-6 text-slate-700 font-bold">{new Date(inv.date).toLocaleDateString()}</td>
-                            <td className="px-10 py-6 font-black text-slate-950 uppercase">{inv.customerName}</td>
-                            <td className="px-10 py-6 text-right font-black text-slate-950 text-xl tabular-nums">₹{inv.totalAmount.toLocaleString()}</td>
-                            <td className="px-10 py-6 text-center">
-                               <button 
-                                  onClick={() => handleTriggerDeleteInvoice(inv)} 
-                                  className="p-3 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-xl transition-all"
-                                  title="Delete Invoice"
-                               >
-                                  <Trash2 size={16} />
-                               </button>
-                            </td>
-                         </tr>
-                      ))}
-                   </tbody>
-                </table>
-             </div>
-          </div>
+          <div className="bg-white rounded-[3rem] shadow-premium border-2 border-slate-200 flex flex-col overflow-hidden m-2"><div className="p-10 border-b-2 border-slate-100 bg-slate-50 flex justify-between items-center"><h2 className="font-black text-slate-950 text-xl tracking-tighter uppercase">Archived Ledger Logs</h2><button onClick={loadHistory} className="p-3 bg-white border-2 border-slate-200 rounded-2xl text-slate-500 hover:text-blue-700 transition-all"><RefreshCw size={24} strokeWidth={3}/></button></div><div className="flex-1 overflow-auto"><table className="w-full text-left border-collapse"><thead className="bg-slate-100 text-slate-900 border-b-2 border-slate-200"><tr><th className="px-10 py-6 font-black uppercase text-[11px] tracking-[0.2em]">Statement ID</th><th className="px-10 py-6 font-black uppercase text-[11px] tracking-[0.2em]">Timestamp</th><th className="px-10 py-6 font-black uppercase text-[11px] tracking-[0.2em]">Entity Station</th><th className="px-10 py-6 font-black uppercase text-[11px] tracking-[0.2em] text-right">Settlement Value</th></tr></thead><tbody className="divide-y-2 divide-slate-50">{ledgerHistory.map(inv => (<tr key={inv.id} className="hover:bg-slate-50 transition-colors"><td className="px-10 py-6 font-black text-slate-950 text-base">{inv.invoiceNumber}</td><td className="px-10 py-6 text-slate-700 font-bold">{new Date(inv.date).toLocaleDateString()}</td><td className="px-10 py-6 font-black text-slate-950 uppercase">{inv.customerName}</td><td className="px-10 py-6 text-right font-black text-slate-950 text-xl tabular-nums">₹{inv.totalAmount.toLocaleString()}</td></tr>))}</tbody></table></div></div>
        )}
-
-       <ConfirmModal
-         isOpen={showDeleteConfirm}
-         onClose={() => { setShowDeleteConfirm(false); setInvoiceToDelete(null); }}
-         onConfirm={handleDeleteInvoice}
-         title="Delete Invoice Record?"
-         message={`Are you sure you want to delete invoice ${invoiceToDelete ? invoiceToDelete.invoiceNumber : ''}? This will detach and unlink the transaction logs. This change cannot be undone.`}
-         confirmLabel="Delete Invoice"
-         cancelLabel="Hold Record"
-         variant="danger"
-         loading={deletingInvoice}
-       />
     </div>
   );
 };
