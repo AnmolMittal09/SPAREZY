@@ -445,7 +445,7 @@ const Billing: React.FC<Props> = ({ user }) => {
     <div className="h-full flex flex-col bg-slate-50 md:bg-transparent">
        
        {!isSearchingOnMobile && (
-         <div className="md:hidden bg-white p-3 border-b border-slate-100 z-20 sticky top-0 shadow-sm animate-fade-in">
+         <div className="md:hidden bg-white p-3 border-b border-slate-100 z-20 sticky top-[64px] shadow-sm animate-fade-in mb-4">
             <div className="flex bg-slate-100 p-1 rounded-2xl">
                <button 
                  onClick={() => setActiveTab('NEW')}

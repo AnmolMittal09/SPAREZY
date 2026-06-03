@@ -63,10 +63,14 @@ export const extractInvoiceData = async (files: InvoiceFile[]) => {
       4. CONSOLIDATE: If the "Original" invoice itself spans multiple pages (e.g. Page 1 of 2, Page 2 of 2), extract and combine all items from those original pages.
       5. DE-DUPLICATION: If the user provides multiple images of the same "Original" page, only extract those items once.
 
+      CRITICAL VALIDATION RULES FOR METADATA:
+      - INVOICE DATE VS INVOICE NUMBER: Do NOT mistake the Invoice Date for the Invoice Number. The Invoice/Bill Number MUST NOT be a date (e.g., if you extract a date value like "29/01/2026", that is NOT the invoice number).
+      - If the invoice number cannot be confidently found, set it to null or empty string, but NEVER populate it with the invoice date or invoice timestamp.
+
       DATA TO EXTRACT:
       1. Identify the Dealer/Vendor Name (The company selling the parts).
       2. Identify the Invoice Date.
-      3. Identify the Invoice Number/Bill Number.
+      3. Identify the Invoice Number/Bill Number (This is usually labeled 'Invoice No.', 'Inv No.', 'Bill No.', 'Tax Invoice No.' etc., e.g. "INV-2024-001" or "GST/1293").
       4. Extract line items strictly from the ORIGINAL pages with these fields:
          - Part Number (alphanumeric SKU)
          - Part Name/Description (the full descriptive name of the part)
@@ -89,7 +93,7 @@ export const extractInvoiceData = async (files: InvoiceFile[]) => {
           properties: {
             dealerName: { type: Type.STRING, description: "Name of the supplier/dealer" },
             invoiceDate: { type: Type.STRING, description: "Date on the invoice" },
-            invoiceNumber: { type: Type.STRING, description: "The invoice number or bill number (e.g. GST-1293)" },
+            invoiceNumber: { type: Type.STRING, description: "The unique invoice number or bill number (e.g. GST-1293). This MUST NOT be a date format like 'DD/MM/YYYY'." },
             items: {
               type: Type.ARRAY,
               items: {

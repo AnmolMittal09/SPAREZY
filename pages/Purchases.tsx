@@ -367,7 +367,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
    return (
     <div className="h-full flex flex-col bg-slate-50 md:bg-transparent">
        {!isSearchingOnMobile && (
-         <div className="md:hidden bg-white p-3 border-b border-slate-100 z-20 sticky top-[96px] shadow-sm animate-fade-in mb-4">
+         <div className="md:hidden bg-white p-3 border-b border-slate-100 z-20 sticky top-[64px] shadow-sm animate-fade-in mb-4">
             <div className="flex bg-slate-100 p-1 rounded-2xl">
                <button onClick={() => setActiveTab('NEW')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'NEW' ? 'bg-white text-slate-900 shadow-md ring-1 ring-slate-100' : 'text-slate-400'}`}>Manual</button>
                <button onClick={() => setActiveTab('IMPORT')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'IMPORT' ? 'bg-blue-600 text-white shadow-md ring-1 ring-blue-100' : 'text-slate-400'}`}>AI Scan</button>

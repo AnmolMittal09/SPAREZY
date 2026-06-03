@@ -138,9 +138,28 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0 h-full relative">
-        <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden fixed top-4 left-4 z-[60] p-3.5 bg-white shadow-elevated border-2 border-slate-200 rounded-2xl text-slate-900 active:scale-95 transition-all"><Menu size={24} strokeWidth={2.5} /></button>
-        <button onClick={handleGlobalRefresh} className="fixed top-4 right-4 z-[60] p-3.5 bg-white shadow-elevated border-2 border-slate-200 rounded-2xl text-slate-500 hover:text-blue-700 transition-all active:rotate-180 duration-500" title="Refresh Session"><RefreshCw size={22} className={isRefreshing ? 'animate-spin text-blue-600' : ''} /></button>
-        <main className="flex-1 overflow-y-auto px-4 lg:px-12 py-8 pt-24 lg:pt-10 scroll-smooth no-scrollbar">
+        {/* Mobile Navbar Header */}
+        <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-white/95 backdrop-blur-md border-b border-slate-200 z-[60] flex items-center justify-between px-4 shadow-sm animate-fade-in">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setIsSidebarOpen(true)} 
+              className="p-2.5 text-slate-900 hover:bg-slate-100 active:scale-95 transition-all rounded-xl border border-slate-200 shadow-soft bg-white"
+              aria-label="Open menu"
+            >
+              <Menu size={20} strokeWidth={2.5} />
+            </button>
+            <span className="text-xl font-extrabold text-slate-950 tracking-tighter uppercase">Sparezy</span>
+          </div>
+          <button 
+            onClick={handleGlobalRefresh} 
+            className="p-2.5 text-slate-500 hover:text-blue-700 hover:bg-slate-50 active:rotate-180 duration-500 transition-all rounded-xl border border-slate-200 shadow-soft bg-white"
+            title="Refresh Session"
+          >
+            <RefreshCw size={18} className={isRefreshing ? 'animate-spin text-blue-600' : ''} />
+          </button>
+        </div>
+
+        <main className="flex-1 overflow-y-auto px-4 lg:px-12 py-8 pt-20 lg:pt-10 scroll-smooth no-scrollbar">
            <div className="max-w-7xl mx-auto">{children}</div>
         </main>
       </div>
