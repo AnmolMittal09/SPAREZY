@@ -1,7 +1,7 @@
 
 import React, { useState, useCallback, useMemo } from 'react';
 // @ts-ignore
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { User, Role } from '../types';
 import { 
   LayoutDashboard, 
@@ -34,8 +34,25 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const currentTab = useMemo(() => {
+    const tabValue = (searchParams.get('tab') || 'manual').toLowerCase();
+    if (tabValue === 'import' || tabValue === 'ai' || tabValue === 'aiscan') return 'IMPORT';
+    if (tabValue === 'history') return 'HISTORY';
+    return 'NEW';
+  }, [searchParams]);
+
+  const handleTabChange = useCallback((tab: 'NEW' | 'IMPORT' | 'HISTORY') => {
+    const mapping = {
+      NEW: 'manual',
+      IMPORT: 'aiscan',
+      HISTORY: 'history'
+    };
+    setSearchParams({ tab: mapping[tab] });
+  }, [setSearchParams]);
 
   const handleGlobalRefresh = useCallback(() => {
     setIsRefreshing(true);
@@ -159,7 +176,49 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
           </button>
         </div>
 
-        <main className="flex-1 overflow-y-auto px-4 lg:px-12 py-8 pt-20 lg:pt-10 scroll-smooth no-scrollbar">
+        {/* Tab Navigation directly below header */}
+        {location.pathname === '/purchases' && (
+          <div className="sticky top-16 lg:top-0 z-[50] bg-white border-b border-slate-200 shadow-sm transition-all duration-300 animate-fade-in select-none w-full">
+            <div className="max-w-7xl mx-auto px-4 lg:px-12 py-3 flex gap-2 w-full lg:w-auto">
+              <button 
+                onClick={() => handleTabChange('NEW')} 
+                className={`flex-1 lg:flex-none px-6 py-2.5 text-[10px] min-[360px]:text-[11px] font-black uppercase tracking-widest rounded-xl transition-all duration-300 select-none whitespace-nowrap text-center outline-none border active:scale-95 ${
+                  currentTab === 'NEW' 
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-600/10' 
+                    : 'bg-white text-slate-700 hover:text-slate-900 border-slate-200 shadow-sm'
+                }`}
+              >
+                Manual
+              </button>
+              <button 
+                onClick={() => handleTabChange('IMPORT')} 
+                className={`flex-1 lg:flex-none px-6 py-2.5 text-[10px] min-[360px]:text-[11px] font-black uppercase tracking-widest rounded-xl transition-all duration-300 select-none whitespace-nowrap text-center outline-none border active:scale-95 ${
+                  currentTab === 'IMPORT' 
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-600/10' 
+                    : 'bg-white text-slate-700 hover:text-slate-900 border-slate-200 shadow-sm'
+                }`}
+              >
+                AI Scan
+              </button>
+              <button 
+                onClick={() => handleTabChange('HISTORY')} 
+                className={`flex-1 lg:flex-none px-6 py-2.5 text-[10px] min-[360px]:text-[11px] font-black uppercase tracking-widest rounded-xl transition-all duration-300 select-none whitespace-nowrap text-center outline-none border active:scale-95 ${
+                  currentTab === 'HISTORY' 
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-600/10' 
+                    : 'bg-white text-slate-700 hover:text-slate-900 border-slate-200 shadow-sm'
+                }`}
+              >
+                History
+              </button>
+            </div>
+          </div>
+        )}
+
+        <main className={`flex-1 overflow-y-auto px-4 lg:px-12 py-8 scroll-smooth no-scrollbar ${
+          location.pathname === '/purchases' 
+            ? 'pt-36 lg:pt-6' 
+            : 'pt-20 lg:pt-10'
+        }`}>
            <div className="max-w-7xl mx-auto">{children}</div>
         </main>
       </div>

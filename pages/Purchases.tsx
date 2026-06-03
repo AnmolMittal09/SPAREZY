@@ -1,5 +1,6 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { User, Transaction, TransactionStatus, TransactionType, Brand, Role } from '../types';
 import DailyTransactions from './DailyTransactions';
 import { 
@@ -85,7 +86,24 @@ interface QueuedFile {
 }
 
 const Purchases: React.FC<Props> = ({ user }) => {
-  const [activeTab, setActiveTab] = useState<'NEW' | 'IMPORT' | 'HISTORY'>('NEW');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTabRaw = searchParams.get('tab') || 'manual';
+  const activeTab = useMemo(() => {
+    const raw = activeTabRaw.toLowerCase();
+    if (raw === 'import' || raw === 'ai' || raw === 'aiscan') return 'IMPORT';
+    if (raw === 'history') return 'HISTORY';
+    return 'NEW';
+  }, [activeTabRaw]);
+
+  const setActiveTab = useCallback((tab: 'NEW' | 'IMPORT' | 'HISTORY') => {
+    const mapping = {
+      NEW: 'manual',
+      IMPORT: 'aiscan',
+      HISTORY: 'history'
+    };
+    setSearchParams({ tab: mapping[tab] });
+  }, [setSearchParams]);
+
   const [history, setHistory] = useState<Transaction[]>([]);
   const [inventory, setInventory] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -366,16 +384,6 @@ const Purchases: React.FC<Props> = ({ user }) => {
 
    return (
     <div className="h-full flex flex-col bg-slate-50 md:bg-transparent">
-       {!isSearchingOnMobile && (
-         <div className="md:hidden bg-white p-3 border-b border-slate-100 z-20 sticky top-[64px] shadow-sm animate-fade-in mb-4">
-            <div className="flex bg-slate-100 p-1 rounded-2xl">
-               <button onClick={() => setActiveTab('NEW')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'NEW' ? 'bg-white text-slate-900 shadow-md ring-1 ring-slate-100' : 'text-slate-400'}`}>Manual</button>
-               <button onClick={() => setActiveTab('IMPORT')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'IMPORT' ? 'bg-blue-600 text-white shadow-md ring-1 ring-blue-100' : 'text-slate-400'}`}>AI Scan</button>
-               <button onClick={() => setActiveTab('HISTORY')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'HISTORY' ? 'bg-white text-slate-800 shadow-md ring-1 ring-slate-100' : 'text-slate-400'}`}>History</button>
-            </div>
-         </div>
-       )}
-
        <div className="hidden md:flex justify-between items-center mb-8 px-1">
           <div className="flex items-center gap-4">
              <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-lg"><Truck size={24} /></div>
@@ -383,11 +391,6 @@ const Purchases: React.FC<Props> = ({ user }) => {
                 <h1 className="text-2xl font-black text-slate-900 tracking-tight leading-none mb-1.5">Purchase Inbound</h1>
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Acquisition Journal</p>
              </div>
-          </div>
-          <div className="flex bg-white p-1.5 rounded-2xl border border-slate-200 shadow-soft">
-             <button onClick={() => setActiveTab('NEW')} className={`px-6 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 ${activeTab === 'NEW' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}><PlusCircle size={16} /> New</button>
-             <button onClick={() => setActiveTab('IMPORT')} className={`px-6 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 ${activeTab === 'IMPORT' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}><ScanLine size={16} /> AI Audit</button>
-             <button onClick={() => setActiveTab('HISTORY')} className={`px-6 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 ${activeTab === 'HISTORY' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}><History size={16} /> History</button>
           </div>
        </div>
 

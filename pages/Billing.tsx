@@ -441,27 +441,39 @@ const Billing: React.FC<Props> = ({ user }) => {
      return acc + (tx ? (tx.price * selectedReturns[id]) : 0);
   }, 0);
 
-  return (
+   return (
     <div className="h-full flex flex-col bg-slate-50 md:bg-transparent">
-       
+        
        {!isSearchingOnMobile && (
-         <div className="md:hidden bg-white p-3 border-b border-slate-100 z-20 sticky top-[64px] shadow-sm animate-fade-in mb-4">
-            <div className="flex bg-slate-100 p-1 rounded-2xl">
+         <div className="md:hidden bg-slate-50/95 backdrop-blur-md px-3.5 py-3 border-b border-slate-200/60 sticky top-[64px] z-40 transition-all duration-300 animate-fade-in shadow-sm select-none">
+            <div className="flex gap-2 w-full">
                <button 
                  onClick={() => setActiveTab('NEW')}
-                 className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'NEW' ? 'bg-white text-brand-600 shadow-md ring-1 ring-slate-100' : 'text-slate-400'}`}
+                 className={`flex-1 py-3 px-1 text-[9px] min-[360px]:text-[10px] font-black uppercase tracking-wider rounded-xl transition-all duration-300 select-none whitespace-nowrap text-center outline-none border active:scale-95 ${
+                   activeTab === 'NEW' 
+                     ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-600/10' 
+                     : 'bg-white text-slate-700 hover:text-slate-900 border-slate-200/80 shadow-sm'
+                 }`}
                >
                  POS
                </button>
                <button 
                  onClick={() => setActiveTab('RETURN')}
-                 className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'RETURN' ? 'bg-white text-rose-600 shadow-md ring-1 ring-slate-100' : 'text-slate-400'}`}
+                 className={`flex-1 py-3 px-1 text-[9px] min-[360px]:text-[10px] font-black uppercase tracking-wider rounded-xl transition-all duration-300 select-none whitespace-nowrap text-center outline-none border active:scale-95 ${
+                   activeTab === 'RETURN' 
+                     ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-600/10' 
+                     : 'bg-white text-slate-700 hover:text-slate-900 border-slate-200/80 shadow-sm'
+                 }`}
                >
                  Returns
                </button>
                <button 
                  onClick={() => setActiveTab('SALES_HISTORY')}
-                 className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'SALES_HISTORY' ? 'bg-white text-slate-800 shadow-md ring-1 ring-slate-100' : 'text-slate-400'}`}
+                 className={`flex-1 py-3 px-1 text-[9px] min-[360px]:text-[10px] font-black uppercase tracking-wider rounded-xl transition-all duration-300 select-none whitespace-nowrap text-center outline-none border active:scale-95 ${
+                   activeTab === 'SALES_HISTORY' 
+                     ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-600/10' 
+                     : 'bg-white text-slate-700 hover:text-slate-900 border-slate-200/80 shadow-sm'
+                 }`}
                >
                  History
                </button>
