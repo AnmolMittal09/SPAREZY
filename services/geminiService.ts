@@ -1,38 +1,9 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { StockItem } from "../types";
 
-const getApiKey = (): string => {
-  let key = "";
-  try {
-    // Try process.env
-    if (typeof process !== "undefined" && process.env) {
-      key = process.env.GEMINI_API_KEY || process.env.API_KEY || "";
-    }
-  } catch (e) {}
-
-  if (!key) {
-    try {
-      // @ts-ignore
-      key = import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_API_KEY || "";
-    } catch (e) {}
-  }
-
-  if (!key) {
-    try {
-      // @ts-ignore
-      key = window.process?.env?.API_KEY || window.process?.env?.GEMINI_API_KEY || "";
-    } catch (e) {}
-  }
-  return key ? key.trim() : "";
-};
-
 export const generateInventoryInsights = async (inventory: StockItem[]): Promise<string> => {
   try {
-    const apiKey = getApiKey();
-    if (!apiKey) {
-      throw new Error("Gemini API Key is missing. Please ensure GEMINI_API_KEY is configured in your Environment / Settings.");
-    }
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const summary = inventory.map(i => 
       `- ${i.partNumber} (${i.brand}): ${i.quantity} units (Threshold: ${i.minStockThreshold})`
     ).join('\n');
@@ -53,24 +24,15 @@ export const generateInventoryInsights = async (inventory: StockItem[]): Promise
       Keep it professional, actionable, and under 200 words.
     `;
 
-    // Try gemini-2.5-flash first since it's the most stable multimodal/text model
-    try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-      });
-      return response.text || "No insights generated.";
-    } catch (firstError) {
-      console.warn("Retrying insights generation with gemini-3.5-flash...", firstError);
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.5-flash',
-        contents: prompt,
-      });
-      return response.text || "No insights generated.";
-    }
-  } catch (error: any) {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.5-flash',
+      contents: prompt,
+    });
+
+    return response.text || "No insights generated.";
+  } catch (error) {
     console.error("Gemini API Error:", error);
-    return `Failed to generate AI insights. ${error.message || ""}`;
+    return "Failed to generate AI insights. Please try again later.";
   }
 };
 
@@ -81,11 +43,7 @@ export interface InvoiceFile {
 
 export const extractInvoiceData = async (files: InvoiceFile[]) => {
   try {
-    const apiKey = getApiKey();
-    if (!apiKey) {
-      throw new Error("Gemini API Key is missing. Please ensure GEMINI_API_KEY is configured in your Environment / Settings.");
-    }
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
     // Convert multiple files into inlineData parts
     const fileParts = files.map(f => ({
@@ -114,12 +72,7 @@ export const extractInvoiceData = async (files: InvoiceFile[]) => {
       2. Identify the Invoice Date.
       3. Identify the Invoice Number/Bill Number (This is usually labeled 'Invoice No.', 'Inv No.', 'Bill No.', 'Tax Invoice No.' etc., e.g. "INV-2024-001" or "GST/1293").
       4. Extract line items strictly from the ORIGINAL pages with these fields:
-         - Part Number: The actual manufacturer alphanumeric spare part number/SKU.
-           * CRITICAL: Do NOT extract S.No/Sl.No (like 1, 2, 3...) which represent row numbers.
-           * CRITICAL: Do NOT extract HSN / SAC Codes (like 8708, 4016, 87089900, 87082990) which represent GST tax classification categories.
-           * Hyundai part numbers are typically alphanumeric strings often formatted with hyphens (e.g. "95430-1W000", "58101-1RA00", "28510-2B000", "551001RA00"). Mahindra part numbers are typically multi-character alphanumeric sequences, often without standard hyphens or with slash indicators (e.g. "0305AP0071N", "0114CD0021N", "0313AP0120N").
-           * Look for columns titled "Part No", "Part Number", "Item Code", "Catalog No", or "Item ID".
-           * If the Part Number is joined inside the description or part name field (e.g., "95430-1W000 CHASSIS BUSH"), parse and separate them so that the Part Number field receives only the clean alphanumeric code ("95430-1W000") and the Name field receives the text ("CHASSIS BUSH").
+         - Part Number (alphanumeric SKU)
          - Part Name/Description (the full descriptive name of the part)
          - Quantity (Qty)
          - MRP (Maximum Retail Price before discount)
@@ -130,59 +83,41 @@ export const extractInvoiceData = async (files: InvoiceFile[]) => {
       Return the data strictly as a JSON object.
     `;
 
-    const config = {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          dealerName: { type: Type.STRING, description: "Name of the supplier/dealer" },
-          invoiceDate: { type: Type.STRING, description: "Date on the invoice" },
-          invoiceNumber: { type: Type.STRING, description: "The unique invoice number or bill number (e.g. GST-1293). This MUST NOT be a date format like 'DD/MM/YYYY'." },
-          items: {
-            type: Type.ARRAY,
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.5-flash',
+      contents: { parts: [...fileParts, { text: prompt }] },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            dealerName: { type: Type.STRING, description: "Name of the supplier/dealer" },
+            invoiceDate: { type: Type.STRING, description: "Date on the invoice" },
+            invoiceNumber: { type: Type.STRING, description: "The unique invoice number or bill number (e.g. GST-1293). This MUST NOT be a date format like 'DD/MM/YYYY'." },
             items: {
-              type: Type.OBJECT,
-              properties: {
-                partNumber: { type: Type.STRING, description: "The true manufacturer alphanumeric part number (SKU/Catalog ID). DO NOT use HSN/SAC codes or row Sl. No. numbers here." },
-                name: { type: Type.STRING, description: "Descriptive name of the part" },
-                quantity: { type: Type.NUMBER },
-                mrp: { type: Type.NUMBER },
-                discountPercent: { type: Type.NUMBER, description: "B.DC percentage" },
-                printedUnitPrice: { type: Type.NUMBER, description: "The unit price shown on the bill after discount" }
-              },
-              required: ["partNumber", "name", "quantity", "mrp", "discountPercent", "printedUnitPrice"]
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  partNumber: { type: Type.STRING },
+                  name: { type: Type.STRING, description: "Descriptive name of the part" },
+                  quantity: { type: Type.NUMBER },
+                  mrp: { type: Type.NUMBER },
+                  discountPercent: { type: Type.NUMBER, description: "B.DC percentage" },
+                  printedUnitPrice: { type: Type.NUMBER, description: "The unit price shown on the bill after discount" }
+                },
+                required: ["partNumber", "name", "quantity", "mrp", "discountPercent", "printedUnitPrice"]
+              }
             }
-          }
-        },
-        required: ["dealerName", "items"]
+          },
+          required: ["dealerName", "items"]
+        }
       }
-    };
-
-    let response;
-    // Primary try with gemini-2.5-flash (fully featured multimodal model with reliable JSON schema support)
-    try {
-      response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: { parts: [...fileParts, { text: prompt }] },
-        config,
-      });
-    } catch (firstError: any) {
-      console.warn("Extraction with gemini-2.5-flash failed. Retrying with gemini-3.5-flash...", firstError);
-      try {
-        response = await ai.models.generateContent({
-          model: 'gemini-3.5-flash',
-          contents: { parts: [...fileParts, { text: prompt }] },
-          config,
-        });
-      } catch (secondError: any) {
-        console.error("Extraction failed for both models.", secondError);
-        throw new Error(`Failed to read the invoice using Gemini AI. Secondary Error: ${secondError.message || secondError}`);
-      }
-    }
+    });
 
     return JSON.parse(response.text || "{}");
-  } catch (error: any) {
+  } catch (error) {
     console.error("Invoice Extraction Error:", error);
-    throw new Error(error.message || "Failed to read the invoice. Please ensure the 'Original' copy is clear and included.");
+    throw new Error("Failed to read the invoice. Please ensure the 'Original' copy is clear and included.");
   }
 };

@@ -125,17 +125,6 @@ const Purchases: React.FC<Props> = ({ user }) => {
     excludedList?: { partNumber: string; reason: string; quantity: number }[];
   } | null>(null);
   const [previewData, setPreviewData] = useState<ExtractedItem[]>([]);
-  const [editingIndex, setEditingIndex] = useState<number | null>(null);
-  const [editingPartNo, setEditingPartNo] = useState<string>('');
-
-  const getInventoryMatch = useCallback((partNo: string) => {
-    if (!partNo) return null;
-    const norm = partNo.replace(/[-\s]/g, '').toUpperCase().trim();
-    return inventory.find(inv => {
-      const invNorm = inv.partNumber.replace(/[-\s]/g, '').toUpperCase().trim();
-      return invNorm === norm;
-    });
-  }, [inventory]);
   const [removedItems, setRemovedItems] = useState<{ partNumber: string; name: string; quantity: number; reason: string; mrp: number; printedUnitPrice: number; discountPercent: number; diff: number }[]>([]);
   const [itemToRemove, setItemToRemove] = useState<ExtractedItem | null>(null);
   const [removalReason, setRemovalReason] = useState('');
@@ -277,57 +266,10 @@ const Purchases: React.FC<Props> = ({ user }) => {
         const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
         if (!jsonData || jsonData.length < 1) throw new Error("Spreadsheet is empty.");
 
-        // Locate the header row by searching for keywords representing common inventory columns
-        let headerRowIndex = 0;
-        for (let i = 0; i < Math.min(jsonData.length, 12); i++) {
-          const row = jsonData[i] || [];
-          const rowStr = row.map(cell => String(cell || '').toLowerCase()).join(' ');
-          if (rowStr.includes('part') || rowStr.includes('description') || rowStr.includes('mrp') || rowStr.includes('qty')) {
-            headerRowIndex = i;
-            break;
-          }
-        }
-
-        const headers = (jsonData[headerRowIndex] || []).map(h => String(h || '').toLowerCase().trim());
-        
-        let partNoIdx = headers.findIndex(h => h.includes('part no') || h.includes('part number') || h.includes('part_no') || h.includes('item code') || h.includes('sku') || h.includes('partcode') || h.includes('part code') || h.includes('catalog id') || h === 'parts');
-        let nameIdx = headers.findIndex(h => h.includes('name') || h.includes('description') || h.includes('desc') || h.includes('nomenclature') || h.includes('item'));
-        let mrpIdx = headers.findIndex(h => h.includes('mrp') || h.includes('list price') || h.includes('price') || h.includes('basic price') || h.includes('unit price') || h === 'rate');
-        let discIdx = headers.findIndex(h => h.includes('disc') || h.includes('b.dc') || h.includes('bdc') || h.includes('discount'));
-        let netPriceIdx = headers.findIndex(h => h.includes('net rate') || h.includes('net price') || h.includes('printed') || h.includes('billing rate') || h.includes('actual price') || h.includes('after discount') || h.includes('purchase rate'));
-        let qtyIdx = headers.findIndex(h => h.includes('qty') || h.includes('quantity') || h.includes('pieces') || h.includes('pcs') || h.includes('rec qty') || h.includes('billed qty'));
-
-        // Fallbacks if not found by header text
-        if (partNoIdx === -1) {
-          // If first column looks like serial count (1, 2, 3) or row label, assume column 1 is part number, otherwise 0
-          const firstCell = String(jsonData[headerRowIndex + 1]?.[0] || '');
-          const isSerial = !isNaN(Number(firstCell)) && Number(firstCell) < 100;
-          partNoIdx = isSerial ? 1 : 0;
-        }
-        if (nameIdx === -1) nameIdx = partNoIdx === 0 ? 1 : 2;
-        if (mrpIdx === -1) mrpIdx = 2;
-        if (discIdx === -1) discIdx = 3;
-        if (netPriceIdx === -1) netPriceIdx = 4;
-        if (qtyIdx === -1) qtyIdx = 5;
-
-        const parsed = jsonData.slice(headerRowIndex + 1).map(row => {
-          if (!row || row.length === 0) return null;
-          
-          const partNumberRaw = String(row[partNoIdx] || '').toUpperCase().trim();
-          
-          // Skip if the row contains header names or empty data
-          if (!partNumberRaw || partNumberRaw === 'PART NO' || partNumberRaw === 'PART NUMBER' || partNumberRaw === 'SL. NO' || partNumberRaw === 'S.NO' || partNumberRaw === 'N/A') {
-            return null;
-          }
-
-          // Also avoid interpreting simple sequential line numbers (e.g. "1", "2") as valid part numbers
-          if (!isNaN(Number(partNumberRaw)) && Number(partNumberRaw) < 100) {
-            return null;
-          }
-
-          const mrp = Number(row[mrpIdx] || 0);
-          const disc = Number(row[discIdx] || 0);
-          const printed = Number(row[netPriceIdx] || mrp * (1 - disc/100));
+        const parsed = jsonData.slice(1).map(row => {
+          const mrp = Number(row[2] || 0);
+          const disc = Number(row[3] || 0);
+          const printed = Number(row[4] || mrp * (1 - disc/100));
           const calculatedAtRate = mrp * (1 - (currentDiscountRate/100));
           let hasError = disc < currentDiscountRate || Math.abs(printed - calculatedAtRate) > 0.5;
           let errorType: 'DISCOUNT_LOW' | 'CALC_MISMATCH' | 'NONE' = 'NONE';
@@ -335,12 +277,12 @@ const Purchases: React.FC<Props> = ({ user }) => {
           else if (Math.abs(printed - calculatedAtRate) > 0.5) errorType = 'CALC_MISMATCH';
 
           return {
-            partNumber: partNumberRaw,
-            name: String(row[nameIdx] || 'Excel Row'),
-            quantity: Number(row[qtyIdx] || 1),
+            partNumber: String(row[0] || '').toUpperCase().trim(),
+            name: String(row[1] || 'Excel Row'),
+            quantity: Number(row[5] || 1),
             mrp, discountPercent: disc, printedUnitPrice: printed, calculatedPrice: calculatedAtRate, hasError, errorType, diff: printed - calculatedAtRate
           };
-        }).filter(i => i !== null && i.partNumber && i.quantity > 0);
+        }).filter(i => i.partNumber && i.quantity > 0);
         setPreviewData(parsed as any);
       } else {
         const payload: InvoiceFile[] = [];
@@ -519,17 +461,6 @@ const Purchases: React.FC<Props> = ({ user }) => {
                         <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Images, PDFs or Vendor Excel Spreadsheets</p>
                      </div>
 
-                     {errorMsg && (
-                        <div className="bg-rose-50 border border-slate-200 text-rose-800 p-5 rounded-2xl flex items-start gap-3 animate-fade-in text-xs font-bold uppercase tracking-wider mb-6">
-                           <AlertCircle className="text-rose-600 shrink-0 mt-0.5" size={18} />
-                           <div className="flex-1">
-                              <p className="font-black text-rose-950 mb-0.5">Scanning Error</p>
-                              <span className="text-[10px] text-rose-700 leading-relaxed font-bold lowercase normal-case first-letter:uppercase">{errorMsg}</span>
-                           </div>
-                           <button onClick={() => setErrorMsg(null)} className="text-rose-450 hover:text-rose-600 font-black px-1.5 py-0.5 rounded-lg">Dismiss</button>
-                        </div>
-                     )}
-
                      {queuedFiles.length > 0 && (
                         <div className="space-y-4 animate-fade-in">
                            <div className="flex items-center justify-between px-2">
@@ -649,107 +580,48 @@ const Purchases: React.FC<Props> = ({ user }) => {
                               {previewData.map((item, idx) => (
                                  <tr key={idx} className={`hover:bg-slate-50/50 transition-colors ${item.hasError ? 'bg-rose-50/20' : ''}`}>
                                     <td className="px-8 py-6">
-                                       {editingIndex === idx ? (
-                                          <div className="space-y-2 max-w-sm text-left">
-                                             <div className="flex items-center gap-2">
-                                                <input
-                                                   type="text"
-                                                   className="uppercase bg-white border border-blue-400 rounded-xl px-3 py-1.5 text-xs font-black text-slate-900 outline-none w-full shadow-inner"
-                                                   value={editingPartNo}
-                                                   onChange={e => setEditingPartNo(e.target.value)}
-                                                   placeholder="Part Number"
-                                                   autoFocus
-                                                   onKeyDown={e => {
-                                                      if (e.key === 'Enter') {
-                                                         const updated = [...previewData];
-                                                         const val = editingPartNo.toUpperCase().trim();
-                                                         if (val) {
-                                                            updated[idx].partNumber = val;
-                                                         }
-                                                         setPreviewData(updated);
-                                                         setEditingIndex(null);
-                                                      } else if (e.key === 'Escape') {
-                                                         setEditingIndex(null);
+                                       <div className="flex flex-col gap-2 max-w-[280px]">
+                                          <div className="flex items-center gap-2">
+                                             <input
+                                                type="text"
+                                                className="font-black text-slate-900 text-sm uppercase tracking-tight bg-slate-100/80 hover:bg-slate-200/50 focus:bg-white border-2 border-slate-200/60 focus:border-blue-600 rounded-xl px-3 py-1.5 w-full outline-none transition-all uppercase"
+                                                value={item.partNumber}
+                                                title="Edit Part Number"
+                                                placeholder="PART NUMBER"
+                                                onChange={(e) => {
+                                                   const val = e.target.value.toUpperCase();
+                                                   setPreviewData(prev => prev.map((p, pIdx) => {
+                                                      if (pIdx === idx) {
+                                                         const matchedStock = inventory.find(stock => stock.partNumber.toUpperCase().trim() === val.trim());
+                                                         return {
+                                                            ...p,
+                                                            partNumber: val,
+                                                            name: matchedStock ? matchedStock.name : p.name
+                                                         };
                                                       }
-                                                   }}
-                                                />
-                                                <button 
-                                                   onClick={() => {
-                                                      const updated = [...previewData];
-                                                      const val = editingPartNo.toUpperCase().trim();
-                                                      if (val) {
-                                                         updated[idx].partNumber = val;
-                                                      }
-                                                      setPreviewData(updated);
-                                                      setEditingIndex(null);
-                                                   }}
-                                                   className="p-1.5 bg-teal-500 hover:bg-teal-600 text-white rounded-lg transition-all shadow-md active:scale-95"
-                                                   title="Save"
-                                                >
-                                                   <Check size={14} />
-                                                </button>
-                                                <button 
-                                                   onClick={() => setEditingIndex(null)}
-                                                   className="px-2 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-all text-xs font-bold"
-                                                   title="Cancel"
-                                                >
-                                                   Cancel
-                                                </button>
-                                             </div>
-                                             <div>
-                                                {(() => {
-                                                   const match = getInventoryMatch(editingPartNo);
-                                                   if (match) {
-                                                      return (
-                                                         <div className="text-[10px] text-teal-600 font-extrabold uppercase tracking-wider flex items-center gap-1 bg-teal-50 px-2 py-1 rounded-md border border-teal-100 mt-1">
-                                                            <span>✔ Registered:</span> {match.name} {match.rackLocation ? `(Rack: ${match.rackLocation})` : ''}
-                                                         </div>
-                                                      );
-                                                   } else if (editingPartNo.trim().length > 0) {
-                                                      return (
-                                                         <div className="text-[10px] text-amber-600 font-extrabold uppercase tracking-wider flex items-center gap-1 bg-amber-50 px-2 py-1 rounded-md border border-amber-100 mt-1">
-                                                            <span>⚠️ NEW SKU:</span> Creates a new part upon syncing.
-                                                         </div>
-                                                      );
-                                                   }
-                                                   return null;
-                                                })()}
-                                             </div>
+                                                      return p;
+                                                   }));
+                                                }}
+                                             />
                                           </div>
-                                       ) : (
-                                          <div className="space-y-1.5 text-left">
-                                             <div className="flex items-center gap-2 flex-wrap">
-                                                <span className="font-black text-slate-900 text-base uppercase tracking-tight">{item.partNumber}</span>
-                                                <button 
-                                                   onClick={() => {
-                                                      setEditingIndex(idx);
-                                                      setEditingPartNo(item.partNumber);
-                                                   }}
-                                                   className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-all"
-                                                   title="Edit Part Number"
-                                                >
-                                                   <Edit2 size={13} />
-                                                </button>
-                                                {(() => {
-                                                   const match = getInventoryMatch(item.partNumber);
-                                                   if (match) {
-                                                      return (
-                                                         <span className="inline-flex items-center gap-1 text-[9px] bg-teal-50 text-teal-700 px-2 py-0.5 rounded-lg border border-teal-100 font-black uppercase tracking-widest shadow-sm">
-                                                            <Check size={10} strokeWidth={3} /> Registered {match.rackLocation ? `[Rack: ${match.rackLocation}]` : ''}
-                                                         </span>
-                                                      );
-                                                   } else {
-                                                      return (
-                                                         <span className="inline-flex items-center gap-1 text-[9px] bg-amber-50 text-amber-700 px-2 py-0.5 rounded-lg border border-amber-100 font-black uppercase tracking-widest shadow-sm animate-pulse">
-                                                            ⚠️ Unmatched in Inventory
-                                                         </span>
-                                                      );
-                                                   }
-                                                })()}
+                                          <div className="flex flex-wrap items-center gap-2">
+                                             <div className="text-[11px] text-slate-400 font-bold uppercase truncate max-w-[180px]" title={item.name}>
+                                                {item.name}
                                              </div>
-                                             <div className="text-[11px] text-slate-400 font-bold uppercase truncate max-w-xs">{item.name}</div>
+                                             {(() => {
+                                                const exists = inventory.some(stock => stock.partNumber.toUpperCase().trim() === item.partNumber.toUpperCase().trim());
+                                                return exists ? (
+                                                   <span className="text-[8px] font-black text-blue-600 bg-blue-50/80 border border-blue-100/50 px-2 py-0.5 rounded-md uppercase tracking-widest leading-none shrink-0">
+                                                      Catalogued
+                                                   </span>
+                                                ) : (
+                                                   <span className="text-[8px] font-black text-amber-600 bg-amber-50/80 border border-amber-100/50 px-2 py-0.5 rounded-md uppercase tracking-widest leading-none shrink-0">
+                                                      New Part
+                                                   </span>
+                                                );
+                                             })()}
                                           </div>
-                                       )}
+                                       </div>
                                     </td>
                                     <td className="px-8 py-6 text-center font-black text-slate-900 text-lg tabular-nums">#{fd(item.quantity)}</td>
                                     <td className="px-8 py-6 text-right">
@@ -951,6 +823,18 @@ const Purchases: React.FC<Props> = ({ user }) => {
                         {importLog.success ? <Check size={40} strokeWidth={4} /> : <AlertCircle size={40} strokeWidth={4} />}
                      </div>
                      <h3 className="text-3xl font-black text-slate-900 tracking-tight uppercase mb-4">{importLog.message}</h3>
+                     
+                     {importLog.success && importLog.addedCount !== undefined && importLog.addedCount > 0 && (
+                        <div className="mb-6 p-5 bg-emerald-50 border border-emerald-100 rounded-[2rem] text-left animate-fade-in shadow-inner-soft">
+                           <h4 className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
+                              <Sparkles size={14} className="text-emerald-500 animate-pulse" strokeWidth={2.5} /> New Part(s) Added Successfully
+                           </h4>
+                           <p className="text-[11px] font-bold text-slate-600 uppercase tracking-wide leading-relaxed">
+                              {importLog.addedCount} new spare part(s) were auto-detected and **created directly in your inventory** as catalogued listings!
+                           </p>
+                        </div>
+                     )}
+
                      <div className="grid grid-cols-2 gap-4 mb-6">
                         <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Asset Volume</p>
