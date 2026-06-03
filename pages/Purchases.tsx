@@ -112,8 +112,23 @@ const Purchases: React.FC<Props> = ({ user }) => {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [selectedInbound, setSelectedInbound] = useState<GroupedInbound | null>(null);
   const [importing, setImporting] = useState(false);
-  const [importLog, setImportLog] = useState<{ success: boolean; message: string; count: number; totalValue: number; errorCount: number; addedCount?: number; updatedCount?: number; dealer?: string } | null>(null);
+  const [importLog, setImportLog] = useState<{ 
+    success: boolean; 
+    message: string; 
+    count: number; 
+    totalValue: number; 
+    errorCount: number; 
+    addedCount?: number; 
+    updatedCount?: number; 
+    dealer?: string;
+    excludedCount?: number;
+    excludedList?: { partNumber: string; reason: string; quantity: number }[];
+  } | null>(null);
   const [previewData, setPreviewData] = useState<ExtractedItem[]>([]);
+  const [removedItems, setRemovedItems] = useState<{ partNumber: string; name: string; quantity: number; reason: string; mrp: number; printedUnitPrice: number; discountPercent: number; diff: number }[]>([]);
+  const [itemToRemove, setItemToRemove] = useState<ExtractedItem | null>(null);
+  const [removalReason, setRemovalReason] = useState('');
+  const [customReasonOpen, setCustomReasonOpen] = useState(false);
   const [extractedMetadata, setExtractedMetadata] = useState<{ dealerName?: string; invoiceDate?: string; invoiceNumber?: string }>({});
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [historySearch, setHistorySearch] = useState('');
@@ -238,6 +253,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
     setImporting(true);
     setErrorMsg(null);
     setPreviewData([]);
+    setRemovedItems([]);
     setExtractedMetadata({});
     setImportLog(null);
 
@@ -344,13 +360,21 @@ const Purchases: React.FC<Props> = ({ user }) => {
         
         await createBulkTransactions(txPayload);
         
+        const excludedListCopy = removedItems.map(item => ({
+            partNumber: item.partNumber,
+            reason: item.reason,
+            quantity: item.quantity
+        }));
+        
         setImportLog({ 
             success: true, message: "Ledger Synchronized.", count: previewData.length,
             totalValue: txPayload.reduce((s, i) => s + (i.price * i.quantity), 0),
             errorCount: previewData.filter(i => i.hasError).length,
-            addedCount: syncRes.added, updatedCount: syncRes.updated, dealer: extractedMetadata.dealerName
+            addedCount: syncRes.added, updatedCount: syncRes.updated, dealer: extractedMetadata.dealerName,
+            excludedCount: excludedListCopy.length,
+            excludedList: excludedListCopy
         });
-        setPreviewData([]); setQueuedFiles([]);
+        setPreviewData([]); setQueuedFiles([]); setRemovedItems([]);
     } catch (err: any) { setImportLog({ success: false, message: err.message, count: 0, totalValue: 0, errorCount: 0 }); }
     finally { setImporting(false); loadHistory(); }
   };
@@ -549,6 +573,7 @@ const Purchases: React.FC<Props> = ({ user }) => {
                                  <th className="px-8 py-6 text-right">Extracted B.DC</th>
                                  <th className="px-8 py-6 text-right">Printed Net</th>
                                  <th className="px-8 py-6 text-right">Protocol Audit ({currentDiscountRate}%)</th>
+                                 <th className="px-8 py-6 text-center">Action</th>
                               </tr>
                            </thead>
                            <tbody className="divide-y divide-slate-50">
@@ -579,21 +604,186 @@ const Purchases: React.FC<Props> = ({ user }) => {
                                           </div>
                                        )}
                                     </td>
+                                    <td className="px-8 py-6 text-center">
+                                       <button 
+                                          onClick={() => {
+                                             setItemToRemove(item);
+                                             setRemovalReason('');
+                                             setCustomReasonOpen(false);
+                                          }}
+                                          className="p-2.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-all border border-transparent hover:border-rose-100 active:scale-95 shadow-soft hover:shadow-md"
+                                          title="Remove from Scan Ingest"
+                                       >
+                                          <Trash2 size={16} />
+                                       </button>
+                                    </td>
                                  </tr>
                               ))}
                            </tbody>
                         </table>
                      </div>
-                  </div>
-                )}
 
-                {importLog && (
+                     {/* DISPLAY EXCLUDED SKU'S IF ANY */}
+                     {removedItems.length > 0 && (
+                        <div className="bg-rose-50/20 border border-rose-100 p-6 sm:p-8 rounded-3xl sm:rounded-[2.5rem] space-y-4 shadow-soft animate-fade-in">
+                           <div className="flex items-center justify-between border-b border-rose-100/50 pb-4">
+                              <div className="flex items-center gap-3">
+                                 <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center text-rose-600 border border-rose-100 shadow-sm">
+                                    <Trash2 size={18} strokeWidth={2.5} />
+                                 </div>
+                                 <div>
+                                    <h4 className="text-xs sm:text-sm font-black text-slate-900 uppercase tracking-wider">Omitted Parts ({removedItems.length})</h4>
+                                    <p className="text-[9px] sm:text-[10px] text-slate-400 uppercase tracking-[0.1em] font-bold">Flagged / Damaged / Missing items excluded from ingest ledger</p>
+                                 </div>
+                              </div>
+                           </div>
+                           <div className="divide-y divide-rose-150">
+                              {removedItems.map((removed, rIdx) => (
+                                 <div key={rIdx} className="py-4.5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                    <div className="min-w-0 flex-1 space-y-1">
+                                       <div className="flex flex-wrap items-center gap-2">
+                                          <span className="font-black text-slate-800 text-sm sm:text-base uppercase tracking-tight line-through opacity-60">{removed.partNumber}</span>
+                                          <span className="bg-rose-50 border border-rose-100 text-rose-700 px-2.5 py-0.5 rounded text-[8px] sm:text-[9px] font-black uppercase tracking-widest flex items-center gap-1 shadow-sm">
+                                             Reason: {removed.reason}
+                                          </span>
+                                       </div>
+                                       <p className="text-[10px] text-slate-400 font-bold uppercase truncate max-w-xs">{removed.name}</p>
+                                    </div>
+                                    <div className="flex items-center justify-between sm:justify-end gap-6 border-t sm:border-0 pt-3 sm:pt-0 border-rose-105">
+                                       <div className="text-right">
+                                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5 block">Excl. Qty</span>
+                                          <p className="font-black text-slate-700 text-sm sm:text-base tabular-nums">#{fd(removed.quantity)} Pcs</p>
+                                       </div>
+                                       <button
+                                          onClick={() => {
+                                             // Restore item back to previewData
+                                             setPreviewData(prev => [...prev, {
+                                                ...removed,
+                                                calculatedPrice: parseFloat((removed.mrp * (1 - currentDiscountRate / 100)).toFixed(2)),
+                                                hasError: removed.discountPercent < currentDiscountRate || Math.abs(removed.printedUnitPrice - (removed.mrp * (1 - currentDiscountRate / 100))) > 0.5,
+                                                errorType: removed.discountPercent < currentDiscountRate ? 'DISCOUNT_LOW' : (Math.abs(removed.printedUnitPrice - (removed.mrp * (1 - currentDiscountRate / 100))) > 0.5 ? 'CALC_MISMATCH' : 'NONE'),
+                                                diff: parseFloat((removed.printedUnitPrice - (removed.mrp * (1 - currentDiscountRate / 100))).toFixed(2))
+                                             }]);
+                                             // Remove from removedItems
+                                             setRemovedItems(prev => prev.filter((_, idx) => idx !== rIdx));
+                                          }}
+                                          className="px-4 py-2 bg-white text-slate-600 hover:text-slate-900 rounded-xl font-black text-[9px] uppercase tracking-wider transition-all border border-slate-205 shadow-soft select-none active:scale-95 flex items-center gap-1.5"
+                                       >
+                                          <RotateCcw size={12} strokeWidth={2.5} />
+                                          Restore
+                                       </button>
+                                    </div>
+                                 </div>
+                              ))}
+                           </div>
+                        </div>
+                     )}
+
+                     {/* REASON SPECIFICATION MODAL */}
+                     {itemToRemove && (
+                        <div className="fixed inset-0 z-[300] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+                           <div className="bg-white w-full max-w-md rounded-[2.5rem] border border-slate-100 shadow-premium p-8 animate-scale-up space-y-6">
+                              <div className="flex items-center justify-between">
+                                 <div className="bg-rose-50 text-rose-600 p-3 rounded-2xl border border-rose-100 shadow-sm">
+                                    <Trash2 size={24} />
+                                 </div>
+                                 <button onClick={() => { setItemToRemove(null); setRemovalReason(''); setCustomReasonOpen(false); }} className="p-2 text-slate-400 hover:text-slate-600 rounded-full transition-colors">
+                                    <X size={20} />
+                                 </button>
+                              </div>
+                              <div>
+                                 <h4 className="text-xl font-black text-slate-900 tracking-tight uppercase leading-snug">Exclude SKU from Journal</h4>
+                                 <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-1">Specify removal reason for audit compliance</p>
+                              </div>
+
+                              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-1 shadow-inner-soft">
+                                 <span className="text-[8px] font-black uppercase text-slate-400 tracking-wider">Target SKU Reference</span>
+                                 <div className="font-black text-slate-900 text-sm uppercase">{itemToRemove.partNumber}</div>
+                                 <div className="text-[10px] text-slate-500 font-bold uppercase truncate max-w-xs">{itemToRemove.name}</div>
+                              </div>
+
+                              <div className="space-y-3">
+                                 <label className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400 block mb-1">Select Removal Protocol</label>
+                                 <div className="grid grid-cols-2 gap-2">
+                                    {[
+                                       'Damaged or Broken',
+                                       'Shortage In Shipment',
+                                       'Incorrect Item Sent',
+                                       'Billing Rate Incorrect',
+                                       'Omitted from Order'
+                                    ].map(preset => (
+                                       <button
+                                          key={preset}
+                                          onClick={() => {
+                                             setRemovalReason(preset);
+                                          }}
+                                          className={`py-3 px-2 text-[9px] font-black uppercase tracking-wider rounded-xl border text-center transition-all active:scale-95 ${
+                                             removalReason === preset
+                                                ? 'bg-rose-50 border-rose-200 text-rose-600 shadow-soft'
+                                                : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-700'
+                                          }`}
+                                       >
+                                          {preset}
+                                       </button>
+                                    ))}
+                                    <button
+                                       onClick={() => {
+                                          setRemovalReason('');
+                                          setCustomReasonOpen(true);
+                                       }}
+                                       className={`py-3 px-2 text-[9px] font-black uppercase tracking-wider rounded-xl border text-center transition-all active:scale-95 ${
+                                          customReasonOpen
+                                             ? 'bg-rose-50 border-rose-200 text-rose-600 shadow-soft'
+                                             : 'bg-white hover:bg-slate-50 border-slate-205 text-slate-500 hover:text-slate-700'
+                                       }`}
+                                    >
+                                       Custom Reason...
+                                    </button>
+                                 </div>
+
+                                 {(customReasonOpen || !['Damaged or Broken', 'Shortage In Shipment', 'Incorrect Item Sent', 'Billing Rate Incorrect', 'Omitted from Order', ''].includes(removalReason)) && (
+                                    <div className="mt-4 animate-fade-in">
+                                       <input
+                                          type="text"
+                                          placeholder="Type detailed custom reason..."
+                                          className="w-full bg-slate-50 border border-slate-250 rounded-xl px-4 py-3.5 text-xs font-black uppercase outline-none focus:border-rose-500 focus:bg-white transition-all placeholder-slate-400 text-slate-800 shadow-inner-soft focus:shadow-md"
+                                          value={removalReason}
+                                          onChange={e => {
+                                             setRemovalReason(e.target.value);
+                                          }}
+                                       />
+                                    </div>
+                                 )}
+                              </div>
+
+                              <button
+                                 disabled={!removalReason.trim()}
+                                 onClick={() => {
+                                    if (!itemToRemove) return;
+                                    setRemovedItems(prev => [...prev, { ...itemToRemove, reason: removalReason.trim().toUpperCase() }]);
+                                    setPreviewData(prev => prev.filter(p => p.partNumber !== itemToRemove.partNumber));
+                                    setItemToRemove(null);
+                                    setRemovalReason('');
+                                    setCustomReasonOpen(false);
+                                 }}
+                                 className="w-full bg-rose-600 hover:bg-rose-700 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-[0.98] uppercase text-xs tracking-widest disabled:opacity-40 shadow-xl shadow-rose-100"
+                              >
+                                 <Trash2 size={16} />
+                                 <span>Exclude SKU Reference</span>
+                              </button>
+                           </div>
+                        </div>
+                     )}
+                  </div>
+               )}
+
+               {importLog && (
                   <div className="max-w-xl mx-auto bg-white p-10 rounded-[3rem] border border-slate-100 shadow-premium text-center animate-slide-up">
                      <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-8 shadow-xl ${importLog.success ? 'bg-teal-50 text-teal-600 shadow-teal-100' : 'bg-rose-50 text-rose-600 shadow-rose-100'}`}>
                         {importLog.success ? <Check size={40} strokeWidth={4} /> : <AlertCircle size={40} strokeWidth={4} />}
                      </div>
                      <h3 className="text-3xl font-black text-slate-900 tracking-tight uppercase mb-4">{importLog.message}</h3>
-                     <div className="grid grid-cols-2 gap-4 mb-10">
+                     <div className="grid grid-cols-2 gap-4 mb-6">
                         <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Asset Volume</p>
                            <p className="text-2xl font-black text-slate-900">{fd(importLog.count)} SKUs</p>
@@ -603,11 +793,30 @@ const Purchases: React.FC<Props> = ({ user }) => {
                            <p className="text-2xl font-black text-slate-900">₹{importLog.totalValue.toLocaleString()}</p>
                         </div>
                      </div>
+
+                     {importLog.excludedList && importLog.excludedList.length > 0 && (
+                        <div className="mt-2 mb-8 p-6 bg-rose-50/20 border border-rose-100 rounded-[2rem] text-left">
+                           <h4 className="text-[10px] font-black text-rose-600 uppercase tracking-widest mb-3 flex items-center gap-2">
+                              <Trash2 size={12} strokeWidth={2.5} /> Excluded Items Omitted from Stock
+                           </h4>
+                           <div className="divide-y divide-rose-100/50 max-h-40 overflow-y-auto no-scrollbar">
+                              {importLog.excludedList.map((item, idex) => (
+                                 <div key={idex} className="py-2.5 flex items-center justify-between text-xs gap-4">
+                                    <span className="font-black text-slate-800 uppercase tracking-tight truncate flex-1">{item.partNumber} <span className="text-slate-400">({fd(item.quantity)} Pcs)</span></span>
+                                    <span className="bg-rose-50 border border-rose-100 text-rose-600 px-2.5 py-0.5 rounded text-[8px] font-black tracking-wider uppercase whitespace-nowrap">
+                                       {item.reason}
+                                    </span>
+                                 </div>
+                              ))}
+                           </div>
+                        </div>
+                     )}
+
                      <button onClick={() => setImportLog(null)} className="w-full bg-slate-900 text-white font-black py-5 rounded-2xl active:scale-95 transition-all text-sm uppercase tracking-widest shadow-xl">Complete Workflow</button>
                   </div>
-                )}
-             </div>
-          )}
+               )}
+            </div>
+         )}
 
           {activeTab === 'HISTORY' && (
              <div className="bg-slate-50 md:bg-white md:rounded-[2.5rem] shadow-soft border border-slate-100 flex flex-col h-full overflow-hidden">
